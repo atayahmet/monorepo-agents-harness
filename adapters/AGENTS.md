@@ -27,8 +27,8 @@ in the same change.
 5. **Update the docs in the same commit** when you add/change an adapter or capability:
    - `../PORTABILITY.md` — capability matrix + semantic-difference notes;
    - `../INSTALL.md` — Phase 2 table (Agent / Adapter / Guide) if a new adapter ships.
-6. **Slash commands ship only for harness plumbing** (the update check). Project-specific commands
-   do not belong here (see `../INSTALL.md` §7).
+6. **Slash commands ship only for harness plumbing** (the update check and the plan/spec build
+   trigger). Project-specific commands do not belong here (see `../INSTALL.md` §7).
 7. **Shipped dependencies.** If an adapter ships a `package.json` (e.g., a plugin that needs
    `node_modules`), the adapter README install steps MUST include installing those dependencies
    (`npm install`, `pnpm install`, or equivalent) before copying files into the target repo. Never

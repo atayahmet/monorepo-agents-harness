@@ -23,6 +23,8 @@ Release procedure (harness maintainers):
   installed copy against the upstream repo.
 - `/tah:update` slash command for Claude Code and `/tah-update` for opencode, backed by the
   shared `core/skills/harness-update/SKILL.md` instructions.
+- `/tah-build` manual plan/spec build trigger for Claude Code, opencode, and Codex CLI, backed by
+  the shared `core/skills/agent-workflow/SKILL.md` instructions.
 - Codex CLI adapter (`adapters/codex/`) with `.codex/config.toml`, `.codex/hooks.json`,
   and the `/tah-update` skill backed by the same update engine.
 
@@ -43,6 +45,9 @@ Release procedure (harness maintainers):
   (`.claude/commands/turborepo-harness/update-check.md` and
   `.opencode/commands/turborepo-harness-update-check.md`) and copy the new ones from
   `.claude/commands/tah/update.md` and `.opencode/commands/tah-update.md`.
+- The manual plan/spec build trigger is `/tah-build` on all agents. Copy the new adapter files:
+  `.claude/commands/tah-build.md`, `.opencode/commands/tah-build.md`, and
+  `.agents/skills/tah-build/SKILL.md` (Codex CLI).
 
 ## [1.0.0] - 2026-08-23
 

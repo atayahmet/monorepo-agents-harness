@@ -11,6 +11,7 @@ registration. Read `../../INSTALL.md` first (core must be installed before any a
 | Rules / instructions | `AGENTS.md` (native to Claude Code) | root `CLAUDE.md` = thin `@AGENTS.md` pointer |
 | Plan/spec/memory + turborepo templates | `core/skills/**/SKILL.md` | copied into `.claude/skills/` (auto-registration) |
 | Plan/spec reminder (plan-mode exit) | — | `PostToolUse[ExitPlanMode]` hook (inline reminder) |
+| Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.claude/commands/tah-build.md` → `/tah-build` |
 | Memory-gate | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (**hard block**) |
 | Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.claude/commands/tah/update.md` → `/tah:update` |
 
@@ -62,14 +63,20 @@ vendored the bundle under a different path (and update the two script paths in
 4. **Root pointer.** Copy `adapters/claude-code/CLAUDE.md` to the repo root (merge by hand if
    you already have one — keep it a thin `@AGENTS.md` pointer).
 
-5. **Command.** Copy the update-check command (registers as `/tah:update`):
+5. **Update-check command.** Copy the update-check command (registers as `/tah:update`):
    ```bash
    mkdir -p .claude/commands/tah
    cp "$BUNDLE/adapters/claude-code/.claude/commands/tah/update.md" \
       .claude/commands/tah/
    ```
 
-6. **Placeholders.** Resolve `{{PROJECT_NAME}}` in the root `CLAUDE.md`. The hook commands contain
+6. **Manual plan/spec build command.** Copy the build trigger command (registers as `/tah-build`):
+   ```bash
+   cp "$BUNDLE/adapters/claude-code/.claude/commands/tah-build.md" \
+      .claude/commands/
+   ```
+
+7. **Placeholders.** Resolve `{{PROJECT_NAME}}` in the root `CLAUDE.md`. The hook commands contain
    no placeholders — task artifacts use the fixed convention `<workspace>/.agents/artifacts/`.
 
 The hooks are independent and fail-open (missing `jq`/git root/bundle → exit 0, never blocks),
@@ -85,7 +92,8 @@ jq . .claude/settings.json >/dev/null && echo "settings.json OK"
 head -3 .claude/skills/agent-workflow/SKILL.md
 head -3 .claude/skills/turborepo/SKILL.md
 
-# c) update-check command resolves its engine
+# c) commands resolve their engines
+ls .claude/commands/tah-build.md .claude/commands/tah/update.md
 bash turborepo-harness-template/core/scripts/harness-update.sh current
 ```
 

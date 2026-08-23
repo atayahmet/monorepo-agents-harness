@@ -12,6 +12,7 @@ for the mandatory-parity rule and semantic differences.
 | Rules / instructions | root `AGENTS.md` | — (read natively by Codex) |
 | Plan/spec/memory + turborepo templates | `core/skills/**/SKILL.md` | copied into `.agents/skills/` (auto-registration) |
 | Plan/spec reminder (start of impl.) | — | `PostToolUse[update_plan]` hook (`systemMessage` reminder) |
+| Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.agents/skills/tah-build/SKILL.md` → `/tah-build` |
 | Session-start reminder | — | `SessionStart` hook (`additionalContext` reminder) |
 | Memory-gate | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (soft reminder) |
 | Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.agents/skills/tah-update/SKILL.md` → `/tah-update` |
@@ -57,10 +58,12 @@ the bundle under a different path (and update the script path in `.codex/hooks.j
    cp -R "$BUNDLE/core/skills/agent-workflow" .agents/skills/
    cp -R "$BUNDLE/core/skills/turborepo"      .agents/skills/
    cp -R "$BUNDLE/adapters/codex/.agents/skills/tah-update" .agents/skills/
+   cp -R "$BUNDLE/adapters/codex/.agents/skills/tah-build"  .agents/skills/
    # symlink alternative (single physical copy):
    # ln -s "../../$BUNDLE/core/skills/agent-workflow" .agents/skills/agent-workflow
    # ln -s "../../$BUNDLE/core/skills/turborepo"      .agents/skills/turborepo
    # ln -s "../../$BUNDLE/adapters/codex/.agents/skills/tah-update" .agents/skills/tah-update
+   # ln -s "../../$BUNDLE/adapters/codex/.agents/skills/tah-build"  .agents/skills/tah-build
    ```
 
 5. **Install the universal hard gate** (this is what makes the memory-gate real on Codex — the
@@ -87,6 +90,7 @@ jq . .codex/hooks.json >/dev/null && echo "hooks.json OK"
 head -3 .agents/skills/agent-workflow/SKILL.md
 head -3 .agents/skills/turborepo/SKILL.md
 head -3 .agents/skills/tah-update/SKILL.md
+head -3 .agents/skills/tah-build/SKILL.md
 
 # d) update-check command resolves its engine
 bash turborepo-harness-template/core/scripts/harness-update.sh current
@@ -113,7 +117,7 @@ rm -rf apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 
 If the first run exits 1 and the second exits 0, the hard gate is live.
 
-**Skill registration check:** start Codex and type `/`. You should see `/tah-update` in the slash
+**Skill registration check:** start Codex and type `/`. You should see `/tah-update` and `/tah-build` in the slash
 command list.
 
 ## Notes / semantic differences
@@ -130,4 +134,5 @@ command list.
   `.agents/skills/tah-update/SKILL.md`, surfaced as `/tah-update`.
 - **Parity checklist:** every harness capability has a live Codex counterpart — instructions ✔
   (native), templates ✔ (skills), plan reminder ✔ (`PostToolUse[update_plan]` + `SessionStart`),
-  memory-gate ✔ (`Stop` soft reminder + git/CI hard gate), update check ✔ (`/tah-update` skill).
+  manual plan/spec build trigger ✔ (`/tah-build` skill), memory-gate ✔ (`Stop` soft reminder +
+  git/CI hard gate), update check ✔ (`/tah-update` skill).
