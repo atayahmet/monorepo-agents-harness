@@ -39,7 +39,8 @@ turborepo-harness-template/
 ├── core/        # agent-neutral: rules, skill templates, enforcement scripts, docs governance
 └── adapters/    # per-agent enforcement wiring — install the ones you use
     ├── claude-code/
-    └── opencode/
+    ├── opencode/
+    └── codex/
 ```
 
 ## Quickstart
@@ -53,6 +54,7 @@ From your Turborepo root:
 3. **Install your agent's adapter**:
    - Claude Code → [adapters/claude-code/README.md](adapters/claude-code/README.md)
    - opencode → [adapters/opencode/README.md](adapters/opencode/README.md)
+   - Codex CLI → [adapters/codex/README.md](adapters/codex/README.md)
    - Another agent → author one: [PORTABILITY.md](PORTABILITY.md)
 
 Whichever adapter you pick, wire the universal hard gate (works even with no agent at all):
@@ -64,9 +66,10 @@ ln -s ../../turborepo-harness-template/core/scripts/memory-gate.sh .git/hooks/pr
 ## Adapters
 
 | Adapter | Enforcement provided |
-|---|---|
+|---|---|---|
 | `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `Stop` hook memory-gate (**hard block**), skill auto-registration, `/tah:update` command |
 | `opencode` | `session.idle` memory reminder (soft) + universal git/CI gate (hard), `/tah:update` command |
+| `codex` | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/tah-update` skill |
 | yours | Follow the capability matrix in [PORTABILITY.md](PORTABILITY.md) — new adapters are the intended growth path |
 
 ## Documentation map
@@ -83,4 +86,4 @@ ln -s ../../turborepo-harness-template/core/scripts/memory-gate.sh .git/hooks/pr
 ## Requirements
 
 - A **Turborepo** monorepo with an `apps/*` layout (optionally `packages/*`)
-- `git`; `jq` only if your adapter needs it (claude-code does)
+- `git`; `jq` only if your adapter needs it (claude-code and codex do)

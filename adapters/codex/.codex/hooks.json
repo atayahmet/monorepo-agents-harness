@@ -1,0 +1,41 @@
+{
+  "description": "Agent-harness lifecycle hooks for Codex CLI",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -n '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"<system-reminder>\\nThis project uses the agent-workflow plan→spec→memory loop. Before starting a task: read the root AGENTS.md, pick the target workspace (apps/<name> or packages/<name>), read its .agents/session-log.md and .agents/lessons.md, and write a .agents/todo.md plan. Enter plan mode for non-trivial tasks (3+ steps).\\n</system-reminder>\"}}'",
+            "statusMessage": "Loading agent-harness reminders"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "update_plan",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -n '{\"systemMessage\":\"<system-reminder>\\nPlan updated. Before the first implementation Edit/Write, create the task directory under the target workspace (<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/) and write 1_plan.md (phase: plan, status: approved) and 2_spec.md (phase: spec) following the agent-workflow skill templates.\\n</system-reminder>\"}'",
+            "statusMessage": "Agent-workflow plan reminder"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/turborepo-harness-template/core/scripts/memory-gate.sh\" --json | jq 'if .decision == \"block\" then {\"systemMessage\":(.reason)} else empty end'",
+            "timeout": 30,
+            "statusMessage": "Agent-workflow memory-gate check"
+          }
+        ]
+      }
+    ]
+  }
+}

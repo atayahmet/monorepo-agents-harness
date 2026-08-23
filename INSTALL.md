@@ -113,6 +113,7 @@ counterpart for each agent.
 |---|---|---|
 | Claude Code | `adapters/claude-code/` | `adapters/claude-code/README.md` |
 | opencode | `adapters/opencode/` | `adapters/opencode/README.md` |
+| Codex CLI | `adapters/codex/` | `adapters/codex/README.md` |
 | anything else | author your own | `PORTABILITY.md` — capability matrix + fallback rows |
 
 Regardless of adapter, the **universal hard gate** can (and for agents that cannot block their own
@@ -126,9 +127,10 @@ chmod +x turborepo-harness-template/core/scripts/memory-gate.sh
 bash turborepo-harness-template/core/scripts/memory-gate.sh
 ```
 
-Each adapter also ships a `/tah:update` command (claude-code) or
-`/tah:update` (opencode) — copy it during the adapter install steps; both are
-thin pointers to the shared `core/skills/harness-update/SKILL.md` workflow (see §10).
+Each adapter also ships a harness update command: `/tah:update` for claude-code,
+`/tah:update` for opencode, and `/tah-update` for Codex CLI — copy it during the
+adapter install steps; all are thin pointers to the shared
+`core/skills/harness-update/SKILL.md` workflow (see §10).
 
 ---
 

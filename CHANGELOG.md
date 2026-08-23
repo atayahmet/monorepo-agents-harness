@@ -23,6 +23,8 @@ Release procedure (harness maintainers):
   installed copy against the upstream repo.
 - `/tah:update` slash command for Claude Code and opencode, backed by the shared
   `core/skills/harness-update/SKILL.md` instructions.
+- Codex CLI adapter (`adapters/codex/`) with `.codex/config.toml`, `.codex/hooks.json`,
+  and the `/tah-update` skill backed by the same update engine.
 
 ### Changed
 

@@ -1,0 +1,6 @@
+# Codex CLI project config for the agent harness.
+# Copy this file to .codex/config.toml in the target repo (merge with any existing config).
+# It only enables lifecycle hooks; the actual hooks live in .codex/hooks.json.
+
+[features]
+hooks = true
