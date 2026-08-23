@@ -46,8 +46,10 @@ Shared instructions backing every adapter's `/tah:update` (Claude Code) and `/ta
 5. **Finish the follow-ups the script prints**:
    - Merge any new rows from the fresh `AGENTS.md` template into the repo-root `AGENTS.md`
      (user-owned file — manual merge, keep resolved values).
-   - Adapter configs: claude-code → re-merge hook blocks per `adapters/claude-code/README.md`;
-     opencode → re-copy the plugin file (verbatim) and merge `opencode.jsonc`.
+   - Adapter configs: claude-code → re-merge hook blocks per `adapters/claude-code/INSTALL.md`;
+     opencode → re-copy the plugin file (verbatim) and merge `opencode.jsonc` (see
+     `adapters/opencode/INSTALL.md`); codex → re-copy hooks/skills per
+     `adapters/codex/INSTALL.md`.
    - Remove the temporary clone (`rm -rf .harness-update-v<latest>`).
    - Commit the upgrade as its own change (message like `chore(harness): upgrade to v<latest>`).
 

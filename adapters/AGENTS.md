@@ -22,8 +22,11 @@ in the same change.
    must be thin pointers (`@AGENTS.md`) to the single source of truth — never a copy of it.
 3. **Fail-open hooks.** Hook/plugin wiring must degrade gracefully: missing `jq`/git/bundle →
    exit 0 with no block, so they coexist safely with other hooks.
-4. **One README per adapter, fixed structure:** "What maps to what" table, Prerequisites,
-   Install steps, Verify, Notes / semantic differences. Follow the existing two verbatim in shape.
+4. **One README (user guide) and one INSTALL.md (install guide) per adapter.** The README
+   explains what the adapter gives you, the available slash commands, a typical workflow, and
+   agent-specific notes. The INSTALL.md follows the fixed install structure: "What maps to what"
+   table, Prerequisites, Install steps, Verify, Notes / semantic differences. Follow the existing
+   adapters verbatim in shape.
 5. **Update the docs in the same commit** when you add/change an adapter or capability:
    - `../PORTABILITY.md` — capability matrix + semantic-difference notes;
    - `../INSTALL.md` — Phase 2 table (Agent / Adapter / Guide) if a new adapter ships.
@@ -72,9 +75,9 @@ table in its README.
 
 1. Read `../PORTABILITY.md` ("Authoring a new adapter") and walk the capability matrix column by
    column: native mechanism or fallback row for each capability.
-2. Create `adapters/<agent>/` with: config/hooks/plugin wiring + `README.md` (rule 4) + any thin
-   pointer/instruction file the agent needs. If the adapter has a `package.json`, document
-   `npm install` (or equivalent) in the install steps.
+2. Create `adapters/<agent>/` with: config/hooks/plugin wiring + `README.md` + `INSTALL.md`
+   (rule 4) + any thin pointer/instruction file the agent needs. If the adapter has a `package.json`,
+   document `npm install` (or equivalent) in the install steps.
 3. Register it: `../PORTABILITY.md` matrix columns, `../INSTALL.md` §5 table, `../README.md`
    mentions if present.
 

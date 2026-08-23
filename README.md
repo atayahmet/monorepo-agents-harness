@@ -52,9 +52,9 @@ From your Turborepo root:
    governance tree, scaffold per-workspace `.agents/` dirs, resolve placeholders.
    → Step-by-step: **[INSTALL.md](INSTALL.md)** (Phase 1)
 3. **Install your agent's adapter**:
-   - Claude Code → [adapters/claude-code/README.md](adapters/claude-code/README.md)
-   - opencode → [adapters/opencode/README.md](adapters/opencode/README.md)
-   - Codex CLI → [adapters/codex/README.md](adapters/codex/README.md)
+   - Claude Code → [adapters/claude-code/INSTALL.md](adapters/claude-code/INSTALL.md)
+   - opencode → [adapters/opencode/INSTALL.md](adapters/opencode/INSTALL.md)
+   - Codex CLI → [adapters/codex/INSTALL.md](adapters/codex/INSTALL.md)
    - Another agent → author one: [PORTABILITY.md](PORTABILITY.md)
 
 Whichever adapter you pick, wire the universal hard gate (works even with no agent at all):

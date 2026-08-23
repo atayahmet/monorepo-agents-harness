@@ -1,138 +1,50 @@
-# codex adapter
+# Codex CLI Adapter — User Guide
 
-Installs the agent harness for **Codex CLI**. The harness core (`core/`) is agent-agnostic — this
-adapter only supplies Codex's *enforcement* wiring: project config, lifecycle hooks, and a skill.
-Read `../../INSTALL.md` first (core must be installed before any adapter) and `../../PORTABILITY.md`
-for the mandatory-parity rule and semantic differences.
+This adapter wires the harness into **Codex CLI**. Codex toggles plan mode with `/plan` and exposes the `update_plan` tool, so the plan/spec reminder fires after a plan update. The `/tah-build` skill provides a manual fallback for the same step.
 
-## What maps to what
+> **Installing the adapter?** See [INSTALL.md](INSTALL.md) for copy-paste setup steps.
 
-| Harness capability | Core (agent-agnostic) | This adapter |
-|---|---|---|
-| Rules / instructions | root `AGENTS.md` | — (read natively by Codex) |
-| Plan/spec/memory + turborepo templates | `core/skills/**/SKILL.md` | copied into `.agents/skills/` (auto-registration) |
-| Plan/spec reminder (start of impl.) | — | `PostToolUse[update_plan]` hook (`systemMessage` reminder) |
-| Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.agents/skills/tah-build/SKILL.md` → `/tah-build` |
-| Session-start reminder | — | `SessionStart` hook (`additionalContext` reminder) |
-| Memory-gate | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (soft reminder) |
-| Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.agents/skills/tah-update/SKILL.md` → `/tah-update` |
+## What you get
 
-## Prerequisites
+- **Plan/spec reminder** — after `update_plan` is called (and at session start), Codex is nudged to create the task directory and write `1_plan.md` + `2_spec.md`.
+- **`/tah-build`** — a manual fallback skill that triggers the same plan/spec build step. Use it if the automatic reminder is missed.
+- **`/tah-update`** — compares your installed harness against upstream and upgrades the agent-neutral core with your consent.
+- **Memory reminder + universal hard gate** — the `Stop` hook warns if `3_memory.md` is missing; the git pre-commit / CI gate actually blocks commits.
 
-- Core installed per `../../INSTALL.md` (the bundle, `AGENTS.md`, per-workspace `.agents/` dirs
-  incl. `.agents/artifacts/` seeds — all in place).
-- Codex CLI with hooks enabled (project `.codex/config.toml` sets `[features] hooks = true`).
-- `jq` on `PATH` (the hooks shell out to it). Verify: `jq --version`.
+## Day-to-day commands
 
-## Install steps
+### `/tah-build` — Build plan/spec artifacts
 
-Run from the target repo root. `BUNDLE=turborepo-harness-template` below — adjust if you vendored
-the bundle under a different path (and update the script path in `.codex/hooks.json` accordingly).
+Use `/tah-build` right after plan approval (or whenever the plan/spec reminder did not fire) and **before the first Edit/Write**. The skill points to the shared `agent-workflow` skill, which tells the agent to:
 
-1. **Adapter dependencies.** If this adapter ships a `package.json`, install its dependencies
-   before copying any files:
-   ```bash
-   [ -f "$BUNDLE/adapters/codex/package.json" ] && (cd "$BUNDLE/adapters/codex" && npm install)
-   ```
+1. Pick the target workspace (`apps/<name>` or `packages/<name>`).
+2. Create `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/`.
+3. Write `1_plan.md` and `2_spec.md`.
+4. Add a row to `<workspace>/.agents/artifacts/index.md`.
 
-2. **Config.** Merge `adapters/codex/.codex/config.toml` into `.codex/config.toml` to enable hooks:
-   ```bash
-   mkdir -p .codex
-   cp "$BUNDLE/adapters/codex/.codex/config.toml" .codex/config.toml
-   # If you already have a config.toml, add [features] hooks = true under the existing content.
-   ```
+Example:
 
-3. **Hooks.** Copy the harness hooks into `.codex/hooks.json`:
-   ```bash
-   cp "$BUNDLE/adapters/codex/.codex/hooks.json" .codex/hooks.json
-   ```
-   The first time Codex starts it will ask you to review/trust the non-managed command hooks; run
-   `/hooks` in the Codex TUI and trust them (or use `--dangerously-bypass-hook-trust` for one-off
-   automation).
-
-4. **Skills.** Copy (or symlink) the core skills into `.agents/skills/` so Codex auto-registers them
-   — frontmatter (`name`, `description`) must stay intact. Also copy the adapter's update-check
-   skill:
-   ```bash
-   mkdir -p .agents/skills
-   cp -R "$BUNDLE/core/skills/agent-workflow" .agents/skills/
-   cp -R "$BUNDLE/core/skills/turborepo"      .agents/skills/
-   cp -R "$BUNDLE/adapters/codex/.agents/skills/tah-update" .agents/skills/
-   cp -R "$BUNDLE/adapters/codex/.agents/skills/tah-build"  .agents/skills/
-   # symlink alternative (single physical copy):
-   # ln -s "../../$BUNDLE/core/skills/agent-workflow" .agents/skills/agent-workflow
-   # ln -s "../../$BUNDLE/core/skills/turborepo"      .agents/skills/turborepo
-   # ln -s "../../$BUNDLE/adapters/codex/.agents/skills/tah-update" .agents/skills/tah-update
-   # ln -s "../../$BUNDLE/adapters/codex/.agents/skills/tah-build"  .agents/skills/tah-build
-   ```
-
-5. **Install the universal hard gate** (this is what makes the memory-gate real on Codex — the
-   `Stop` hook can only remind, not block):
-   ```bash
-   chmod +x "$BUNDLE/core/scripts/memory-gate.sh"
-   ln -s ../../turborepo-harness-template/core/scripts/memory-gate.sh .git/hooks/pre-commit
-   # …and/or add `bash turborepo-harness-template/core/scripts/memory-gate.sh` to CI.
-   ```
-
-The hooks are independent and fail-open (missing `jq`/git root/bundle → exit 0, no block), so they
-coexist with other hooks safely.
-
-## Verify
-
-```bash
-# a) config parses (Python 3.11+ uses tomllib; otherwise install the `toml` package)
-python3 -c "import sys; mod='tomllib' if sys.version_info>=(3,11) else 'toml'; __import__(mod).load(open('.codex/config.toml','rb' if mod=='tomllib' else 'r')); print('config.toml OK')"
-
-# b) hooks.json is valid JSON
-jq . .codex/hooks.json >/dev/null && echo "hooks.json OK"
-
-# c) skills are discoverable (frontmatter intact)
-head -3 .agents/skills/agent-workflow/SKILL.md
-head -3 .agents/skills/turborepo/SKILL.md
-head -3 .agents/skills/tah-update/SKILL.md
-head -3 .agents/skills/tah-build/SKILL.md
-
-# d) update-check command resolves its engine
-bash turborepo-harness-template/core/scripts/harness-update.sh current
+```
+User: /tah-build
+Agent:  → creates apps/web/.agents/artifacts/task_2026_08_23_add_login_form/
+        → writes 1_plan.md + 2_spec.md
 ```
 
-**End-to-end check of the memory-gate** (the core enforcement). Simulate a fabricated task dir for
-today:
+### `/tah-update` — Check for harness updates
 
-```bash
-BUNDLE="turborepo-harness-template"
-TODAY="$(date +%Y_%m_%d)"
-mkdir -p apps/web/.agents/artifacts/task_${TODAY}_smoke_test
+Use `/tah-update` when you suspect the harness is out of date or after a release announcement. It reports the installed vs. latest version and asks for consent before upgrading.
 
-bash "$BUNDLE/core/scripts/memory-gate.sh"; echo "exit=$?"
-#   expect: exit=1 — 2_spec.md and 3_memory.md are missing
+## Typical workflow
 
-: > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/2_spec.md
-: > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/3_memory.md
-bash "$BUNDLE/core/scripts/memory-gate.sh"; echo "exit=$?"
-#   expect: exit=0 (gate satisfied)
+1. Start a non-trivial task and enter plan mode with `/plan`.
+2. Update/approve the plan. Codex normally fires the plan/spec reminder automatically.
+3. If the reminder is missed, type `/tah-build`.
+4. Implement the task, scoped to the target workspace.
+5. Commit your changes.
+6. Write `3_memory.md` in the same task directory and update the workspace index.
+7. If you try to end the turn without `3_memory.md`, the `Stop` hook warns you; the git pre-commit hook blocks the commit until it is written.
 
-rm -rf apps/web/.agents/artifacts/task_${TODAY}_smoke_test
-```
+## Notes
 
-If the first run exits 1 and the second exits 0, the hard gate is live.
-
-**Skill registration check:** start Codex and type `/`. You should see `/tah-update` and `/tah-build` in the slash
-command list.
-
-## Notes / semantic differences
-
-- **`Stop` hook cannot hard-block.** Codex CLI ignores `continue: false` from `Stop` hooks when it
-  comes to ending the turn; the hook can only surface a `systemMessage` warning. The **universal
-  hard gate** (`core/scripts/memory-gate.sh` as a git pre-commit hook and/or CI step) is what
-  actually enforces `3_memory.md`. Do not skip step 4.
-- **No `ExitPlanMode` tool.** Codex CLI toggles plan mode with the `/plan` slash command; the only
-  plan-related local function tool is `update_plan`. The adapter therefore uses
-  `PostToolUse[update_plan]` to inject the “create task dir + write 1_plan.md/2_spec.md” reminder.
-- **Update check is a skill, not a custom slash command.** Codex CLI does not support user-defined
-  slash commands directly, but skills appear in the slash list. The update check ships as
-  `.agents/skills/tah-update/SKILL.md`, surfaced as `/tah-update`.
-- **Parity checklist:** every harness capability has a live Codex counterpart — instructions ✔
-  (native), templates ✔ (skills), plan reminder ✔ (`PostToolUse[update_plan]` + `SessionStart`),
-  manual plan/spec build trigger ✔ (`/tah-build` skill), memory-gate ✔ (`Stop` soft reminder +
-  git/CI hard gate), update check ✔ (`/tah-update` skill).
+- The automatic reminder and `/tah-build` both use the same shared `core/skills/agent-workflow/SKILL.md` instructions.
+- Codex `Stop` hooks are **soft reminders** only — the real enforcement is the universal hard gate installed as a git pre-commit hook or CI step.

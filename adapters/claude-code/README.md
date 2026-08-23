@@ -1,118 +1,49 @@
-# claude-code adapter
+# Claude Code Adapter — User Guide
 
-Installs the agent harness for **Claude Code**. The harness core (`core/`) is agent-agnostic —
-this adapter only supplies Claude Code's *enforcement* wiring: two hooks plus skill
-registration. Read `../../INSTALL.md` first (core must be installed before any adapter).
+This adapter wires the harness into **Claude Code**. It gives you an automatic plan/spec reminder when you leave plan mode, a hard memory-gate at task end, and two slash commands for harness plumbing.
 
-## What maps to what
+> **Installing the adapter?** See [INSTALL.md](INSTALL.md) for copy-paste setup steps.
 
-| Harness capability | Core (agent-agnostic) | This adapter |
-|---|---|---|
-| Rules / instructions | `AGENTS.md` (native to Claude Code) | root `CLAUDE.md` = thin `@AGENTS.md` pointer |
-| Plan/spec/memory + turborepo templates | `core/skills/**/SKILL.md` | copied into `.claude/skills/` (auto-registration) |
-| Plan/spec reminder (plan-mode exit) | — | `PostToolUse[ExitPlanMode]` hook (inline reminder) |
-| Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.claude/commands/tah-build.md` → `/tah-build` |
-| Memory-gate | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (**hard block**) |
-| Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.claude/commands/tah/update.md` → `/tah:update` |
+## What you get
 
-## Prerequisites
+- **Automatic plan/spec reminder** — when you exit plan mode (`ExitPlanMode`), Claude Code is nudged to create the task directory and write `1_plan.md` + `2_spec.md` before any implementation.
+- **`/tah-build`** — a manual fallback that triggers the same plan/spec build step. Use it if the automatic reminder is missed or if you skipped plan mode.
+- **`/tah:update`** — compares your installed harness against upstream and upgrades the agent-neutral core with your consent.
+- **Hard memory-gate** — the `Stop` hook refuses to end the task until today's task directory contains `3_memory.md`.
 
-- Core installed per `../../INSTALL.md` (the bundle, `AGENTS.md`, per-workspace `.agents/` dirs
-  incl. `.agents/artifacts/` seeds — all in place).
-- Claude Code with hooks enabled (project `.claude/settings.json` is honored).
-- `jq` on `PATH` (the hooks shell out to it). Verify: `jq --version`.
+## Day-to-day commands
 
-## Install steps
+### `/tah-build` — Build plan/spec artifacts
 
-Run from the target repo root. `BUNDLE=turborepo-harness-template` below — adjust if you
-vendored the bundle under a different path (and update the two script paths in
-`.claude/settings.json` accordingly).
+Use `/tah-build` right after plan approval (or whenever the plan/spec reminder did not fire) and **before the first Edit/Write**. The command points to the shared `agent-workflow` skill, which tells the agent to:
 
-1. **Adapter dependencies.** If this adapter ships a `package.json`, install its dependencies
-   before copying any files:
-   ```bash
-   [ -f "$BUNDLE/adapters/claude-code/package.json" ] && (cd "$BUNDLE/adapters/claude-code" && npm install)
-   ```
+1. Pick the target workspace (`apps/<name>` or `packages/<name>`).
+2. Create `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/`.
+3. Write `1_plan.md` and `2_spec.md`.
+4. Add a row to `<workspace>/.agents/artifacts/index.md`.
 
-2. **Skills.** Copy (or symlink) the core skills into `.claude/skills/` so Claude Code
-   auto-registers them — frontmatter (`name`, `description`) must stay intact:
-   ```bash
-   mkdir -p .claude/skills
-   cp -R "$BUNDLE/core/skills/agent-workflow" .claude/skills/
-   cp -R "$BUNDLE/core/skills/turborepo" .claude/skills/
-   # symlink alternative (single physical copy):
-   # ln -s "../../$BUNDLE/core/skills/agent-workflow" .claude/skills/agent-workflow
-   # ln -s "../../$BUNDLE/core/skills/turborepo" .claude/skills/turborepo
-   ```
+Example:
 
-3. **Hooks.** No `.claude/settings.json` yet → copy `adapters/claude-code/.claude/settings.json`.
-   Already have one → merge the two hook blocks in without clobbering existing hooks:
-   - under `hooks.PostToolUse`, append the matcher object (`"ExitPlanMode"`);
-   - under `hooks.Stop`, append the memory-gate block.
-
-   Programmatic merge with `jq` (writes a merged file you then review):
-   ```bash
-   jq -s '.[0] as $cur | .[1] as $add
-     | $cur
-     | .hooks.PostToolUse = (($cur.hooks.PostToolUse // []) + $add.hooks.PostToolUse)
-     | .hooks.Stop        = (($cur.hooks.Stop        // []) + $add.hooks.Stop)' \
-     .claude/settings.json "$BUNDLE/adapters/claude-code/.claude/settings.json" > /tmp/merged.json
-   # review /tmp/merged.json, then move it into place
-   ```
-
-4. **Root pointer.** Copy `adapters/claude-code/CLAUDE.md` to the repo root (merge by hand if
-   you already have one — keep it a thin `@AGENTS.md` pointer).
-
-5. **Update-check command.** Copy the update-check command (registers as `/tah:update`):
-   ```bash
-   mkdir -p .claude/commands/tah
-   cp "$BUNDLE/adapters/claude-code/.claude/commands/tah/update.md" \
-      .claude/commands/tah/
-   ```
-
-6. **Manual plan/spec build command.** Copy the build trigger command (registers as `/tah-build`):
-   ```bash
-   cp "$BUNDLE/adapters/claude-code/.claude/commands/tah-build.md" \
-      .claude/commands/
-   ```
-
-7. **Placeholders.** Resolve `{{PROJECT_NAME}}` in the root `CLAUDE.md`. The hook commands contain
-   no placeholders — task artifacts use the fixed convention `<workspace>/.agents/artifacts/`.
-
-The hooks are independent and fail-open (missing `jq`/git root/bundle → exit 0, never blocks),
-so they coexist with other hooks safely.
-
-## Verify
-
-```bash
-# a) settings.json is valid JSON
-jq . .claude/settings.json >/dev/null && echo "settings.json OK"
-
-# b) skills are discoverable (frontmatter intact)
-head -3 .claude/skills/agent-workflow/SKILL.md
-head -3 .claude/skills/turborepo/SKILL.md
-
-# c) commands resolve their engines
-ls .claude/commands/tah-build.md .claude/commands/tah/update.md
-bash turborepo-harness-template/core/scripts/harness-update.sh current
+```
+User: /tah-build
+Agent:  → creates apps/web/.agents/artifacts/task_2026_08_23_add_login_form/
+        → writes 1_plan.md + 2_spec.md
 ```
 
-**End-to-end check of the memory-gate** (the core enforcement). Simulate the `Stop` hook
-against a fabricated task dir for today:
+### `/tah:update` — Check for harness updates
 
-```bash
-BUNDLE="turborepo-harness-template"
-TODAY="$(date +%Y_%m_%d)"
-mkdir -p apps/web/.agents/artifacts/task_${TODAY}_smoke_test
+Use `/tah:update` when you suspect the harness is out of date or after a release announcement. It reports the installed vs. latest version and asks for consent before upgrading.
 
-bash "$BUNDLE/core/scripts/memory-gate.sh" --json; echo "exit=$?"
-#   expect: {"decision":"block", ...} because 3_memory.md is missing
+## Typical workflow
 
-: > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/3_memory.md
-bash "$BUNDLE/core/scripts/memory-gate.sh" --json; echo "exit=$?"
-#   expect: no output, exit=0 (gate satisfied)
+1. Start a non-trivial task and enter plan mode.
+2. Approve the plan. Claude Code normally fires the plan/spec reminder automatically.
+3. If the reminder is missed, type `/tah-build`.
+4. Implement the task, scoped to the target workspace.
+5. Commit your changes.
+6. Write `3_memory.md` in the same task directory and update the workspace index — the `Stop` hook will block until you do.
 
-rm -rf apps/web/.agents/artifacts/task_${TODAY}_smoke_test
-```
+## Notes
 
-If the first run prints a `block` decision and the second exits 0, the adapter is live.
+- The automatic reminder and `/tah-build` both use the same shared `core/skills/agent-workflow/SKILL.md` instructions.
+- The memory-gate is a **hard block** in Claude Code; you cannot end the task until `3_memory.md` exists.

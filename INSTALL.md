@@ -111,9 +111,9 @@ counterpart for each agent.
 
 | Agent | Adapter | Guide |
 |---|---|---|
-| Claude Code | `adapters/claude-code/` | `adapters/claude-code/README.md` |
-| opencode | `adapters/opencode/` | `adapters/opencode/README.md` |
-| Codex CLI | `adapters/codex/` | `adapters/codex/README.md` |
+| Claude Code | `adapters/claude-code/` | `adapters/claude-code/INSTALL.md` |
+| opencode | `adapters/opencode/` | `adapters/opencode/INSTALL.md` |
+| Codex CLI | `adapters/codex/` | `adapters/codex/INSTALL.md` |
 | anything else | author your own | `PORTABILITY.md` — capability matrix + fallback rows |
 
 Before copying files from an adapter, check whether it ships a `package.json`; if it does, install

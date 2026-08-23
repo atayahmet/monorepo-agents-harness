@@ -1,78 +1,49 @@
-# opencode adapter
+# opencode Adapter — User Guide
 
-Installs the agent harness for **opencode** (TUI/CLI). The harness core (`core/`) is
-agent-agnostic — this adapter only supplies opencode's *enforcement* wiring: a plugin, a slash
-command, and config. Read `../../INSTALL.md` first (core must be installed before any adapter) and
-`../../PORTABILITY.md` for the mandatory-parity rule and semantic differences.
+This adapter wires the harness into **opencode**. Because opencode has no `ExitPlanMode`-style hook, the plan/spec build step is triggered manually via the `/tah-build` slash command.
 
-## What maps to what
+> **Installing the adapter?** See [INSTALL.md](INSTALL.md) for copy-paste setup steps.
 
-| Harness capability | Core (agent-agnostic) | This adapter |
-|---|---|---|
-| Rules / instructions | `AGENTS.md` (native to opencode) | — (no extra wiring) |
-| Plan/spec/memory + turborepo templates | `core/skills/**/SKILL.md` | referenced via `opencode.jsonc` `instructions` |
-| Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.opencode/commands/tah-build.md` → `/tah-build` |
-| Memory-gate | `core/scripts/memory-gate.sh` | plugin `session.idle` (soft reminder) **+** core script at git/CI (hard) |
-| Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.opencode/commands/tah-update.md` → `/tah-update` |
+## What you get
 
-## Prerequisites
+- **`/tah-build`** — manually create the task directory and write `1_plan.md` + `2_spec.md` before implementation.
+- **`/tah-update`** — compare your installed harness against upstream and upgrade the agent-neutral core with your consent.
+- **Memory reminder** — the plugin nudges you at `session.idle` if `3_memory.md` is missing.
+- **Universal hard gate** — the git pre-commit / CI version of `core/scripts/memory-gate.sh` actually blocks commits until `3_memory.md` exists.
 
-- The **core already installed** per `../../INSTALL.md` (bundle, `AGENTS.md`, and per-workspace
-  `.agents/` dirs incl. `.agents/artifacts/` seeds in place — the plugin and config reuse them).
-- opencode installed; `git` available. The plugin runs on opencode's bundled Bun runtime (uses `$`).
+## Day-to-day commands
 
-## Install steps
+### `/tah-build` — Build plan/spec artifacts
 
-1. **Adapter dependencies.** If this adapter ships a `package.json`, install its dependencies
-   before copying any files:
-   ```bash
-   [ -f "turborepo-harness-template/adapters/opencode/package.json" ] && (cd "turborepo-harness-template/adapters/opencode" && npm install)
-   ```
+Use `/tah-build` right after you approve a plan and **before the first Edit/Write**. The command points to the shared `agent-workflow` skill, which tells the agent to:
 
-2. **Config.** Merge `opencode.jsonc` into the repo-root `opencode.jsonc` (or `opencode.json`). It
-   adds the `instructions` entries that feed opencode the same `SKILL.md` templates every adapter
-   reuses. `AGENTS.md` is loaded by opencode natively — no extra wiring.
+1. Pick the target workspace (`apps/<name>` or `packages/<name>`).
+2. Create `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/`.
+3. Write `1_plan.md` and `2_spec.md`.
+4. Add a row to `<workspace>/.agents/artifacts/index.md`.
 
-3. **Plugin & commands.** Copy the plugin and harness commands into place:
-   ```bash
-   mkdir -p .opencode/plugins .opencode/commands
-   cp turborepo-harness-template/adapters/opencode/.opencode/plugins/agent-harness.ts .opencode/plugins/
-   cp turborepo-harness-template/adapters/opencode/.opencode/commands/tah-update.md \
-      turborepo-harness-template/adapters/opencode/.opencode/commands/tah-build.md \
-      .opencode/commands/
-   ```
+Example:
 
-4. **Install the universal hard gate** (this is what makes the memory-gate real on opencode — the
-   plugin can only remind, not block, at `session.idle`):
-   ```bash
-   chmod +x turborepo-harness-template/core/scripts/memory-gate.sh
-   ln -s ../../turborepo-harness-template/core/scripts/memory-gate.sh .git/hooks/pre-commit   # and/or add to CI
-   ```
-
-5. **Type (optional).** For editor types on the plugin:
-   `npm i -D @opencode-ai/plugin` (or add it to `~/.config/opencode/package.json`).
-
-## Verify
-
-```bash
-# opencode present; config parses (strip // comments first if using a strict JSON parser)
-opencode --help >/dev/null 2>&1 && echo "opencode present"
-
-# the update-check command resolves its engine
-test -x turborepo-harness-template/core/scripts/harness-update.sh \
-  && bash turborepo-harness-template/core/scripts/harness-update.sh current
-
-# the hard gate blocks a task dir missing 3_memory.md, passes once present
-bash turborepo-harness-template/core/scripts/memory-gate.sh; echo "exit=$?"
-
-# plugin loads + commands register: start opencode, type `/tah-update` and `/tah-build`
+```
+User: /tah-build
+Agent:  → creates apps/web/.agents/artifacts/task_2026_08_23_add_login_form/
+        → writes 1_plan.md + 2_spec.md
 ```
 
-## Notes / semantic differences
+### `/tah-update` — Check for harness updates
 
-- **`session.idle` cannot hard-block.** Treat the plugin's idle reminder as a nudge; the git/CI gate
-  from step 3 is the real enforcement.
-- **Parity checklist:** every harness capability must have a live opencode counterpart —
-  instructions ✔ (config), templates ✔ (config), plan/spec build trigger ✔ (command file),
-  memory-gate ✔ (plugin reminder + git/CI hard gate), update-check ✔ (command file). Do not
-  skip step 4, or the memory-gate is unenforced.
+Use `/tah-update` when you suspect the harness is out of date or after a release announcement. It reports the installed vs. latest version and asks for consent before upgrading.
+
+## Typical workflow
+
+1. Start a non-trivial task and create your plan.
+2. Once the plan is approved, type `/tah-build`.
+3. Implement the task, scoped to the target workspace.
+4. Commit your changes.
+5. Write `3_memory.md` in the same task directory and update the workspace index.
+6. If you try to end the session without `3_memory.md`, the plugin reminds you; the git pre-commit hook blocks the commit until it is written.
+
+## Notes
+
+- `/tah-build` is the primary way to start the plan/spec build on opencode; there is no automatic plan-mode hook.
+- The plugin's `session.idle` reminder is **soft** — the real enforcement is the universal hard gate installed as a git pre-commit hook or CI step.
