@@ -12,7 +12,7 @@ command, and config. Read `../../INSTALL.md` first (core must be installed befor
 | Rules / instructions | `AGENTS.md` (native to opencode) | — (no extra wiring) |
 | Plan/spec/memory + turborepo templates | `core/skills/**/SKILL.md` | referenced via `opencode.jsonc` `instructions` |
 | Memory-gate | `core/scripts/memory-gate.sh` | plugin `session.idle` (soft reminder) **+** core script at git/CI (hard) |
-| Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.opencode/commands/tah/update.md` → `/tah:update` |
+| Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.opencode/commands/tah-update.md` → `/tah-update` |
 
 ## Prerequisites
 
@@ -34,10 +34,10 @@ command, and config. Read `../../INSTALL.md` first (core must be installed befor
 
 3. **Plugin.** Copy the plugin into place:
    ```bash
-   mkdir -p .opencode/plugins .opencode/commands/tah
+   mkdir -p .opencode/plugins .opencode/commands
    cp turborepo-harness-template/adapters/opencode/.opencode/plugins/agent-harness.ts .opencode/plugins/
-   cp turborepo-harness-template/adapters/opencode/.opencode/commands/tah/update.md \
-      .opencode/commands/tah/
+   cp turborepo-harness-template/adapters/opencode/.opencode/commands/tah-update.md \
+      .opencode/commands/
    ```
 
 4. **Install the universal hard gate** (this is what makes the memory-gate real on opencode — the
@@ -63,7 +63,7 @@ test -x turborepo-harness-template/core/scripts/harness-update.sh \
 # the hard gate blocks a task dir missing 3_memory.md, passes once present
 bash turborepo-harness-template/core/scripts/memory-gate.sh; echo "exit=$?"
 
-# plugin loads + command registers: start opencode, type `/tah:update`
+# plugin loads + command registers: start opencode, type `/tah-update`
 ```
 
 ## Notes / semantic differences

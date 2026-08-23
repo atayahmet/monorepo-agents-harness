@@ -33,7 +33,7 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 | Turborepo guidance | `core/skills/turborepo/` | same as above | same as above | same as above | link from `AGENTS.md` |
 | Plan/spec reminder (start of impl.) | `AGENTS.md` gotcha #4 | `PostToolUse[ExitPlanMode]` hook | `AGENTS.md` mandate (+ optional plugin nudge) | `PostToolUse[update_plan]` hook + `SessionStart` reminder | `AGENTS.md` mandate |
 | **Memory-gate** (no finish without `3_memory.md`) | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (**hard block**) | plugin `session.idle` (soft reminder) | `Stop` hook → script `--json` (soft reminder) | **script default mode as git pre-commit / CI — hard block, universal** |
-| Update check / upgrade (`/tah:update`) | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.claude/commands/tah/update.md` | `.opencode/commands/tah/update.md` | `.agents/skills/tah-update/SKILL.md` → `/tah-update` | run `harness-update.sh check` directly in a terminal |
+| Update check / upgrade (`/tah:update` / `/tah-update`) | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.claude/commands/tah/update.md` → `/tah:update` | `.opencode/commands/tah-update.md` → `/tah-update` | `.agents/skills/tah-update/SKILL.md` → `/tah-update` | run `harness-update.sh check` directly in a terminal |
 | Slash commands | — | `.claude/commands/**/*.md` (subdir = namespace) | `.opencode/commands/**/*.md` (flat filename or subdir = command ID) | `.agents/skills/**/*.md` auto-register as slash commands | n/a (agent-specific convenience) |
 
 ### Semantic differences you must not paper over

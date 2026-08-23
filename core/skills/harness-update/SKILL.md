@@ -1,11 +1,11 @@
 ---
 name: harness-update
-description: Check whether the installed agent harness is up to date and, with user consent, upgrade it. Use when the user invokes /tah:update (or asks to check/update the harness), when a task touches turborepo-harness-template/** and a version mismatch matters, or before starting work after a known harness release.
+description: Check whether the installed agent harness is up to date and, with user consent, upgrade it. Use when the user invokes /tah:update (Claude Code) or /tah-update (opencode/Codex CLI), or asks to check/update the harness, when a task touches turborepo-harness-template/** and a version mismatch matters, or before starting work after a known harness release.
 ---
 
 # Harness Update Check
 
-Shared instructions backing every adapter's `/tah:update` command. The engine is
+Shared instructions backing every adapter's `/tah:update` (Claude Code) and `/tah-update` (opencode/Codex CLI) commands. The engine is
 `turborepo-harness-template/core/scripts/harness-update.sh` (git + coreutils only; exit 0 = current,
 1 = update available, 2 = unknown/unreachable). Report first; never upgrade without explicit consent.
 

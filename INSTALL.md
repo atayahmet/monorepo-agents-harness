@@ -132,7 +132,7 @@ bash turborepo-harness-template/core/scripts/memory-gate.sh
 ```
 
 Each adapter also ships a harness update command: `/tah:update` for claude-code,
-`/tah:update` for opencode, and `/tah-update` for Codex CLI — copy it during the
+`/tah-update` for opencode, and `/tah-update` for Codex CLI — copy it during the
 adapter install steps; all are thin pointers to the shared
 `core/skills/harness-update/SKILL.md` workflow (see §10).
 
@@ -245,7 +245,7 @@ bash turborepo-harness-template/core/scripts/harness-update.sh check --json   # 
 ```
 
 Or ask your agent: `/tah:update` (claude-code) /
-`/tah:update` (opencode). The shared workflow lives in
+`/tah-update` (opencode). The shared workflow lives in
 `core/skills/harness-update/SKILL.md`: it reports the diff, asks for consent, then upgrades.
 
 **Upgrade** (consent-gated; refreshes ONLY the verbatim agent-neutral machinery):

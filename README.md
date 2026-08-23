@@ -68,7 +68,7 @@ ln -s ../../turborepo-harness-template/core/scripts/memory-gate.sh .git/hooks/pr
 | Adapter | Enforcement provided |
 |---|---|---|
 | `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `Stop` hook memory-gate (**hard block**), skill auto-registration, `/tah:update` command |
-| `opencode` | `session.idle` memory reminder (soft) + universal git/CI gate (hard), `/tah:update` command |
+| `opencode` | `session.idle` memory reminder (soft) + universal git/CI gate (hard), `/tah-update` command |
 | `codex` | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/tah-update` skill |
 | yours | Follow the capability matrix in [PORTABILITY.md](PORTABILITY.md) — new adapters are the intended growth path |
 

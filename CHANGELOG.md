@@ -21,8 +21,8 @@ Release procedure (harness maintainers):
 - Harness versioning infrastructure: `core/VERSION`, this changelog, and
   `core/scripts/harness-update.sh` (`current` / `latest` / `check` / `upgrade`) comparing an
   installed copy against the upstream repo.
-- `/tah:update` slash command for Claude Code and opencode, backed by the shared
-  `core/skills/harness-update/SKILL.md` instructions.
+- `/tah:update` slash command for Claude Code and `/tah-update` for opencode, backed by the
+  shared `core/skills/harness-update/SKILL.md` instructions.
 - Codex CLI adapter (`adapters/codex/`) with `.codex/config.toml`, `.codex/hooks.json`,
   and the `/tah-update` skill backed by the same update engine.
 
@@ -38,10 +38,11 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
-- The harness update slash command is now `/tah:update` on both Claude Code and opencode. Remove
-  the old adapter files (`.claude/commands/turborepo-harness/update-check.md` and
+- The harness update command is `/tah:update` for Claude Code and `/tah-update` for opencode
+  (and Codex CLI). Remove the old adapter files
+  (`.claude/commands/turborepo-harness/update-check.md` and
   `.opencode/commands/turborepo-harness-update-check.md`) and copy the new ones from
-  `.claude/commands/tah/update.md` and `.opencode/commands/tah/update.md`.
+  `.claude/commands/tah/update.md` and `.opencode/commands/tah-update.md`.
 
 ## [1.0.0] - 2026-08-23
 
