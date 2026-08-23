@@ -28,14 +28,20 @@ for the mandatory-parity rule and semantic differences.
 Run from the target repo root. `BUNDLE=turborepo-harness-template` below — adjust if you vendored
 the bundle under a different path (and update the script path in `.codex/hooks.json` accordingly).
 
-1. **Config.** Merge `adapters/codex/.codex/config.toml` into `.codex/config.toml` to enable hooks:
+1. **Adapter dependencies.** If this adapter ships a `package.json`, install its dependencies
+   before copying any files:
+   ```bash
+   [ -f "$BUNDLE/adapters/codex/package.json" ] && (cd "$BUNDLE/adapters/codex" && npm install)
+   ```
+
+2. **Config.** Merge `adapters/codex/.codex/config.toml` into `.codex/config.toml` to enable hooks:
    ```bash
    mkdir -p .codex
    cp "$BUNDLE/adapters/codex/.codex/config.toml" .codex/config.toml
    # If you already have a config.toml, add [features] hooks = true under the existing content.
    ```
 
-2. **Hooks.** Copy the harness hooks into `.codex/hooks.json`:
+3. **Hooks.** Copy the harness hooks into `.codex/hooks.json`:
    ```bash
    cp "$BUNDLE/adapters/codex/.codex/hooks.json" .codex/hooks.json
    ```
@@ -43,7 +49,7 @@ the bundle under a different path (and update the script path in `.codex/hooks.j
    `/hooks` in the Codex TUI and trust them (or use `--dangerously-bypass-hook-trust` for one-off
    automation).
 
-3. **Skills.** Copy (or symlink) the core skills into `.agents/skills/` so Codex auto-registers them
+4. **Skills.** Copy (or symlink) the core skills into `.agents/skills/` so Codex auto-registers them
    — frontmatter (`name`, `description`) must stay intact. Also copy the adapter's update-check
    skill:
    ```bash
@@ -57,7 +63,7 @@ the bundle under a different path (and update the script path in `.codex/hooks.j
    # ln -s "../../$BUNDLE/adapters/codex/.agents/skills/tah-update" .agents/skills/tah-update
    ```
 
-4. **Install the universal hard gate** (this is what makes the memory-gate real on Codex — the
+5. **Install the universal hard gate** (this is what makes the memory-gate real on Codex — the
    `Stop` hook can only remind, not block):
    ```bash
    chmod +x "$BUNDLE/core/scripts/memory-gate.sh"

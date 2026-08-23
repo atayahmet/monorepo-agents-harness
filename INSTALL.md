@@ -116,6 +116,10 @@ counterpart for each agent.
 | Codex CLI | `adapters/codex/` | `adapters/codex/README.md` |
 | anything else | author your own | `PORTABILITY.md` — capability matrix + fallback rows |
 
+Before copying files from an adapter, check whether it ships a `package.json`; if it does, install
+its dependencies first with `npm install` (or `pnpm install` / `yarn install`) in the adapter
+directory.
+
 Regardless of adapter, the **universal hard gate** can (and for agents that cannot block their own
 stop, MUST) be wired without any agent support:
 

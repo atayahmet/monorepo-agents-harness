@@ -22,11 +22,17 @@ command, and config. Read `../../INSTALL.md` first (core must be installed befor
 
 ## Install steps
 
-1. **Config.** Merge `opencode.jsonc` into the repo-root `opencode.jsonc` (or `opencode.json`). It
+1. **Adapter dependencies.** If this adapter ships a `package.json`, install its dependencies
+   before copying any files:
+   ```bash
+   [ -f "turborepo-harness-template/adapters/opencode/package.json" ] && (cd "turborepo-harness-template/adapters/opencode" && npm install)
+   ```
+
+2. **Config.** Merge `opencode.jsonc` into the repo-root `opencode.jsonc` (or `opencode.json`). It
    adds the `instructions` entries that feed opencode the same `SKILL.md` templates every adapter
    reuses. `AGENTS.md` is loaded by opencode natively — no extra wiring.
 
-2. **Plugin.** Copy the plugin into place:
+3. **Plugin.** Copy the plugin into place:
    ```bash
    mkdir -p .opencode/plugins .opencode/commands/tah
    cp turborepo-harness-template/adapters/opencode/.opencode/plugins/agent-harness.ts .opencode/plugins/
@@ -34,14 +40,14 @@ command, and config. Read `../../INSTALL.md` first (core must be installed befor
       .opencode/commands/tah/
    ```
 
-3. **Install the universal hard gate** (this is what makes the memory-gate real on opencode — the
+4. **Install the universal hard gate** (this is what makes the memory-gate real on opencode — the
    plugin can only remind, not block, at `session.idle`):
    ```bash
    chmod +x turborepo-harness-template/core/scripts/memory-gate.sh
    ln -s ../../turborepo-harness-template/core/scripts/memory-gate.sh .git/hooks/pre-commit   # and/or add to CI
    ```
 
-4. **Type (optional).** For editor types on the plugin:
+5. **Type (optional).** For editor types on the plugin:
    `npm i -D @opencode-ai/plugin` (or add it to `~/.config/opencode/package.json`).
 
 ## Verify
@@ -66,5 +72,5 @@ bash turborepo-harness-template/core/scripts/memory-gate.sh; echo "exit=$?"
   from step 3 is the real enforcement.
 - **Parity checklist:** every harness capability must have a live opencode counterpart —
   instructions ✔ (config), templates ✔ (config), memory-gate ✔ (plugin reminder +
-  git/CI hard gate), update-check ✔ (command file). Do not skip step 3, or the memory-gate is
+  git/CI hard gate), update-check ✔ (command file). Do not skip step 4, or the memory-gate is
   unenforced.

@@ -29,8 +29,12 @@ in the same change.
    - `../INSTALL.md` — Phase 2 table (Agent / Adapter / Guide) if a new adapter ships.
 6. **Slash commands ship only for harness plumbing** (the update check). Project-specific commands
    do not belong here (see `../INSTALL.md` §7).
-7. **English everywhere** — all files under this tree are English-only.
-8. **Commits are mandatory at the end of any file-changing task** unless the user explicitly opts out.
+7. **Shipped dependencies.** If an adapter ships a `package.json` (e.g., a plugin that needs
+   `node_modules`), the adapter README install steps MUST include installing those dependencies
+   (`npm install`, `pnpm install`, or equivalent) before copying files into the target repo. Never
+   assume `node_modules` is already present.
+8. **English everywhere** — all files under this tree are English-only.
+9. **Commits are mandatory at the end of any file-changing task** unless the user explicitly opts out.
 
 ## What the `agent-workflow` skill expects from every adapter
 
@@ -69,7 +73,8 @@ table in its README.
 1. Read `../PORTABILITY.md` ("Authoring a new adapter") and walk the capability matrix column by
    column: native mechanism or fallback row for each capability.
 2. Create `adapters/<agent>/` with: config/hooks/plugin wiring + `README.md` (rule 4) + any thin
-   pointer/instruction file the agent needs.
+   pointer/instruction file the agent needs. If the adapter has a `package.json`, document
+   `npm install` (or equivalent) in the install steps.
 3. Register it: `../PORTABILITY.md` matrix columns, `../INSTALL.md` §5 table, `../README.md`
    mentions if present.
 

@@ -27,7 +27,13 @@ Run from the target repo root. `BUNDLE=turborepo-harness-template` below — adj
 vendored the bundle under a different path (and update the two script paths in
 `.claude/settings.json` accordingly).
 
-1. **Skills.** Copy (or symlink) the core skills into `.claude/skills/` so Claude Code
+1. **Adapter dependencies.** If this adapter ships a `package.json`, install its dependencies
+   before copying any files:
+   ```bash
+   [ -f "$BUNDLE/adapters/claude-code/package.json" ] && (cd "$BUNDLE/adapters/claude-code" && npm install)
+   ```
+
+2. **Skills.** Copy (or symlink) the core skills into `.claude/skills/` so Claude Code
    auto-registers them — frontmatter (`name`, `description`) must stay intact:
    ```bash
    mkdir -p .claude/skills
@@ -38,7 +44,7 @@ vendored the bundle under a different path (and update the two script paths in
    # ln -s "../../$BUNDLE/core/skills/turborepo" .claude/skills/turborepo
    ```
 
-2. **Hooks.** No `.claude/settings.json` yet → copy `adapters/claude-code/.claude/settings.json`.
+3. **Hooks.** No `.claude/settings.json` yet → copy `adapters/claude-code/.claude/settings.json`.
    Already have one → merge the two hook blocks in without clobbering existing hooks:
    - under `hooks.PostToolUse`, append the matcher object (`"ExitPlanMode"`);
    - under `hooks.Stop`, append the memory-gate block.
@@ -53,17 +59,17 @@ vendored the bundle under a different path (and update the two script paths in
    # review /tmp/merged.json, then move it into place
    ```
 
-3. **Root pointer.** Copy `adapters/claude-code/CLAUDE.md` to the repo root (merge by hand if
+4. **Root pointer.** Copy `adapters/claude-code/CLAUDE.md` to the repo root (merge by hand if
    you already have one — keep it a thin `@AGENTS.md` pointer).
 
-4. **Command.** Copy the update-check command (registers as `/tah:update`):
+5. **Command.** Copy the update-check command (registers as `/tah:update`):
    ```bash
    mkdir -p .claude/commands/tah
    cp "$BUNDLE/adapters/claude-code/.claude/commands/tah/update.md" \
       .claude/commands/tah/
    ```
 
-5. **Placeholders.** Resolve `{{PROJECT_NAME}}` in the root `CLAUDE.md`. The hook commands contain
+6. **Placeholders.** Resolve `{{PROJECT_NAME}}` in the root `CLAUDE.md`. The hook commands contain
    no placeholders — task artifacts use the fixed convention `<workspace>/.agents/artifacts/`.
 
 The hooks are independent and fail-open (missing `jq`/git root/bundle → exit 0, never blocks),
