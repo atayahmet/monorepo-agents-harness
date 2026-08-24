@@ -23,14 +23,14 @@ can interpret it reliably:
 
 ```markdown
 ---
-version: 1.1.0
-from: 1.0.0
+version: 0.2.0
+from: 0.1.0
 date: 2026-08-24
 ---
 
-# Version 1.1.0 Upgrade Instructions
+# Version 0.2.0 Upgrade Instructions
 
-You are upgrading the turborepo-agent-harness from 1.0.0 to 1.1.0.
+You are upgrading the turborepo-agent-harness from 0.1.0 to 0.2.0.
 
 ## Files to copy from the new bundle to the installed bundle
 

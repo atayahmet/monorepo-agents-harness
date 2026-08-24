@@ -52,7 +52,7 @@ Release procedure (harness maintainers):
   `.claude/commands/tah-build.md`, `.opencode/commands/tah-build.md`, and
   `.agents/skills/tah-build/SKILL.md` (Codex CLI).
 
-## [1.0.0] - 2026-08-23
+## [0.1.0] - 2026-08-23
 
 ### Added
 
@@ -60,5 +60,5 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/turborepo-agent-harness/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v1.0.0
+[Unreleased]: https://github.com/atayahmet/turborepo-agent-harness/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.1.0
