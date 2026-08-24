@@ -18,6 +18,16 @@ Release procedure (harness maintainers):
 
 ### Added
 
+### Changed
+
+### Removed
+
+### Upgrade Notes
+
+## [0.2.0] - 2026-08-24
+
+### Added
+
 - Harness versioning infrastructure: `core/VERSION`, this changelog, and
   `core/scripts/harness-update.sh` (`current` / `latest` / `check`) comparing an
   installed copy against the upstream repo.
@@ -60,5 +70,6 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/turborepo-agent-harness/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/atayahmet/turborepo-agent-harness/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.2.0
 [0.1.0]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.1.0
