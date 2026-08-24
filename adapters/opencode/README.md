@@ -8,8 +8,7 @@ This adapter wires the harness into **opencode**. Because opencode has no `ExitP
 
 - **`/tah-build`** — manually create the task directory and write `1_plan.md` + `2_spec.md` before implementation.
 - **`/tah-update`** — compare your installed harness against upstream and upgrade the agent-neutral core with your consent.
-- **Memory reminder** — the plugin nudges you at `session.idle` if `3_memory.md` is missing.
-- **Universal hard gate** — the git pre-commit / CI version of `core/scripts/memory-gate.sh` actually blocks commits until `3_memory.md` exists.
+- **Universal hard gate** — the git pre-commit / CI version of `core/scripts/memory-gate.sh` blocks commits until `3_memory.md` exists.
 
 ## Day-to-day commands
 
@@ -41,9 +40,9 @@ Use `/tah-update` when you suspect the harness is out of date or after a release
 3. Implement the task, scoped to the target workspace.
 4. Commit your changes.
 5. Write `3_memory.md` in the same task directory and update the workspace index.
-6. If you try to end the session without `3_memory.md`, the plugin reminds you; the git pre-commit hook blocks the commit until it is written.
+6. The git pre-commit hook blocks the commit until `3_memory.md` is written.
 
 ## Notes
 
 - `/tah-build` is the primary way to start the plan/spec build on opencode; there is no automatic plan-mode hook.
-- The plugin's `session.idle` reminder is **soft** — the real enforcement is the universal hard gate installed as a git pre-commit hook or CI step.
+- Memory-gate enforcement is the universal hard gate (`core/scripts/memory-gate.sh`) installed as a git pre-commit hook or CI step; opencode cannot block its own stop.

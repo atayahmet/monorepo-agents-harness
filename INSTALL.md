@@ -78,7 +78,7 @@ turborepo-harness-template/
 │       └── index-template.md                   # seed for each <workspace>/.agents/artifacts/index.md
 └── adapters/                                   # ★ per-agent enforcement — install the ones you use
     ├── claude-code/                            # .claude/settings.json hooks + root CLAUDE.md pointer + README.md
-    └── opencode/                               # opencode.jsonc + .opencode/plugins/agent-harness.ts + README.md
+    └── opencode/                               # opencode.jsonc + .opencode/commands/* + README.md
 ```
 
 ---

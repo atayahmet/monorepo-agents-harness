@@ -24,6 +24,30 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.2.1] - 2026-08-24
+
+### Changed
+
+- opencode adapter no longer ships a plugin. Memory-gate enforcement on opencode is now provided
+  solely by the universal hard gate (`core/scripts/memory-gate.sh`) installed as a git pre-commit
+  hook or CI step. The `agent-workflow` skill already instructs the agent to write `3_memory.md` at
+  task end, so the soft `session.idle` reminder was redundant.
+- Updated `adapters/opencode/INSTALL.md`, `adapters/opencode/README.md`, `PORTABILITY.md`, and
+  `INSTALL.md` to remove plugin references and clarify hard-gate-only enforcement.
+
+### Removed
+
+- `adapters/opencode/.opencode/plugins/agent-harness.ts`.
+
+### Upgrade Notes
+
+- Delete the old opencode plugin file from your installed copy:
+  `.opencode/plugins/agent-harness.ts`.
+- Ensure `core/scripts/memory-gate.sh` is wired as a git pre-commit hook or CI step; it is now the
+  only enforcement mechanism on opencode.
+- Re-apply the opencode config merge (`opencode.jsonc`) and command files
+  (`.opencode/commands/tah-update.md`, `.opencode/commands/tah-build.md`) from the new bundle.
+
 ## [0.2.0] - 2026-08-24
 
 ### Added
@@ -70,6 +94,7 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/turborepo-agent-harness/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/atayahmet/turborepo-agent-harness/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.2.1
 [0.2.0]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.2.0
 [0.1.0]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.1.0

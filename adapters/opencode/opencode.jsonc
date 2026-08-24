@@ -12,6 +12,6 @@
     "turborepo-harness-template/core/skills/turborepo/SKILL.md"
   ]
 
-  // The enforcement plugin auto-loads from .opencode/plugins/ — no registration needed.
-  // (Use the "plugin" field only for plugins published as npm packages.)
+  // opencode loads instruction files listed above automatically. There is no local
+  // enforcement plugin; the universal hard gate is core/scripts/memory-gate.sh at git/CI.
 }
