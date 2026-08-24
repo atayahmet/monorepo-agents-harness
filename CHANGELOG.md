@@ -19,8 +19,11 @@ Release procedure (harness maintainers):
 ### Added
 
 - Harness versioning infrastructure: `core/VERSION`, this changelog, and
-  `core/scripts/harness-update.sh` (`current` / `latest` / `check` / `upgrade`) comparing an
+  `core/scripts/harness-update.sh` (`current` / `latest` / `check`) comparing an
   installed copy against the upstream repo.
+- Changelog-driven upgrades: each release ships an upgrade prompt in
+  `changelogs/version-X.Y.Z.md`. The active agent reads these markdown prompts and applies the
+  described `copy` / `delete` / `run` / `note` operations.
 - `/tah:update` slash command for Claude Code and `/tah-update` for opencode, backed by the
   shared `core/skills/harness-update/SKILL.md` instructions.
 - `/tah-build` manual plan/spec build trigger for Claude Code, opencode, and Codex CLI, backed by

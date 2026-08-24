@@ -12,9 +12,9 @@ Codex, and more.
   agents read them before work and record what they learned after.
 - **Enforced follow-through** — the memory-gate blocks the task from ending until `3_memory.md`
   exists (agent stop-hook where supported, git pre-commit / CI everywhere else).
-- **Updatable** — the bundle carries a version; a `/tah:update` command (or the
-  underlying script) compares your install against upstream and upgrades the agent-neutral core in
-  place.
+- **Updatable** — the bundle carries a version; a `/tah:update` command compares your install
+  against upstream and, with your consent, the active agent upgrades it in place by following the
+  `changelogs/version-X.Y.Z.md` prompts.
 - **Agent portability** — an agent-neutral `core/` plus thin per-agent `adapters/`; switching or
   mixing agents never loses a capability (mandatory-parity rule).
 

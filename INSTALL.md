@@ -49,7 +49,6 @@ workspace).
 - A **Turborepo** monorepo using an `apps/*` layout (optionally `packages/*`).
 - `git` (scripts locate the repo root via `git rev-parse --show-toplevel`; the update-check also
   uses it to reach the upstream repo).
-- **`jq`** on `PATH` if your adapter's hooks/plugin shells out to it (claude-code does).
 - Your agent of choice — see Phase 2 for per-agent prerequisites.
 
 ---
@@ -67,7 +66,7 @@ turborepo-harness-template/
 │   │   └── turborepo/**                        # generic Turborepo skill (verbatim, no edits)
 │   ├── scripts/
 │   │   ├── memory-gate.sh                      # HARD gate: scans apps/*/.agents/artifacts + packages/*/.agents/artifacts
-│   │   ├── harness-update.sh                   # version engine: current/latest/check/upgrade vs upstream
+│   │   ├── harness-update.sh                   # version engine: current/latest/check vs upstream
 │   │   └── scaffold-workspace-agents.sh        # creates <workspace>/.agents/ + artifacts/{index.md,AGENTS.md} seeds
 │   ├── workspace-agents-template/              # PER-WORKSPACE working-state seed
 │   │   ├── session-log.md                      # stub → <workspace>/.agents/session-log.md
@@ -237,7 +236,8 @@ If the first run exits 1 and the second exits 0, the core is live. Adapter-speci
 
 The bundle is versioned (`core/VERSION`, SemVer; upstream:
 `https://github.com/atayahmet/turborepo-agent-harness`, overridable via `HARNESS_UPSTREAM`). Every
-release documents behavior changes in `CHANGELOG.md` under **Upgrade Notes**.
+release documents behavior changes in `CHANGELOG.md` under **Upgrade Notes**, and the actual upgrade
+steps are described in `changelogs/version-X.Y.Z.md` prompts for the active agent to read and apply.
 
 **Check** (manual, or via the agent command):
 
@@ -248,18 +248,19 @@ bash turborepo-harness-template/core/scripts/harness-update.sh check --json   # 
 
 Or ask your agent: `/tah:update` (claude-code) /
 `/tah-update` (opencode). The shared workflow lives in
-`core/skills/harness-update/SKILL.md`: it reports the diff, asks for consent, then upgrades.
+`core/skills/harness-update/SKILL.md`: it reports the diff, asks for consent, then reads and applies
+the changelog prompts.
 
-**Upgrade** (consent-gated; refreshes ONLY the verbatim agent-neutral machinery):
+**Upgrade** (consent-gated; driven by `changelogs/version-X.Y.Z.md` prompts):
 
 ```bash
 git clone --depth 1 --branch v<latest> https://github.com/atayahmet/turborepo-agent-harness .harness-update-tmp
-bash turborepo-harness-template/core/scripts/harness-update.sh upgrade --source .harness-update-tmp
-rm -rf .harness-update-tmp
 ```
 
-The upgrade re-copies `core/{scripts,skills,governance,workspace-agents-template}`, `core/VERSION`,
-and `CHANGELOG.md`, then re-runs the idempotent workspace scaffold. It **never touches**: root
-`AGENTS.md` (merge manually against the fresh template), `.agents/` working state and task history,
-or adapter configs (re-apply merges per your adapter README — see the follow-ups the script prints).
+Then let your agent apply the upgrade by following the prompts in
+`.harness-update-tmp/changelogs/version-<latest>.md` (and any intermediate version prompts). The
+agent copies files, deletes obsolete files, runs commands, and presents manual follow-ups. It
+**never touches**: root `AGENTS.md` (merge manually against the fresh template), `.agents/` working
+state and task history, or adapter configs (re-apply merges per your adapter README — see the
+follow-ups the agent prints).
 

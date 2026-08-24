@@ -8,7 +8,8 @@ Follow the shared instructions in
 
 1. Run `bash turborepo-harness-template/core/scripts/harness-update.sh check --json`.
 2. Report the result (and CHANGELOG highlights when outdated).
-3. Ask for explicit consent before any upgrade; on consent run
-   `harness-update.sh upgrade --source <new-bundle-dir>` and finish the printed follow-ups.
+3. Ask for explicit consent before any upgrade; on consent clone the new bundle and apply the
+   upgrade by following the `changelogs/version-X.Y.Z.md` prompts in the downloaded bundle.
+4. Finish the manual follow-ups the prompts list.
 
 Never upgrade without consent.

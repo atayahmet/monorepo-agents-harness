@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 #
-# harness-update.sh - versioning engine for the agent harness.
+# harness-update.sh - lightweight version engine for the agent harness.
 #
-# Compares the INSTALLED harness copy against the UPSTREAM repo and upgrades the
-# agent-neutral core in place from a local new-bundle directory.
+# Performs only structural version checks. The actual upgrade is driven by the
+# active agent reading the changelog prompts under changelogs/version-X.Y.Z.md.
 #
 # Usage:
 #   harness-update.sh current                    print the installed harness version
 #   harness-update.sh latest   [--json]          resolve the newest upstream tag (network)
 #   harness-update.sh check    [--json]          compare installed vs latest (exit 0/1/2)
-#   harness-update.sh upgrade --source <dir>     refresh core from a downloaded new bundle
 #
 # Exit codes (check/latest): 0 = up-to-date/resolved, 1 = update available,
 # 2 = unknown/unreachable. Dependencies: git + coreutils only. Fails open.
@@ -92,59 +91,9 @@ cmd_check() {
   return 0
 }
 
-cmd_upgrade() {
-  local src="" force=""
-  while [ $# -gt 0 ]; do
-    case "$1" in
-      --source) src="${2:-}"; shift 2 ;;
-      --force) force="1"; shift ;;
-      *) echo "usage: harness-update.sh upgrade --source <new-bundle-dir> [--force]" >&2; return 2 ;;
-    esac
-  done
-  [ -n "$src" ] || { echo "error: --source <new-bundle-dir> is required" >&2; return 2; }
-  [ -d "$src" ] || { echo "error: source bundle not found: $src" >&2; return 2; }
-
-  local dst="$BUNDLE_DIR" sver dver item
-  sver="$(tr -d '[:space:]' <"$src/core/VERSION" 2>/dev/null || true)"
-  [ -n "$sver" ] || { echo "error: source bundle has no core/VERSION - not a harness bundle?" >&2; return 2; }
-  dver="$(installed_version)"
-
-  if [ -z "$force" ] && [ -n "$dver" ] && ! semver_is_older "$dver" "$sver"; then
-    echo "error: installed version ($dver) is not older than source ($sver). Use --force." >&2
-    return 1
-  fi
-
-  # Refresh ONLY the agent-neutral machinery: verbatim copies targets never edit.
-  for item in scripts skills governance workspace-agents-template; do
-    [ -d "$src/core/$item" ] || { echo "error: source missing core/$item" >&2; return 2; }
-    rm -rf "$dst/core/$item"
-    cp -R "$src/core/$item" "$dst/core/$item"
-    echo "  refreshed core/$item"
-  done
-  cp "$src/core/VERSION" "$VERSION_FILE"
-  echo "  refreshed core/VERSION ($dver -> $sver)"
-  if [ -f "$src/CHANGELOG.md" ]; then
-    cp "$src/CHANGELOG.md" "$dst/CHANGELOG.md"
-    echo "  refreshed CHANGELOG.md"
-  fi
-
-  # Re-seed per-workspace state (idempotent: existing files are never overwritten).
-  bash "$dst/core/scripts/scaffold-workspace-agents.sh"
-
-  cat >&2 <<EOF
-
-Upgrade applied: $sver. Follow-ups (NOT touched by this command):
-- AGENTS.md (repo root): merge rows you want from the template; your resolved copy is user-owned.
-- Adapter configs: re-apply hook/config merges per your adapter README (settings.json / plugin).
-- Read CHANGELOG.md "Upgrade Notes" for behavior changes in this release.
-EOF
-  return 0
-}
-
 case "${1:-}" in
   current) shift; cmd_current "$@" ;;
   latest) shift; cmd_latest "$@" ;;
   check) shift; cmd_check "$@" ;;
-  upgrade) shift; cmd_upgrade "$@" ;;
-  *) sed -n '3,13p' "$0"; exit 2 ;;
+  *) sed -n '3,12p' "$0"; exit 2 ;;
 esac
