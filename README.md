@@ -65,22 +65,22 @@ ln -s ../../turborepo-harness-template/core/scripts/memory-gate.sh .git/hooks/pr
 
 ## Adapters
 
-| Adapter | Enforcement provided |
-|---|---|---|
-| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/tah-build` manual plan/spec trigger, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/tah:update` command |
-| `opencode` | `session.idle` memory reminder (soft) + universal git/CI gate (hard), `/tah-update` command, `/tah-build` manual plan/spec trigger |
-| `codex` | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/tah-update` and `/tah-build` skills |
-| yours | Follow the capability matrix in [PORTABILITY.md](PORTABILITY.md) — new adapters are the intended growth path |
+| Adapter       | Enforcement provided                                                                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/tah-build` manual plan/spec trigger, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/tah:update` command  |
+| `opencode`    | `session.idle` memory reminder (soft) + universal git/CI gate (hard), `/tah-update` command, `/tah-build` manual plan/spec trigger                                                 |
+| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/tah-update` and `/tah-build` skills |
+| yours         | Follow the capability matrix in [PORTABILITY.md](PORTABILITY.md) — new adapters are the intended growth path                                                                       |
 
 ## Documentation map
 
-| File | What it covers |
-|---|---|
-| [INSTALL.md](INSTALL.md) | Full install: core phase, adapter phase, placeholders, verification |
-| [PORTABILITY.md](PORTABILITY.md) | Cross-agent capability matrix; how to author a new adapter |
-| [AGENTS.md](AGENTS.md) | Template root instructions — the single source of truth copied into target repos |
-| [core/skills/agent-workflow/SKILL.md](core/skills/agent-workflow/SKILL.md) | Plan/spec/memory file templates |
-| [core/skills/harness-update/SKILL.md](core/skills/harness-update/SKILL.md) | Update-check / upgrade workflow (shared by both adapter commands) |
+| File                                                                       | What it covers                                                                             |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| [INSTALL.md](INSTALL.md)                                                   | Full install: core phase, adapter phase, placeholders, verification                        |
+| [PORTABILITY.md](PORTABILITY.md)                                           | Cross-agent capability matrix; how to author a new adapter                                 |
+| [AGENTS.md](AGENTS.md)                                                     | Template root instructions — the single source of truth copied into target repos           |
+| [core/skills/agent-workflow/SKILL.md](core/skills/agent-workflow/SKILL.md) | Plan/spec/memory file templates                                                            |
+| [core/skills/harness-update/SKILL.md](core/skills/harness-update/SKILL.md) | Update-check / upgrade workflow (shared by both adapter commands)                          |
 | [core/governance/artifacts/AGENTS.md](core/governance/artifacts/AGENTS.md) | Task-index format & searchability rules for every `<workspace>/.agents/artifacts/index.md` |
 
 ## Requirements

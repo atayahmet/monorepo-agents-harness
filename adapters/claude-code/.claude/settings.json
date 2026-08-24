@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -n '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"<system-reminder>\\nPlan approved. Invoke the agent-workflow skill and create the task directory under the target workspace:\\n<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/\\n\\n<workspace> is the primary app or package this task targets (app under apps/, or package under packages/) — choose from the file paths the plan will touch.\\n\\nBefore the first Edit/Write call, write these two files inside that directory:\\n  1_plan.md\\n  2_spec.md\\n\\nSlug must be snake_case. Follow the skill SKILL.md template.\\n</system-reminder>\"}}'"
+          },
+          {
+            "type": "command",
+            "command": "jq -n '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"<system-reminder>\\nBefore implementation, apply the Before You Start — Mandatory Checklist in the root AGENTS.md:\\n- Read <target-workspace>/.agents/session-log.md, bump version, write an entry (include the session artifact dir path).\\n- Read <target-workspace>/.agents/lessons.md.\\n- Write <target-workspace>/.agents/todo.md plan.\\n- Enter plan mode if task has 3+ steps.\\n- All .md files must be in English. Code comments and commit messages must be in English.\\n- Read the root AGENTS.md and the target workspace CLAUDE.md (if present) before implementation.\\n- Check the task index at <target-workspace>/.agents/artifacts/index.md; if your task touches a listed module, read the related specs first.\\n</system-reminder>\"}}'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}/turborepo-harness-template/core/scripts/memory-gate.sh\" --json"
+          }
+        ]
+      }
+    ]
+  }
+}

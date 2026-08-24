@@ -1,0 +1,17 @@
+{
+  // opencode config — merge these keys into the target repo's root opencode.jsonc
+  // (or opencode.json). See https://opencode.ai/docs/config/
+  "$schema": "https://opencode.ai/config.json",
+
+  // AGENTS.md is loaded natively by opencode, so it is NOT listed here.
+  // We DO reference the workflow skill templates from the harness CORE, which opencode
+  // would not otherwise read — the SAME single copy every adapter reuses.
+  // Adjust the prefix if you vendored the bundle under a different path.
+  "instructions": [
+    "turborepo-harness-template/core/skills/agent-workflow/SKILL.md",
+    "turborepo-harness-template/core/skills/turborepo/SKILL.md"
+  ]
+
+  // The enforcement plugin auto-loads from .opencode/plugins/ — no registration needed.
+  // (Use the "plugin" field only for plugins published as npm packages.)
+}
