@@ -23,7 +23,10 @@ UPSTREAM="${HARNESS_UPSTREAM:-$DEFAULT_UPSTREAM}"
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 BUNDLE_DIR="${BUNDLE_DIR:-$ROOT/turborepo-agent-harness}"
-VERSION_FILE="$BUNDLE_DIR/core/VERSION"
+RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.agents/turborepo-agent-harness}"
+VERSION_FILE="$RUNTIME_DIR/VERSION"
+# Fallback to the legacy location for pre-0.3.0 installs during migration.
+LEGACY_VERSION_FILE="$BUNDLE_DIR/core/VERSION"
 
 json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 
@@ -33,7 +36,9 @@ emit_json() {
 }
 
 installed_version() {
-  if [ -f "$VERSION_FILE" ]; then tr -d '[:space:]' <"$VERSION_FILE"; else echo ""; fi
+  if [ -f "$VERSION_FILE" ]; then tr -d '[:space:]' <"$VERSION_FILE"; return 0; fi
+  if [ -f "$LEGACY_VERSION_FILE" ]; then tr -d '[:space:]' <"$LEGACY_VERSION_FILE"; return 0; fi
+  echo ""
 }
 
 semver_is_older() {
@@ -43,7 +48,7 @@ semver_is_older() {
 cmd_current() {
   local cur; cur="$(installed_version)"
   if [ -n "$cur" ]; then echo "$cur"; return 0; fi
-  echo "harness-update: no core/VERSION found under $BUNDLE_DIR (pre-versioning install)" >&2
+  echo "harness-update: no VERSION found under $RUNTIME_DIR or $BUNDLE_DIR/core/VERSION (pre-versioning install)" >&2
   return 2
 }
 
@@ -73,7 +78,7 @@ cmd_check() {
   fi
   if [ -z "$cur" ]; then
     if [ "$json" = "--json" ]; then emit_json "outdated" "" "$latest"
-    else echo "harness-update: no core/VERSION (pre-versioning install) - latest is $latest" >&2; fi
+    else echo "harness-update: no VERSION under $RUNTIME_DIR (pre-versioning install) - latest is $latest" >&2; fi
     return 1
   fi
   if [ "$cur" = "$latest" ]; then

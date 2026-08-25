@@ -9,7 +9,7 @@
 # Existing files are never overwritten. Run once at install time, and re-run after adding a new
 # workspace.
 #
-#   bash turborepo-agent-harness/core/scripts/scaffold-workspace-agents.sh   # from the target repo root
+#   bash .agents/turborepo-agent-harness/scripts/scaffold-workspace-agents.sh   # from the target repo root
 #   SEED=path/to/workspace-agents-template INDEX_TEMPLATE=path/to/index-template.md \
 #   RULES_TEMPLATE=path/to/workspace-AGENTS.md bash .../scaffold-workspace-agents.sh
 #
@@ -20,9 +20,23 @@
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-SEED="${SEED:-$ROOT/turborepo-agent-harness/core/workspace-agents-template}"
-INDEX_TEMPLATE="${INDEX_TEMPLATE:-$ROOT/turborepo-agent-harness/core/governance/artifacts/index-template.md}"
-RULES_TEMPLATE="${RULES_TEMPLATE:-$ROOT/turborepo-agent-harness/core/governance/artifacts/workspace-AGENTS.md}"
+RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.agents/turborepo-agent-harness}"
+BUNDLE_DIR="${BUNDLE_DIR:-$ROOT/turborepo-agent-harness}"
+
+# Prefer the shared runtime directory (0.3.0+). Fall back to the bundle source
+# during fresh installs before the runtime symlinks are created.
+SEED="${SEED:-$RUNTIME_DIR/workspace-agents-template}"
+if [ ! -d "$SEED" ]; then
+  SEED="$BUNDLE_DIR/core/workspace-agents-template"
+fi
+INDEX_TEMPLATE="${INDEX_TEMPLATE:-$RUNTIME_DIR/governance/artifacts/index-template.md}"
+if [ ! -f "$INDEX_TEMPLATE" ]; then
+  INDEX_TEMPLATE="$BUNDLE_DIR/core/governance/artifacts/index-template.md"
+fi
+RULES_TEMPLATE="${RULES_TEMPLATE:-$RUNTIME_DIR/governance/artifacts/workspace-AGENTS.md}"
+if [ ! -f "$RULES_TEMPLATE" ]; then
+  RULES_TEMPLATE="$BUNDLE_DIR/core/governance/artifacts/workspace-AGENTS.md"
+fi
 
 if [ ! -d "$SEED" ]; then
   echo "seed dir not found: $SEED (set SEED=... to override)" >&2

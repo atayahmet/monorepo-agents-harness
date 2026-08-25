@@ -61,7 +61,7 @@ From your Turborepo root:
 Whichever adapter you pick, wire the universal hard gate (works even with no agent at all):
 
 ```bash
-ln -s ../../turborepo-agent-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit
+ln -s ../../.agents/turborepo-agent-harness/scripts/memory-gate.sh .git/hooks/pre-commit
 ```
 
 ## Adapters

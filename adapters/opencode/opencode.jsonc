@@ -4,12 +4,12 @@
   "$schema": "https://opencode.ai/config.json",
 
   // AGENTS.md is loaded natively by opencode, so it is NOT listed here.
-  // We DO reference the workflow skill templates from the harness CORE, which opencode
-  // would not otherwise read — the SAME single copy every adapter reuses.
+  // We DO reference the workflow skill templates from the harness SHARED RUNTIME, which
+  // opencode would not otherwise read — the SAME single copy every adapter reuses.
   // Adjust the prefix if you vendored the bundle under a different path.
   "instructions": [
-    "turborepo-agent-harness/core/skills/agent-workflow/SKILL.md",
-    "turborepo-agent-harness/core/skills/turborepo/SKILL.md"
+    ".agents/turborepo-agent-harness/skills/agent-workflow/SKILL.md",
+    ".agents/turborepo-agent-harness/skills/turborepo/SKILL.md"
   ]
 
   // opencode loads instruction files listed above automatically. There is no local

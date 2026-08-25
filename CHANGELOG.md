@@ -24,6 +24,29 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.3.0] - 2026-08-25
+
+### Changed
+
+- Relocated the installed harness runtime from inside the bundle's `core/` tree to a shared
+  project-owned directory at `.agents/turborepo-agent-harness/`. The shared skills
+  (`agent-workflow`, `turborepo`, `harness-update`) and scripts (`memory-gate.sh`,
+  `harness-update.sh`, `scaffold-workspace-agents.sh`) now live there as symlinks to the bundle
+  source, so multiple agents no longer need separate physical copies.
+- Moved `core/VERSION` to `.agents/turborepo-agent-harness/VERSION`. The update engine and all
+  adapter configs now read the installed version from this new location.
+- Updated every adapter install guide to create symlinks instead of copying shared skills, and
+  updated adapter configs to reference the shared runtime paths.
+
+### Upgrade Notes
+
+- Follow `changelogs/version-0.3.0.md` to migrate existing installs. Key steps:
+  - Create `.agents/turborepo-agent-harness/` and move the version file there.
+  - Replace physical copies of shared skills with symlinks into the new runtime directory.
+  - Update `.claude/settings.json`, `opencode.jsonc`, and `.codex/hooks.json` to point at the new
+    `.agents/turborepo-agent-harness/` paths.
+  - Re-link `.git/hooks/pre-commit` to `.agents/turborepo-agent-harness/scripts/memory-gate.sh`.
+
 ## [0.2.2] - 2026-08-25
 
 ### Changed
@@ -117,7 +140,8 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/turborepo-agent-harness/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/atayahmet/turborepo-agent-harness/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.3.0
 [0.2.2]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.2.2
 [0.2.1]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.2.1
 [0.2.0]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.2.0

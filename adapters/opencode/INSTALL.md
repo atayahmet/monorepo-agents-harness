@@ -10,7 +10,7 @@ config. Read `../../INSTALL.md` first (core must be installed before any adapter
 | Harness capability | Core (agent-agnostic) | This adapter |
 |---|---|---|
 | Rules / instructions | `AGENTS.md` (native to opencode) | — (no extra wiring) |
-| Plan/spec/memory + turborepo templates | `core/skills/**/SKILL.md` | referenced via `opencode.jsonc` `instructions` |
+| Plan/spec/memory + turborepo templates | `.agents/turborepo-agent-harness/skills/**/SKILL.md` | referenced via `opencode.jsonc` `instructions` |
 | Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.opencode/commands/tah-build.md` → `/tah-build` |
 | Memory-gate | `core/scripts/memory-gate.sh` | core script at git/CI (hard) |
 | Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.opencode/commands/tah-update.md` → `/tah-update` |
@@ -44,8 +44,8 @@ config. Read `../../INSTALL.md` first (core must be installed before any adapter
 4. **Install the universal hard gate** (this is what makes the memory-gate real on opencode;
    opencode cannot block its own stop, so the git/CI gate is the only enforcement):
    ```bash
-   chmod +x turborepo-agent-harness/core/scripts/memory-gate.sh
-   ln -s ../../turborepo-agent-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit   # and/or add to CI
+    chmod +x .agents/turborepo-agent-harness/scripts/memory-gate.sh
+    ln -s ../../.agents/turborepo-agent-harness/scripts/memory-gate.sh .git/hooks/pre-commit   # and/or add to CI
    ```
 
 ## Verify
@@ -55,11 +55,11 @@ config. Read `../../INSTALL.md` first (core must be installed before any adapter
 opencode --help >/dev/null 2>&1 && echo "opencode present"
 
 # the update-check command resolves its engine
-test -x turborepo-agent-harness/core/scripts/harness-update.sh \
-  && bash turborepo-agent-harness/core/scripts/harness-update.sh current
+test -x .agents/turborepo-agent-harness/scripts/harness-update.sh \
+  && bash .agents/turborepo-agent-harness/scripts/harness-update.sh current
 
 # the hard gate blocks a task dir missing 3_memory.md, passes once present
-bash turborepo-agent-harness/core/scripts/memory-gate.sh; echo "exit=$?"
+bash .agents/turborepo-agent-harness/scripts/memory-gate.sh; echo "exit=$?"
 
 # commands register: start opencode, type `/tah-update` and `/tah-build`
 ```

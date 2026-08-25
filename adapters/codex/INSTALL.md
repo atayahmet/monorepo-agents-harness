@@ -10,7 +10,7 @@ for the mandatory-parity rule and semantic differences.
 | Harness capability | Core (agent-agnostic) | This adapter |
 |---|---|---|
 | Rules / instructions | root `AGENTS.md` | — (read natively by Codex) |
-| Plan/spec/memory + turborepo templates | `core/skills/**/SKILL.md` | copied into `.agents/skills/` (auto-registration) |
+| Plan/spec/memory + turborepo templates | `.agents/turborepo-agent-harness/skills/**/SKILL.md` | symlinked from `.agents/turborepo-agent-harness/skills/` into `.agents/skills/` (auto-registration) |
 | Plan/spec reminder (start of impl.) | — | `PostToolUse[update_plan]` hook (`systemMessage` reminder) |
 | Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.agents/skills/tah-build/SKILL.md` → `/tah-build` |
 | Session-start reminder | — | `SessionStart` hook (`additionalContext` reminder) |
@@ -50,28 +50,24 @@ the bundle under a different path (and update the script path in `.codex/hooks.j
    `/hooks` in the Codex TUI and trust them (or use `--dangerously-bypass-hook-trust` for one-off
    automation).
 
-4. **Skills.** Copy (or symlink) the core skills into `.agents/skills/` so Codex auto-registers them
-   — frontmatter (`name`, `description`) must stay intact. Also copy the adapter's update-check
-   skill:
+4. **Skills.** Symlink the shared runtime skills into `.agents/skills/` so Codex
+   auto-registers them — frontmatter (`name`, `description`) must stay intact. Copy
+   the adapter-specific skills (`tah-build`, `tah-update`) because they are not
+   shared across agents:
    ```bash
    mkdir -p .agents/skills
-   cp -R "$BUNDLE/core/skills/agent-workflow" .agents/skills/
-   cp -R "$BUNDLE/core/skills/turborepo"      .agents/skills/
+   ln -s "../turborepo-agent-harness/skills/agent-workflow" .agents/skills/agent-workflow
+   ln -s "../turborepo-agent-harness/skills/turborepo"      .agents/skills/turborepo
    cp -R "$BUNDLE/adapters/codex/.agents/skills/tah-update" .agents/skills/
    cp -R "$BUNDLE/adapters/codex/.agents/skills/tah-build"  .agents/skills/
-   # symlink alternative (single physical copy):
-   # ln -s "../../$BUNDLE/core/skills/agent-workflow" .agents/skills/agent-workflow
-   # ln -s "../../$BUNDLE/core/skills/turborepo"      .agents/skills/turborepo
-   # ln -s "../../$BUNDLE/adapters/codex/.agents/skills/tah-update" .agents/skills/tah-update
-   # ln -s "../../$BUNDLE/adapters/codex/.agents/skills/tah-build"  .agents/skills/tah-build
    ```
 
 5. **Install the universal hard gate** (this is what makes the memory-gate real on Codex — the
    `Stop` hook can only remind, not block):
    ```bash
-   chmod +x "$BUNDLE/core/scripts/memory-gate.sh"
-   ln -s ../../turborepo-agent-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit
-   # …and/or add `bash turborepo-agent-harness/core/scripts/memory-gate.sh` to CI.
+    chmod +x "$ROOT/.agents/turborepo-agent-harness/scripts/memory-gate.sh"
+    ln -s ../../.agents/turborepo-agent-harness/scripts/memory-gate.sh .git/hooks/pre-commit
+    # …and/or add `bash .agents/turborepo-agent-harness/scripts/memory-gate.sh` to CI.
    ```
 
 The hooks are independent and fail-open (missing `jq`/git root/bundle → exit 0, no block), so they
@@ -93,7 +89,7 @@ head -3 .agents/skills/tah-update/SKILL.md
 head -3 .agents/skills/tah-build/SKILL.md
 
 # d) update-check command resolves its engine
-bash turborepo-agent-harness/core/scripts/harness-update.sh current
+bash .agents/turborepo-agent-harness/scripts/harness-update.sh current
 ```
 
 **End-to-end check of the memory-gate** (the core enforcement). Simulate a fabricated task dir for
@@ -101,15 +97,16 @@ today:
 
 ```bash
 BUNDLE="turborepo-agent-harness"
+ROOT="$(git rev-parse --show-toplevel)"
 TODAY="$(date +%Y_%m_%d)"
 mkdir -p apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 
-bash "$BUNDLE/core/scripts/memory-gate.sh"; echo "exit=$?"
+bash "$ROOT/.agents/turborepo-agent-harness/scripts/memory-gate.sh"; echo "exit=$?"
 #   expect: exit=1 — 2_spec.md and 3_memory.md are missing
 
 : > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/2_spec.md
 : > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/3_memory.md
-bash "$BUNDLE/core/scripts/memory-gate.sh"; echo "exit=$?"
+bash "$ROOT/.agents/turborepo-agent-harness/scripts/memory-gate.sh"; echo "exit=$?"
 #   expect: exit=0 (gate satisfied)
 
 rm -rf apps/web/.agents/artifacts/task_${TODAY}_smoke_test

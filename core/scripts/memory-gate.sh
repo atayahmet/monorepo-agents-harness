@@ -14,8 +14,8 @@
 # This is the universal replacement for agent-specific stop-hooks on agents that cannot block
 # their own stop — wire the default mode as a git pre-commit hook and/or CI step.
 #
-#   git pre-commit:  ln -s ../../turborepo-agent-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit
-#   CI:              bash turborepo-agent-harness/core/scripts/memory-gate.sh
+#   git pre-commit:  ln -s ../../.agents/turborepo-agent-harness/scripts/memory-gate.sh .git/hooks/pre-commit
+#   CI:              bash .agents/turborepo-agent-harness/scripts/memory-gate.sh
 #   Claude Stop hook: see adapters/claude-code/.claude/settings.json
 
 set -euo pipefail

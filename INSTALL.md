@@ -56,29 +56,41 @@ workspace).
 ## 3. Bundle contents
 
 ```
-turborepo-agent-harness/
-├── INSTALL.md                                  # this guide (core + adapter phases)
-├── PORTABILITY.md                              # capability matrix + authoring new adapters
-├── core/root-AGENTS.md                         # TEMPLATE root instructions — single source of truth (placeholders)
-├── core/                                       # ★ agent-neutral — identical for every agent
+turborepo-agent-harness/                          # bundle source — copied once, then upgraded in place
+├── INSTALL.md                                    # this guide (core + adapter phases)
+├── PORTABILITY.md                                # capability matrix + authoring new adapters
+├── core/root-AGENTS.md                           # TEMPLATE root instructions — single source of truth (placeholders)
+├── core/                                         # ★ agent-neutral — identical for every agent
+│   ├── VERSION
 │   ├── skills/
-│   │   ├── agent-workflow/SKILL.md             # plan/spec/memory templates (fixed paths, no placeholders)
-│   │   └── turborepo/**                        # generic Turborepo skill (verbatim, no edits)
+│   │   ├── agent-workflow/SKILL.md               # plan/spec/memory templates
+│   │   ├── harness-update/SKILL.md               # upgrade workflow instructions
+│   │   └── turborepo/**                          # generic Turborepo skill
 │   ├── scripts/
-│   │   ├── memory-gate.sh                      # HARD gate: scans apps/*/.agents/artifacts + packages/*/.agents/artifacts
-│   │   ├── harness-update.sh                   # version engine: current/latest/check vs upstream
-│   │   └── scaffold-workspace-agents.sh        # creates <workspace>/.agents/ + artifacts/{index.md,AGENTS.md} seeds
-│   ├── workspace-agents-template/              # PER-WORKSPACE working-state seed
-│   │   ├── session-log.md                      # stub → <workspace>/.agents/session-log.md
-│   │   ├── lessons.md                          # stub → <workspace>/.agents/lessons.md
-│   │   └── todo.md                             # stub → <workspace>/.agents/todo.md
-│   └── governance/artifacts/                   # indexing rules + seeds for <workspace>/.agents/artifacts/
-│       ├── AGENTS.md                           # indexing rules for every <workspace>/.agents/artifacts/index.md
-│       ├── workspace-AGENTS.md                 # pointer seeded into each <workspace>/.agents/artifacts/AGENTS.md
-│       └── index-template.md                   # seed for each <workspace>/.agents/artifacts/index.md
-└── adapters/                                   # ★ per-agent enforcement — install the ones you use
-    ├── claude-code/                            # .claude/settings.json hooks + root CLAUDE.md pointer + README.md
-    └── opencode/                               # opencode.jsonc + .opencode/commands/* + README.md
+│   │   ├── memory-gate.sh                        # HARD gate
+│   │   ├── harness-update.sh                     # version engine
+│   │   └── scaffold-workspace-agents.sh          # workspace seeding
+│   ├── workspace-agents-template/                # PER-WORKSPACE working-state seed
+│   ├── governance/artifacts/                     # indexing rules + seeds
+│   └── root-AGENTS.md
+└── adapters/                                     # ★ per-agent enforcement wiring
+    ├── claude-code/
+    ├── codex/
+    └── opencode/
+
+.agents/turborepo-agent-harness/                  # shared runtime directory (0.3.0+)
+├── VERSION                                       # installed harness version
+├── skills/                                       # symlinks to core/skills/**
+│   ├── agent-workflow -> ../../../turborepo-agent-harness/core/skills/agent-workflow
+│   ├── harness-update -> ../../../turborepo-agent-harness/core/skills/harness-update
+│   └── turborepo      -> ../../../turborepo-agent-harness/core/skills/turborepo
+├── scripts/                                      # symlinks to core/scripts/**
+│   ├── memory-gate.sh
+│   ├── harness-update.sh
+│   └── scaffold-workspace-agents.sh
+├── governance/                                   # symlink to core/governance
+├── workspace-agents-template/                    # symlink to core/workspace-agents-template
+└── root-AGENTS.md                                # symlink to core/root-AGENTS.md
 ```
 
 ---
@@ -89,20 +101,44 @@ Let `ROOT` = target repo root.
 
 1. **Copy the bundle** into the target repo root as `turborepo-agent-harness/` (keep the name —
    adapter configs and scripts reference it; if you rename it, adjust those references).
-2. **Copy `core/root-AGENTS.md`** to `ROOT/AGENTS.md` (merge by hand if one exists — it is the
+2. **Create the shared runtime directory** under `.agents/turborepo-agent-harness/` and populate it
+   with symlinks to the agent-neutral files in the bundle. This is the single copy every adapter
+   references at runtime:
+   ```bash
+   mkdir -p .agents/turborepo-agent-harness/{skills,scripts}
+
+   # version file (read by the update engine and adapters)
+   cp turborepo-agent-harness/core/VERSION .agents/turborepo-agent-harness/VERSION
+
+   # shared skills
+   ln -s ../../../turborepo-agent-harness/core/skills/agent-workflow .agents/turborepo-agent-harness/skills/agent-workflow
+   ln -s ../../../turborepo-agent-harness/core/skills/harness-update .agents/turborepo-agent-harness/skills/harness-update
+   ln -s ../../../turborepo-agent-harness/core/skills/turborepo      .agents/turborepo-agent-harness/skills/turborepo
+
+   # shared scripts
+   ln -s ../../../turborepo-agent-harness/core/scripts/memory-gate.sh .agents/turborepo-agent-harness/scripts/memory-gate.sh
+   ln -s ../../../turborepo-agent-harness/core/scripts/harness-update.sh .agents/turborepo-agent-harness/scripts/harness-update.sh
+   ln -s ../../../turborepo-agent-harness/core/scripts/scaffold-workspace-agents.sh .agents/turborepo-agent-harness/scripts/scaffold-workspace-agents.sh
+
+   # governance docs + workspace template
+   ln -s ../../turborepo-agent-harness/core/governance .agents/turborepo-agent-harness/governance
+   ln -s ../../turborepo-agent-harness/core/workspace-agents-template .agents/turborepo-agent-harness/workspace-agents-template
+   ln -s ../../turborepo-agent-harness/core/root-AGENTS.md .agents/turborepo-agent-harness/root-AGENTS.md
+   ```
+3. **Copy `core/root-AGENTS.md`** to `ROOT/AGENTS.md` (merge by hand if one exists — it is the
    single source of truth every agent reads natively). On every upgrade, compare your project's
    `AGENTS.md` against the fresh `core/root-AGENTS.md` and merge changes manually; the harness never
    auto-merges this file to avoid overwriting your project-specific rules.
-3. **Scaffold per-workspace state**:
+4. **Scaffold per-workspace state**:
    ```bash
-   bash turborepo-agent-harness/core/scripts/scaffold-workspace-agents.sh
+   bash .agents/turborepo-agent-harness/scripts/scaffold-workspace-agents.sh
    ```
    For every app and package it creates `.agents/{session-log,lessons,todo}.md` plus the task tree
    `.agents/artifacts/{index.md,AGENTS.md}` (empty searchable index + rules pointer). The agent
    reads these *before* each task and writes its `todo.md` there (see `AGENTS.md` "Before You
    Start"). Re-run after adding any workspace.
-4. **Resolve placeholders** (§6).
-5. **Verify** (§8), then **commit** the core install as its own change.
+5. **Resolve placeholders** (§6).
+6. **Verify** (§8), then **commit** the core install as its own change.
 
 ## 5. Phase 2 — Adapter install (pick your agent(s))
 
@@ -126,10 +162,10 @@ stop, MUST) be wired without any agent support:
 
 ```bash
 # as a git pre-commit hook
-ln -s ../../turborepo-agent-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit
-chmod +x turborepo-agent-harness/core/scripts/memory-gate.sh
+ln -s ../../.agents/turborepo-agent-harness/scripts/memory-gate.sh .git/hooks/pre-commit
+chmod +x .agents/turborepo-agent-harness/scripts/memory-gate.sh
 # …or as a CI step
-bash turborepo-agent-harness/core/scripts/memory-gate.sh
+bash .agents/turborepo-agent-harness/scripts/memory-gate.sh
 ```
 
 Each adapter also ships a harness update command: `/tah:update` for claude-code,
@@ -175,9 +211,11 @@ Run these from the target repo root after Phase 1:
 
 ```bash
 BUNDLE="turborepo-agent-harness"
+RUNTIME=".agents/turborepo-agent-harness"
 
 # a) core scripts have no syntax errors
 for f in "$BUNDLE"/core/scripts/*.sh; do bash -n "$f" && echo "$f OK"; done
+for f in "$RUNTIME"/scripts/*.sh; do bash -n "$f" && echo "$f OK"; done
 
 # b) no unresolved placeholders remain in the installed copies
 ! grep -rn '{{PROJECT_NAME}}\|{{PROJECT_GOTCHAS}}' AGENTS.md \
@@ -189,6 +227,9 @@ for d in apps/* packages/*; do
   [ -f "$d/.agents/artifacts/index.md" ] || echo "missing index seed: $d"
 done
 echo "seed check done"
+
+# d) runtime symlinks resolve
+ls -l "$RUNTIME"/skills/ "$RUNTIME"/scripts/
 ```
 
 **End-to-end check of the memory-gate** (the core enforcement, agent-free default mode).
@@ -198,12 +239,12 @@ Simulate a fabricated task dir for today:
 TODAY="$(date +%Y_%m_%d)"
 mkdir -p apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 
-bash turborepo-agent-harness/core/scripts/memory-gate.sh; echo "exit=$?"
+bash .agents/turborepo-agent-harness/scripts/memory-gate.sh; echo "exit=$?"
 #   expect: exit=1 — 2_spec.md and 3_memory.md are missing
 
 : > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/2_spec.md
 : > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/3_memory.md
-bash turborepo-agent-harness/core/scripts/memory-gate.sh; echo "exit=$?"
+bash .agents/turborepo-agent-harness/scripts/memory-gate.sh; echo "exit=$?"
 #   expect: exit=0 (gate satisfied)
 
 rm -rf apps/web/.agents/artifacts/task_${TODAY}_smoke_test
@@ -237,16 +278,18 @@ If the first run exits 1 and the second exits 0, the core is live. Adapter-speci
 
 ## 10. Updating the harness
 
-The bundle is versioned (`core/VERSION`, SemVer; upstream:
-`https://github.com/atayahmet/turborepo-agent-harness`, overridable via `HARNESS_UPSTREAM`). Every
-release documents behavior changes in `CHANGELOG.md` under **Upgrade Notes**, and the actual upgrade
-steps are described in `changelogs/version-X.Y.Z.md` prompts for the active agent to read and apply.
+The harness is versioned at `.agents/turborepo-agent-harness/VERSION` (SemVer; upstream:
+`https://github.com/atayahmet/turborepo-agent-harness`, overridable via `HARNESS_UPSTREAM`). The
+bundle (`turborepo-agent-harness/core/VERSION`) is the source of truth during upgrades; the active
+agent copies the new version file into `.agents/turborepo-agent-harness/VERSION`. Every release
+documents behavior changes in `CHANGELOG.md` under **Upgrade Notes**, and the actual upgrade steps
+are described in `changelogs/version-X.Y.Z.md` prompts for the active agent to read and apply.
 
 **Check** (manual, or via the agent command):
 
 ```bash
-bash turborepo-agent-harness/core/scripts/harness-update.sh check          # exit: 0 current · 1 outdated · 2 unknown
-bash turborepo-agent-harness/core/scripts/harness-update.sh check --json   # {"installed","latest","status","upstream"}
+bash .agents/turborepo-agent-harness/scripts/harness-update.sh check          # exit: 0 current · 1 outdated · 2 unknown
+bash .agents/turborepo-agent-harness/scripts/harness-update.sh check --json   # {"installed","latest","status","upstream"}
 ```
 
 Or ask your agent: `/tah:update` (claude-code) /

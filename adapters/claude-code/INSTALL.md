@@ -9,7 +9,7 @@ registration. Read `../../INSTALL.md` first (core must be installed before any a
 | Harness capability | Core (agent-agnostic) | This adapter |
 |---|---|---|
 | Rules / instructions | `AGENTS.md` (native to Claude Code) | root `CLAUDE.md` = thin `@AGENTS.md` pointer |
-| Plan/spec/memory + turborepo templates | `core/skills/**/SKILL.md` | copied into `.claude/skills/` (auto-registration) |
+| Plan/spec/memory + turborepo templates | `core/skills/**/SKILL.md` | symlinked from `.agents/turborepo-agent-harness/skills/` into `.claude/skills/` (auto-registration) |
 | Plan/spec reminder (plan-mode exit) | — | `PostToolUse[ExitPlanMode]` hook (inline reminder) |
 | Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.claude/commands/tah-build.md` → `/tah-build` |
 | Memory-gate | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (**hard block**) |
@@ -34,16 +34,15 @@ vendored the bundle under a different path (and update the two script paths in
    [ -f "$BUNDLE/adapters/claude-code/package.json" ] && (cd "$BUNDLE/adapters/claude-code" && npm install)
    ```
 
-2. **Skills.** Copy (or symlink) the core skills into `.claude/skills/` so Claude Code
-   auto-registers them — frontmatter (`name`, `description`) must stay intact:
+2. **Skills.** Symlink the shared runtime skills into `.claude/skills/` so Claude
+   Code auto-registers them — frontmatter (`name`, `description`) must stay intact:
    ```bash
    mkdir -p .claude/skills
-   cp -R "$BUNDLE/core/skills/agent-workflow" .claude/skills/
-   cp -R "$BUNDLE/core/skills/turborepo" .claude/skills/
-   # symlink alternative (single physical copy):
-   # ln -s "../../$BUNDLE/core/skills/agent-workflow" .claude/skills/agent-workflow
-   # ln -s "../../$BUNDLE/core/skills/turborepo" .claude/skills/turborepo
+   ln -s "../../.agents/turborepo-agent-harness/skills/agent-workflow" .claude/skills/agent-workflow
+   ln -s "../../.agents/turborepo-agent-harness/skills/turborepo" .claude/skills/turborepo
    ```
+   The shared skills live under `.agents/turborepo-agent-harness/skills/` as
+   symlinks into the bundle; each agent links to that single runtime copy.
 
 3. **Hooks.** No `.claude/settings.json` yet → copy `adapters/claude-code/.claude/settings.json`.
    Already have one → merge the two hook blocks in without clobbering existing hooks:
@@ -94,7 +93,7 @@ head -3 .claude/skills/turborepo/SKILL.md
 
 # c) commands resolve their engines
 ls .claude/commands/tah-build.md .claude/commands/tah/update.md
-bash turborepo-agent-harness/core/scripts/harness-update.sh current
+bash .agents/turborepo-agent-harness/scripts/harness-update.sh current
 ```
 
 **End-to-end check of the memory-gate** (the core enforcement). Simulate the `Stop` hook
@@ -102,14 +101,15 @@ against a fabricated task dir for today:
 
 ```bash
 BUNDLE="turborepo-agent-harness"
+ROOT="$(git rev-parse --show-toplevel)"
 TODAY="$(date +%Y_%m_%d)"
 mkdir -p apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 
-bash "$BUNDLE/core/scripts/memory-gate.sh" --json; echo "exit=$?"
+bash "$ROOT/.agents/turborepo-agent-harness/scripts/memory-gate.sh" --json; echo "exit=$?"
 #   expect: {"decision":"block", ...} because 3_memory.md is missing
 
 : > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/3_memory.md
-bash "$BUNDLE/core/scripts/memory-gate.sh" --json; echo "exit=$?"
+bash "$ROOT/.agents/turborepo-agent-harness/scripts/memory-gate.sh" --json; echo "exit=$?"
 #   expect: no output, exit=0 (gate satisfied)
 
 rm -rf apps/web/.agents/artifacts/task_${TODAY}_smoke_test
