@@ -1,7 +1,7 @@
-# turborepo-agent-harness — Agent Guidelines
+# monorepo-agents-harness — Agent Guidelines
 
 This repository is the **agent harness template** itself. It produces the bundle that other
-Turborepo projects install under `turborepo-agent-harness/`. Treat every change here as a
+monorepo projects install under `monorepo-agents-harness/`. Treat every change here as a
 change to a reusable template, not to a single application.
 
 ## Critical Gotchas
@@ -103,7 +103,7 @@ This repo has a Turborepo-shaped layout but exists to ship the harness template.
 | ----- | --------- |
 | Workspace artifact indexing | `core/governance/artifacts/AGENTS.md` |
 | Plan/spec/memory workflow | `core/skills/agent-workflow/SKILL.md` |
-| Turborepo guidance | `core/skills/turborepo/SKILL.md` |
+| Monorepo guidance | `core/skills/monorepo/SKILL.md` |
 | Portability / adapter rules | `adapters/AGENTS.md` |
 
 ## Additional Context Locations

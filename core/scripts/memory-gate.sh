@@ -2,7 +2,7 @@
 # Memory-gate — the HARD enforcement of the plan/spec/memory workflow. Agent-agnostic.
 #
 # Task artifact convention: <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ where
-# <workspace> is any apps/* or packages/* directory.
+# <workspace> is discovered by detect-monorepo-framework.sh (apps/*, packages/*, libs/*, etc.).
 #
 # Two modes:
 #   default (git pre-commit / CI):  exit 1 when today's latest task dir is missing 2_spec.md
@@ -14,8 +14,8 @@
 # This is the universal replacement for agent-specific stop-hooks on agents that cannot block
 # their own stop — wire the default mode as a git pre-commit hook and/or CI step.
 #
-#   git pre-commit:  ln -s ../../.agents/turborepo-agent-harness/scripts/memory-gate.sh .git/hooks/pre-commit
-#   CI:              bash .agents/turborepo-agent-harness/scripts/memory-gate.sh
+#   git pre-commit:  ln -s ../../.agents/monorepo-agents-harness/scripts/memory-gate.sh .git/hooks/pre-commit
+#   CI:              bash .agents/monorepo-agents-harness/scripts/memory-gate.sh
 #   Claude Stop hook: see adapters/claude-code/.claude/settings.json
 
 set -euo pipefail
@@ -25,10 +25,35 @@ JSON_MODE=0
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 TODAY="$(date +%Y_%m_%d)"
+RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.agents/monorepo-agents-harness}"
+BUNDLE_DIR="${BUNDLE_DIR:-$ROOT/monorepo-agents-harness}"
+DETECT_SCRIPT="${DETECT_SCRIPT:-$RUNTIME_DIR/scripts/detect-monorepo-framework.sh}"
+[ ! -x "$DETECT_SCRIPT" ] && DETECT_SCRIPT="$BUNDLE_DIR/core/scripts/detect-monorepo-framework.sh"
 
-# Newest task dir created today across all workspaces (apps and packages).
-LATEST="$(ls -td "$ROOT"/apps/*/.agents/artifacts/task_${TODAY}_* \
-               "$ROOT"/packages/*/.agents/artifacts/task_${TODAY}_* 2>/dev/null | head -1 || true)"
+# Discover workspace directories using the framework detector.
+workspace_parents=()
+if [ -x "$DETECT_SCRIPT" ]; then
+  while IFS= read -r p; do
+    [ -n "$p" ] && workspace_parents+=("$p")
+  done < <("$DETECT_SCRIPT" --workspaces 2>/dev/null || true)
+fi
+# Fallback for unknown frameworks or missing detector.
+if [ "${#workspace_parents[@]}" -eq 0 ]; then
+  workspace_parents=("$ROOT/apps" "$ROOT/packages")
+fi
+
+# Build the list of workspace artifact glob patterns to scan.
+scan_patterns=()
+for parent in "${workspace_parents[@]}"; do
+  [ -d "$parent" ] || continue
+  scan_patterns+=("$parent"/*/.agents/artifacts/task_${TODAY}_*)
+done
+
+# Newest task dir created today across all discovered workspaces.
+LATEST=""
+if [ "${#scan_patterns[@]}" -gt 0 ]; then
+  LATEST="$(ls -td "${scan_patterns[@]}" 2>/dev/null | head -1 || true)"
+fi
 [ -z "$LATEST" ] && exit 0   # no task started today → nothing to enforce
 rel="${LATEST#"$ROOT"/}"
 

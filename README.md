@@ -1,7 +1,7 @@
-# Agent Harness for Turborepo
+# Agent Harness for Monorepos
 
 A portable **plan → spec → memory** workflow harness that makes AI coding agents **auditable and
-self-documenting** in any Turborepo monorepo — with **any agent**: Claude Code, opencode, Cursor,
+self-documenting** in any JavaScript/TypeScript monorepo — with **any agent**: Claude Code, opencode, Cursor,
 Codex, and more.
 
 ## What you get
@@ -35,7 +35,7 @@ mandatory searchable index:
 The bundle is split into a shared core and per-agent adapters:
 
 ```
-turborepo-agent-harness/
+monorepo-agents-harness/
 ├── core/        # agent-neutral: rules, skill templates, enforcement scripts, docs governance
 └── adapters/    # per-agent enforcement wiring — install the ones you use
     ├── claude-code/
@@ -45,9 +45,9 @@ turborepo-agent-harness/
 
 ## Quickstart
 
-From your Turborepo root:
+From your monorepo root:
 
-1. **Copy this bundle** into your repo root as `turborepo-agent-harness/`.
+1. **Copy this bundle** into your repo root as `monorepo-agents-harness/`.
 2. **Install the core** (agent-neutral — same for everyone): copy `core/root-AGENTS.md` to
    `AGENTS.md`, seed the docs governance tree, scaffold per-workspace `.agents/` dirs, resolve
    placeholders.
@@ -61,7 +61,7 @@ From your Turborepo root:
 Whichever adapter you pick, wire the universal hard gate (works even with no agent at all):
 
 ```bash
-ln -s ../../.agents/turborepo-agent-harness/scripts/memory-gate.sh .git/hooks/pre-commit
+ln -s ../../.agents/monorepo-agents-harness/scripts/memory-gate.sh .git/hooks/pre-commit
 ```
 
 ## Adapters
@@ -82,9 +82,10 @@ ln -s ../../.agents/turborepo-agent-harness/scripts/memory-gate.sh .git/hooks/pr
 | [core/root-AGENTS.md](core/root-AGENTS.md)                                 | Template root instructions — the single source of truth copied into target repos as `AGENTS.md` |
 | [core/skills/agent-workflow/SKILL.md](core/skills/agent-workflow/SKILL.md) | Plan/spec/memory file templates                                                            |
 | [core/skills/harness-update/SKILL.md](core/skills/harness-update/SKILL.md) | Update-check / upgrade workflow (shared by both adapter commands)                          |
+| [core/skills/monorepo/SKILL.md](core/skills/monorepo/SKILL.md)             | Monorepo guidance (framework-agnostic + Turborepo/Nx/Lerna/workspaces)                     |
 | [core/governance/artifacts/AGENTS.md](core/governance/artifacts/AGENTS.md) | Task-index format & searchability rules for every `<workspace>/.agents/artifacts/index.md` |
 
 ## Requirements
 
-- A **Turborepo** monorepo with an `apps/*` layout (optionally `packages/*`)
+- A **JavaScript/TypeScript monorepo** (Turborepo, Nx, Lerna, npm/yarn/pnpm workspaces) with an `apps/*` layout (optionally `packages/*` or `libs/*`)
 - `git`; `jq` only if your adapter needs it (claude-code and codex do)

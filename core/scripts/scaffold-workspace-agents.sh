@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Scaffold per-workspace agent state.
 #
-# For every workspace (each `apps/*` and `packages/*` directory), create:
+# For every workspace (discovered via detect-monorepo-framework.sh), create:
 #   .agents/{session-log,lessons,todo}.md   seeded from core/workspace-agents-template/
 #   .agents/artifacts/index.md              task index, seeded from core/governance/artifacts/index-template.md
 #   .agents/artifacts/AGENTS.md             rules pointer, seeded from core/governance/artifacts/workspace-AGENTS.md
@@ -9,7 +9,7 @@
 # Existing files are never overwritten. Run once at install time, and re-run after adding a new
 # workspace.
 #
-#   bash .agents/turborepo-agent-harness/scripts/scaffold-workspace-agents.sh   # from the target repo root
+#   bash .agents/monorepo-agents-harness/scripts/scaffold-workspace-agents.sh   # from the target repo root
 #   SEED=path/to/workspace-agents-template INDEX_TEMPLATE=path/to/index-template.md \
 #   RULES_TEMPLATE=path/to/workspace-AGENTS.md bash .../scaffold-workspace-agents.sh
 #
@@ -20,10 +20,12 @@
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.agents/turborepo-agent-harness}"
-BUNDLE_DIR="${BUNDLE_DIR:-$ROOT/turborepo-agent-harness}"
+RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.agents/monorepo-agents-harness}"
+BUNDLE_DIR="${BUNDLE_DIR:-$ROOT/monorepo-agents-harness}"
+DETECT_SCRIPT="${DETECT_SCRIPT:-$RUNTIME_DIR/scripts/detect-monorepo-framework.sh}"
+[ ! -x "$DETECT_SCRIPT" ] && DETECT_SCRIPT="$BUNDLE_DIR/core/scripts/detect-monorepo-framework.sh"
 
-# Prefer the shared runtime directory (0.3.0+). Fall back to the bundle source
+# Prefer the shared runtime directory (0.4.0+). Fall back to the bundle source
 # during fresh installs before the runtime symlinks are created.
 SEED="${SEED:-$RUNTIME_DIR/workspace-agents-template}"
 if [ ! -d "$SEED" ]; then
@@ -44,10 +46,25 @@ if [ ! -d "$SEED" ]; then
 fi
 
 created=0
-for ws in "$ROOT"/apps/*/ "$ROOT"/packages/*/; do
-  [ -d "$ws" ] || continue
-  dest="${ws%/}/.agents"
-  mkdir -p "$dest"
+
+# Discover workspace directories using the framework detector.
+workspace_parents=()
+if [ -x "$DETECT_SCRIPT" ]; then
+  while IFS= read -r p; do
+    [ -n "$p" ] && workspace_parents+=("$p")
+  done < <("$DETECT_SCRIPT" --workspaces 2>/dev/null || true)
+fi
+# Fallback for unknown frameworks or missing detector.
+if [ "${#workspace_parents[@]}" -eq 0 ]; then
+  workspace_parents=("$ROOT/apps" "$ROOT/packages")
+fi
+
+for parent in "${workspace_parents[@]}"; do
+  [ -d "$parent" ] || continue
+  for ws in "$parent"/*/; do
+    [ -d "$ws" ] || continue
+    dest="${ws%/}/.agents"
+    mkdir -p "$dest"
   for f in session-log.md lessons.md todo.md; do
     if [ ! -e "$dest/$f" ]; then
       cp "$SEED/$f" "$dest/$f"
@@ -68,6 +85,7 @@ for ws in "$ROOT"/apps/*/ "$ROOT"/packages/*/; do
       echo "  + ${dest#"$ROOT"/}/artifacts/$out"
     fi
   done
+done
 done
 
 echo "scaffolded $created workspace-agents file(s)."

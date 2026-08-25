@@ -5,6 +5,6 @@ directories cataloged by `index.md`. **`index.md` is the entry point** — read 
 task dirs, and update it in the SAME commit as any task-dir add/update/delete.
 
 Full indexing rules and formats:
-`.agents/turborepo-agent-harness/governance/artifacts/AGENTS.md`
+`.agents/monorepo-agents-harness/governance/artifacts/AGENTS.md`
 
-<!-- Seeded by .agents/turborepo-agent-harness/scripts/scaffold-workspace-agents.sh — keep this pointer file. -->
+<!-- Seeded by .agents/monorepo-agents-harness/scripts/scaffold-workspace-agents.sh — keep this pointer file. -->

@@ -24,6 +24,48 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.4.0] - 2026-08-25
+
+### Added
+
+- New `core/scripts/detect-monorepo-framework.sh` that detects the target repo's monorepo
+  framework from repo markers (`turbo.json`, `nx.json`, `lerna.json`, `pnpm-workspace.yaml`,
+  `package.json` `workspaces`).
+- Generic `core/skills/monorepo/SKILL.md` covering framework-agnostic monorepo principles and
+  Turborepo, Nx, Lerna, and npm/yarn/pnpm workspaces.
+
+### Changed
+
+- **Renamed the project from `turborepo-agent-harness` to `monorepo-agents-harness`.** Every
+  reference to the bundle directory, runtime directory, upstream URL, docs, scripts, and adapter
+  configs now uses the new name.
+- **Replaced the Turborepo-specific skill with a generic monorepo skill.** The old
+  `core/skills/turborepo/` directory is removed; its guidance is folded into
+  `core/skills/monorepo/SKILL.md`.
+- `core/scripts/scaffold-workspace-agents.sh` and `core/scripts/memory-gate.sh` now use the
+  framework detector to discover workspace directories (`apps/`, `packages/`, `libs/`, or custom
+  workspace globs from `lerna.json` / `pnpm-workspace.yaml` / `package.json`).
+- `core/root-AGENTS.md` is now framework-agnostic and includes a `{{MONOREPO_FRAMEWORK}}`
+  placeholder that is filled at install time from the detector output.
+
+### Removed
+
+- `core/skills/turborepo/` and all its reference files.
+
+### Upgrade Notes
+
+- Follow `changelogs/version-0.4.0.md` to migrate existing installs. Key steps:
+  - Rename the installed bundle directory from `turborepo-agent-harness/` to
+    `monorepo-agents-harness/`.
+  - Update `.agents/turborepo-agent-harness/` to `.agents/monorepo-agents-harness/` and re-create
+    the runtime symlinks (including the new `monorepo` skill and
+    `detect-monorepo-framework.sh`).
+  - Update `.claude/settings.json`, `opencode.jsonc`, and `.codex/hooks.json` to point at the new
+    `.agents/monorepo-agents-harness/` paths.
+  - Replace `.claude/skills/turborepo` and `.agents/skills/turborepo` symlinks with `monorepo`.
+  - Fill `{{MONOREPO_FRAMEWORK}}` in your project's root `AGENTS.md`.
+  - Re-link `.git/hooks/pre-commit` to `.agents/monorepo-agents-harness/scripts/memory-gate.sh`.
+
 ## [0.3.0] - 2026-08-25
 
 ### Changed
@@ -140,7 +182,8 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/turborepo-agent-harness/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.4.0
 [0.3.0]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.3.0
 [0.2.2]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.2.2
 [0.2.1]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.2.1

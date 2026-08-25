@@ -3,9 +3,9 @@ description: Compare the installed agent-harness version against upstream and, w
 ---
 
 Follow the shared instructions in
-`.agents/turborepo-agent-harness/skills/harness-update/SKILL.md` exactly:
+`.agents/monorepo-agents-harness/skills/harness-update/SKILL.md` exactly:
 
-1. Run `bash .agents/turborepo-agent-harness/scripts/harness-update.sh check --json`.
+1. Run `bash .agents/monorepo-agents-harness/scripts/harness-update.sh check --json`.
 2. Report the result (and CHANGELOG highlights when outdated).
 3. Ask for explicit consent before any upgrade; on consent clone the new bundle and apply the
    upgrade by following the `changelogs/version-X.Y.Z.md` prompts in the downloaded bundle.

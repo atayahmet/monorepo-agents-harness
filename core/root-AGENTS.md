@@ -1,5 +1,5 @@
 <!--
-  TEMPLATE — root AGENTS.md for a Turborepo project using the agent harness.
+  TEMPLATE — root AGENTS.md for a monorepo project using the agent harness.
   This is the SINGLE SOURCE OF TRUTH for agent instructions — every agent reads it natively
   (Claude Code, opencode, Cursor, Codex, ...). Claude Code users additionally get a thin root
   CLAUDE.md that just imports this file (see adapters/claude-code/).
@@ -12,7 +12,7 @@
 
 # {{PROJECT_NAME}} — Agent Guidelines
 
-A Turborepo-managed monorepo with multiple workspaces under `apps/` and `packages/`.
+A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/` and `packages/`.
 
 ## Critical Gotchas
 
@@ -20,8 +20,10 @@ A Turborepo-managed monorepo with multiple workspaces under `apps/` and `package
 1. **(example) Respect module boundaries.** Cross-module communication goes through a defined public
    port; never import concrete implementations from another module directly.
 
-2. **Always run the narrowest workspace-scoped verification command first.** Use
-   `pnpm --filter <workspace>` or `turbo run <task> --filter=<workspace>` before widening scope.
+2. **Always run the narrowest workspace-scoped verification command first.** Use the
+   package-manager / framework filter for `<workspace>` before widening scope (e.g.
+   `pnpm --filter <workspace>`, `turbo run <task> --filter=<workspace>`,
+   `nx run-many -t <task> --projects=<workspace>`, or `yarn workspace <workspace>`).
 
 3. **Commits are mandatory at the end of any file-changing task** unless the user explicitly opts out.
 
@@ -37,7 +39,7 @@ A Turborepo-managed monorepo with multiple workspaces under `apps/` and `package
 
 ## Before You Start — Mandatory Checklist
 
-- [ ] Resolve the **target workspace** (`apps/<name>` or `packages/<name>`) — see Workspace Routing below.
+- [ ] Resolve the **target workspace** (`apps/<name>`, `packages/<name>`, or the equivalent for the detected framework) — see Workspace Routing below.
 - [ ] Read `<target-workspace>/.agents/session-log.md`, bump version, write an entry — include the session's **artifact dir** path (`<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/`).
 - [ ] Read `<target-workspace>/.agents/lessons.md`.
 - [ ] Write `<target-workspace>/.agents/todo.md` plan.
@@ -49,8 +51,8 @@ A Turborepo-managed monorepo with multiple workspaces under `apps/` and `package
 > `artifacts/` task tree with its mandatory searchable `index.md`) live under **each**
 > `apps/<name>/.agents/` and `packages/<name>/.agents/` — never at the repo root. Always read and
 > write the ones belonging to the workspace your task targets. Seed new workspaces from
-> `.agents/turborepo-agent-harness/workspace-agents-template/` (or run
-> `.agents/turborepo-agent-harness/scripts/scaffold-workspace-agents.sh`).
+> `.agents/monorepo-agents-harness/workspace-agents-template/` (or run
+> `.agents/monorepo-agents-harness/scripts/scaffold-workspace-agents.sh`).
 
 ## Core Principles
 
@@ -62,7 +64,7 @@ A Turborepo-managed monorepo with multiple workspaces under `apps/` and `package
 
 ## Workspace Routing & Execution
 
-This is a Turborepo monorepo. Default context is the repository root.
+This is a {{MONOREPO_FRAMEWORK}} monorepo. Default context is the repository root.
 
 **Target styles:** `apps/<name>`, `packages/<name>`, workspace package name, or short aliases.
 
@@ -77,7 +79,8 @@ This is a Turborepo monorepo. Default context is the repository root.
 **Execution style:**
 
 - Do not require the user to `cd` into a workspace.
-- Prefer the narrowest verification scope first: `pnpm --filter <workspace>` or `turbo run <task> --filter=<workspace>`.
+- Prefer the narrowest verification scope first: use the detected framework's filter/run command
+  for `<workspace>`.
 - Expand scope only when dependencies or consumers require it.
 
 **Command-like prompts** (e.g., `/apps/api create endpoint`) are workspace routing metadata, not part of the feature itself.
@@ -85,7 +88,7 @@ This is a Turborepo monorepo. Default context is the repository root.
 ## Agent Lifecycle
 
 1. **Load Context** — Prioritize technical specs, architecture docs, and recent sessions (`<target-workspace>/.agents/session-log.md`).
-2. **Plan Mode** — Enter for any non-trivial task. Write specs upfront. If something goes sideways, stop and re-plan. The `agent-workflow` skill (`.agents/turborepo-agent-harness/skills/agent-workflow/SKILL.md`) produces the plan/spec/memory artifacts.
+2. **Plan Mode** — Enter for any non-trivial task. Write specs upfront. If something goes sideways, stop and re-plan. The `agent-workflow` skill (`.agents/monorepo-agents-harness/skills/agent-workflow/SKILL.md`) produces the plan/spec/memory artifacts.
 3. **Subagent Strategy** — Offload research and exploration to subagents. One task per subagent.
 4. **Self-Improvement** — After any user correction: (1) update `<target-workspace>/.agents/lessons.md`; (2) if the correction reveals a module-specific rule, update the relevant workspace instruction file so the mistake is not repeated.
 5. **Verification Before Done** — Never mark complete without proof. Prefer narrowest scope first.
@@ -108,8 +111,8 @@ each one you add. This template ships none — do not link a rule file that does
   plus the task-artifact tree `.agents/artifacts/` (per-task plan/spec/memory dirs + mandatory
   searchable `index.md`). Read before any task targeting that workspace; update the index in the
   same commit as any task-dir change.
-- `.agents/turborepo-agent-harness/governance/artifacts/AGENTS.md` — Indexing rules for every
+- `.agents/monorepo-agents-harness/governance/artifacts/AGENTS.md` — Indexing rules for every
   workspace's `.agents/artifacts/index.md`.
-- `.agents/turborepo-agent-harness/` — Agent-neutral harness runtime: skill templates (`skills/`),
+- `.agents/monorepo-agents-harness/` — Agent-neutral harness runtime: skill templates (`skills/`),
   enforcement scripts (`scripts/`), workspace seeds (`workspace-agents-template/`), governance docs
   (`governance/`).

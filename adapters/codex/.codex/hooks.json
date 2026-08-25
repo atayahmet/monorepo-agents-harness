@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$(git rev-parse --show-toplevel)/.agents/turborepo-agent-harness/scripts/memory-gate.sh\" --json | jq 'if .decision == \"block\" then {\"systemMessage\":(.reason)} else empty end'",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.agents/monorepo-agents-harness/scripts/memory-gate.sh\" --json | jq 'if .decision == \"block\" then {\"systemMessage\":(.reason)} else empty end'",
             "timeout": 30,
             "statusMessage": "Agent-workflow memory-gate check"
           }

@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}/.agents/turborepo-agent-harness/scripts/memory-gate.sh\" --json"
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}/.agents/monorepo-agents-harness/scripts/memory-gate.sh\" --json"
           }
         ]
       }

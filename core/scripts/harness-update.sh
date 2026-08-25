@@ -15,15 +15,15 @@
 #
 # Knobs (env):
 #   HARNESS_UPSTREAM   upstream git URL      default below
-#   BUNDLE_DIR         installed bundle dir  default <repo-root>/turborepo-agent-harness
+#   BUNDLE_DIR         installed bundle dir  default <repo-root>/monorepo-agents-harness
 set -u
 
-DEFAULT_UPSTREAM="https://github.com/atayahmet/turborepo-agent-harness"
+DEFAULT_UPSTREAM="https://github.com/atayahmet/monorepo-agents-harness"
 UPSTREAM="${HARNESS_UPSTREAM:-$DEFAULT_UPSTREAM}"
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-BUNDLE_DIR="${BUNDLE_DIR:-$ROOT/turborepo-agent-harness}"
-RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.agents/turborepo-agent-harness}"
+BUNDLE_DIR="${BUNDLE_DIR:-$ROOT/monorepo-agents-harness}"
+RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.agents/monorepo-agents-harness}"
 VERSION_FILE="$RUNTIME_DIR/VERSION"
 # Fallback to the legacy location for pre-0.3.0 installs during migration.
 LEGACY_VERSION_FILE="$BUNDLE_DIR/core/VERSION"

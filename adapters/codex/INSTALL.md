@@ -10,7 +10,7 @@ for the mandatory-parity rule and semantic differences.
 | Harness capability | Core (agent-agnostic) | This adapter |
 |---|---|---|
 | Rules / instructions | root `AGENTS.md` | — (read natively by Codex) |
-| Plan/spec/memory + turborepo templates | `.agents/turborepo-agent-harness/skills/**/SKILL.md` | symlinked from `.agents/turborepo-agent-harness/skills/` into `.agents/skills/` (auto-registration) |
+| Plan/spec/memory + monorepo templates | `.agents/monorepo-agents-harness/skills/**/SKILL.md` | symlinked from `.agents/monorepo-agents-harness/skills/` into `.agents/skills/` (auto-registration) |
 | Plan/spec reminder (start of impl.) | — | `PostToolUse[update_plan]` hook (`systemMessage` reminder) |
 | Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.agents/skills/tah-build/SKILL.md` → `/tah-build` |
 | Session-start reminder | — | `SessionStart` hook (`additionalContext` reminder) |
@@ -26,7 +26,7 @@ for the mandatory-parity rule and semantic differences.
 
 ## Install steps
 
-Run from the target repo root. `BUNDLE=turborepo-agent-harness` below — adjust if you vendored
+Run from the target repo root. `BUNDLE=monorepo-agents-harness` below — adjust if you vendored
 the bundle under a different path (and update the script path in `.codex/hooks.json` accordingly).
 
 1. **Adapter dependencies.** If this adapter ships a `package.json`, install its dependencies
@@ -55,9 +55,9 @@ the bundle under a different path (and update the script path in `.codex/hooks.j
    the adapter-specific skills (`tah-build`, `tah-update`) because they are not
    shared across agents:
    ```bash
-   mkdir -p .agents/skills
-   ln -s "../turborepo-agent-harness/skills/agent-workflow" .agents/skills/agent-workflow
-   ln -s "../turborepo-agent-harness/skills/turborepo"      .agents/skills/turborepo
+    mkdir -p .agents/skills
+    ln -s "../monorepo-agents-harness/skills/agent-workflow" .agents/skills/agent-workflow
+    ln -s "../monorepo-agents-harness/skills/monorepo"       .agents/skills/monorepo
    cp -R "$BUNDLE/adapters/codex/.agents/skills/tah-update" .agents/skills/
    cp -R "$BUNDLE/adapters/codex/.agents/skills/tah-build"  .agents/skills/
    ```
@@ -65,9 +65,9 @@ the bundle under a different path (and update the script path in `.codex/hooks.j
 5. **Install the universal hard gate** (this is what makes the memory-gate real on Codex — the
    `Stop` hook can only remind, not block):
    ```bash
-    chmod +x "$ROOT/.agents/turborepo-agent-harness/scripts/memory-gate.sh"
-    ln -s ../../.agents/turborepo-agent-harness/scripts/memory-gate.sh .git/hooks/pre-commit
-    # …and/or add `bash .agents/turborepo-agent-harness/scripts/memory-gate.sh` to CI.
+    chmod +x "$ROOT/.agents/monorepo-agents-harness/scripts/memory-gate.sh"
+    ln -s ../../.agents/monorepo-agents-harness/scripts/memory-gate.sh .git/hooks/pre-commit
+    # …and/or add `bash .agents/monorepo-agents-harness/scripts/memory-gate.sh` to CI.
    ```
 
 The hooks are independent and fail-open (missing `jq`/git root/bundle → exit 0, no block), so they
@@ -84,29 +84,29 @@ jq . .codex/hooks.json >/dev/null && echo "hooks.json OK"
 
 # c) skills are discoverable (frontmatter intact)
 head -3 .agents/skills/agent-workflow/SKILL.md
-head -3 .agents/skills/turborepo/SKILL.md
+head -3 .agents/skills/monorepo/SKILL.md
 head -3 .agents/skills/tah-update/SKILL.md
 head -3 .agents/skills/tah-build/SKILL.md
 
 # d) update-check command resolves its engine
-bash .agents/turborepo-agent-harness/scripts/harness-update.sh current
+bash .agents/monorepo-agents-harness/scripts/harness-update.sh current
 ```
 
 **End-to-end check of the memory-gate** (the core enforcement). Simulate a fabricated task dir for
 today:
 
 ```bash
-BUNDLE="turborepo-agent-harness"
+BUNDLE="monorepo-agents-harness"
 ROOT="$(git rev-parse --show-toplevel)"
 TODAY="$(date +%Y_%m_%d)"
 mkdir -p apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 
-bash "$ROOT/.agents/turborepo-agent-harness/scripts/memory-gate.sh"; echo "exit=$?"
+bash "$ROOT/.agents/monorepo-agents-harness/scripts/memory-gate.sh"; echo "exit=$?"
 #   expect: exit=1 — 2_spec.md and 3_memory.md are missing
 
 : > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/2_spec.md
 : > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/3_memory.md
-bash "$ROOT/.agents/turborepo-agent-harness/scripts/memory-gate.sh"; echo "exit=$?"
+bash "$ROOT/.agents/monorepo-agents-harness/scripts/memory-gate.sh"; echo "exit=$?"
 #   expect: exit=0 (gate satisfied)
 
 rm -rf apps/web/.agents/artifacts/task_${TODAY}_smoke_test

@@ -21,7 +21,7 @@ read it before scanning task directories, and keep it searchable (rules below).*
         3_memory.md        <- optional (written at task end)
 ```
 
-Workspaces are seeded by `.agents/turborepo-agent-harness/scripts/scaffold-workspace-agents.sh`
+Workspaces are seeded by `.agents/monorepo-agents-harness/scripts/scaffold-workspace-agents.sh`
 (creates `artifacts/{AGENTS.md,index.md}`); re-run it after adding a workspace.
 
 ## Index format (`<workspace>/.agents/artifacts/index.md`)
