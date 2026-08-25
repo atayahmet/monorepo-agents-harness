@@ -9,7 +9,7 @@
 # Existing files are never overwritten. Run once at install time, and re-run after adding a new
 # workspace.
 #
-#   bash .agents/monorepo-agents-harness/scripts/scaffold-workspace-agents.sh   # from the target repo root
+#   bash .agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh   # from the target repo root
 #   SEED=path/to/workspace-agents-template INDEX_TEMPLATE=path/to/index-template.md \
 #   RULES_TEMPLATE=path/to/workspace-AGENTS.md bash .../scaffold-workspace-agents.sh
 #
@@ -21,21 +21,20 @@ set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.agents/monorepo-agents-harness}"
-BUNDLE_DIR="${BUNDLE_DIR:-$ROOT/monorepo-agents-harness}"
-DETECT_SCRIPT="${DETECT_SCRIPT:-$RUNTIME_DIR/scripts/detect-monorepo-framework.sh}"
+BUNDLE_DIR="${BUNDLE_DIR:-$RUNTIME_DIR}"
+DETECT_SCRIPT="${DETECT_SCRIPT:-$RUNTIME_DIR/core/scripts/detect-monorepo-framework.sh}"
 [ ! -x "$DETECT_SCRIPT" ] && DETECT_SCRIPT="$BUNDLE_DIR/core/scripts/detect-monorepo-framework.sh"
 
-# Prefer the shared runtime directory (0.4.0+). Fall back to the bundle source
-# during fresh installs before the runtime symlinks are created.
-SEED="${SEED:-$RUNTIME_DIR/workspace-agents-template}"
+# The bundle itself lives under .agents/monorepo-agents-harness/ (0.4.1+).
+SEED="${SEED:-$RUNTIME_DIR/core/workspace-agents-template}"
 if [ ! -d "$SEED" ]; then
   SEED="$BUNDLE_DIR/core/workspace-agents-template"
 fi
-INDEX_TEMPLATE="${INDEX_TEMPLATE:-$RUNTIME_DIR/governance/artifacts/index-template.md}"
+INDEX_TEMPLATE="${INDEX_TEMPLATE:-$RUNTIME_DIR/core/governance/artifacts/index-template.md}"
 if [ ! -f "$INDEX_TEMPLATE" ]; then
   INDEX_TEMPLATE="$BUNDLE_DIR/core/governance/artifacts/index-template.md"
 fi
-RULES_TEMPLATE="${RULES_TEMPLATE:-$RUNTIME_DIR/governance/artifacts/workspace-AGENTS.md}"
+RULES_TEMPLATE="${RULES_TEMPLATE:-$RUNTIME_DIR/core/governance/artifacts/workspace-AGENTS.md}"
 if [ ! -f "$RULES_TEMPLATE" ]; then
   RULES_TEMPLATE="$BUNDLE_DIR/core/governance/artifacts/workspace-AGENTS.md"
 fi

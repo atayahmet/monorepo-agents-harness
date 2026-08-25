@@ -2,7 +2,7 @@
 
 A portable **plan → spec → memory** agent harness for **any coding agent** (Claude Code, opencode,
 Cursor, Codex, …), packaged so you can install it into **any JavaScript/TypeScript monorepo project**. This directory
-(`monorepo-agents-harness/`) contains ready-to-copy files; this guide tells you exactly where each
+(`.agents/monorepo-agents-harness/`) contains ready-to-copy files; this guide tells you exactly where each
 one goes and what to edit.
 
 > **Audience:** an agent (or engineer) installing the harness into a target repo. Read this whole
@@ -56,12 +56,15 @@ workspace).
 ## 3. Bundle contents
 
 ```
-monorepo-agents-harness/                          # bundle source — copied once, then upgraded in place
+.agents/monorepo-agents-harness/                  # installed harness (bundle + runtime, 0.4.1+)
+├── VERSION                                       # installed harness version
 ├── INSTALL.md                                    # this guide (core + adapter phases)
 ├── PORTABILITY.md                                # capability matrix + authoring new adapters
-├── core/root-AGENTS.md                           # TEMPLATE root instructions — single source of truth (placeholders)
+├── CHANGELOG.md                                  # release history
+├── changelogs/                                   # per-version upgrade prompts
 ├── core/                                         # ★ agent-neutral — identical for every agent
 │   ├── VERSION
+│   ├── root-AGENTS.md                            # TEMPLATE root instructions (placeholders)
 │   ├── skills/
 │   │   ├── agent-workflow/SKILL.md               # plan/spec/memory templates
 │   │   ├── harness-update/SKILL.md               # upgrade workflow instructions
@@ -72,27 +75,11 @@ monorepo-agents-harness/                          # bundle source — copied onc
 │   │   ├── scaffold-workspace-agents.sh          # workspace seeding
 │   │   └── detect-monorepo-framework.sh          # framework detector
 │   ├── workspace-agents-template/                # PER-WORKSPACE working-state seed
-│   ├── governance/artifacts/                     # indexing rules + seeds
-│   └── root-AGENTS.md
+│   └── governance/artifacts/                     # indexing rules + seeds
 └── adapters/                                     # ★ per-agent enforcement wiring
     ├── claude-code/
     ├── codex/
     └── opencode/
-
-.agents/monorepo-agents-harness/                  # shared runtime directory (0.3.0+)
-├── VERSION                                       # installed harness version
-├── skills/                                       # symlinks to core/skills/**
-│   ├── agent-workflow -> ../../../monorepo-agents-harness/core/skills/agent-workflow
-│   ├── harness-update -> ../../../monorepo-agents-harness/core/skills/harness-update
-│   └── monorepo       -> ../../../monorepo-agents-harness/core/skills/monorepo
-├── scripts/                                      # symlinks to core/scripts/**
-│   ├── memory-gate.sh
-│   ├── harness-update.sh
-│   ├── scaffold-workspace-agents.sh
-│   └── detect-monorepo-framework.sh
-├── governance/                                   # symlink to core/governance
-├── workspace-agents-template/                    # symlink to core/workspace-agents-template
-└── root-AGENTS.md                                # symlink to core/root-AGENTS.md
 ```
 
 ---
@@ -101,48 +88,31 @@ monorepo-agents-harness/                          # bundle source — copied onc
 
 Let `ROOT` = target repo root.
 
-1. **Copy the bundle** into the target repo root as `monorepo-agents-harness/` (keep the name —
-   adapter configs and scripts reference it; if you rename it, adjust those references).
+1. **Copy the bundle** into `.agents/monorepo-agents-harness/` under the target repo root. This is
+   the only installed harness location; nothing stays at the repo root:
+   ```bash
+   mkdir -p .agents
+   cp -R <path-to-bundle>/. .agents/monorepo-agents-harness/
+   ```
 2. **Detect the monorepo framework**. The detector reads repo markers (`turbo.json`, `nx.json`,
    `lerna.json`, `pnpm-workspace.yaml`, `package.json` `workspaces`) and prints both the framework
    name and the workspace directories:
    ```bash
-   bash monorepo-agents-harness/core/scripts/detect-monorepo-framework.sh
+   bash .agents/monorepo-agents-harness/core/scripts/detect-monorepo-framework.sh
    ```
    Record the framework name (e.g. `turborepo`, `nx`, `pnpm`) — you will fill `{{MONOREPO_FRAMEWORK}}`
    in `AGENTS.md` later.
-3. **Create the shared runtime directory** under `.agents/monorepo-agents-harness/` and populate it
-   with symlinks to the agent-neutral files in the bundle. This is the single copy every adapter
-   references at runtime:
-   ```bash
-   mkdir -p .agents/monorepo-agents-harness/{skills,scripts}
-
-   # version file (read by the update engine and adapters)
-   cp monorepo-agents-harness/core/VERSION .agents/monorepo-agents-harness/VERSION
-
-   # shared skills
-   ln -s ../../../monorepo-agents-harness/core/skills/agent-workflow .agents/monorepo-agents-harness/skills/agent-workflow
-   ln -s ../../../monorepo-agents-harness/core/skills/harness-update .agents/monorepo-agents-harness/skills/harness-update
-   ln -s ../../../monorepo-agents-harness/core/skills/monorepo       .agents/monorepo-agents-harness/skills/monorepo
-
-   # shared scripts
-   ln -s ../../../monorepo-agents-harness/core/scripts/memory-gate.sh .agents/monorepo-agents-harness/scripts/memory-gate.sh
-   ln -s ../../../monorepo-agents-harness/core/scripts/harness-update.sh .agents/monorepo-agents-harness/scripts/harness-update.sh
-   ln -s ../../../monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh .agents/monorepo-agents-harness/scripts/scaffold-workspace-agents.sh
-   ln -s ../../../monorepo-agents-harness/core/scripts/detect-monorepo-framework.sh .agents/monorepo-agents-harness/scripts/detect-monorepo-framework.sh
-
-   # governance docs + workspace template
-   ln -s ../../monorepo-agents-harness/core/governance .agents/monorepo-agents-harness/governance
-   ln -s ../../monorepo-agents-harness/core/workspace-agents-template .agents/monorepo-agents-harness/workspace-agents-template
-   ln -s ../../monorepo-agents-harness/core/root-AGENTS.md .agents/monorepo-agents-harness/root-AGENTS.md
-   ```
+3. **No separate runtime directory is needed.** Because the bundle itself lives under
+   `.agents/monorepo-agents-harness/`, adapters and scripts reference files directly there. Older
+   installs (pre-0.4.1) used a root `monorepo-agents-harness/` bundle plus a symlink tree under
+   `.agents/monorepo-agents-harness/`; if you are migrating, see `changelogs/version-0.4.1.md`.
 4. **Copy `core/root-AGENTS.md`** to `ROOT/AGENTS.md` (merge by hand if one exists — it is the
    single source of truth every agent reads natively). On every upgrade, compare your project's
    `AGENTS.md` against the fresh `core/root-AGENTS.md` and merge changes manually; the harness never
    auto-merges this file to avoid overwriting your project-specific rules.
 5. **Scaffold per-workspace state**:
    ```bash
-   bash .agents/monorepo-agents-harness/scripts/scaffold-workspace-agents.sh
+   bash .agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh
    ```
    For every app and package it creates `.agents/{session-log,lessons,todo}.md` plus the task tree
    `.agents/artifacts/{index.md,AGENTS.md}` (empty searchable index + rules pointer). The agent
@@ -173,10 +143,10 @@ stop, MUST) be wired without any agent support:
 
 ```bash
 # as a git pre-commit hook
-ln -s ../../.agents/monorepo-agents-harness/scripts/memory-gate.sh .git/hooks/pre-commit
-chmod +x .agents/monorepo-agents-harness/scripts/memory-gate.sh
+ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit
+chmod +x .agents/monorepo-agents-harness/core/scripts/memory-gate.sh
 # …or as a CI step
-bash .agents/monorepo-agents-harness/scripts/memory-gate.sh
+bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh
 ```
 
 Each adapter also ships a harness update command: `/tah:update` for claude-code,
@@ -223,20 +193,18 @@ Hand-edit `ROOT/AGENTS.md` (copied from `core/root-AGENTS.md`) to fill `{{PROJEC
 Run these from the target repo root after Phase 1:
 
 ```bash
-BUNDLE="monorepo-agents-harness"
 RUNTIME=".agents/monorepo-agents-harness"
 
 # a) core scripts have no syntax errors
-for f in "$BUNDLE"/core/scripts/*.sh; do bash -n "$f" && echo "$f OK"; done
-for f in "$RUNTIME"/scripts/*.sh; do bash -n "$f" && echo "$f OK"; done
+for f in "$RUNTIME"/core/scripts/*.sh; do bash -n "$f" && echo "$f OK"; done
 
 # b) no unresolved placeholders remain in the installed copies
 ! grep -rn '{{PROJECT_NAME}}\|{{MONOREPO_FRAMEWORK}}\|{{PROJECT_GOTCHAS}}' AGENTS.md \
-  "$BUNDLE"/core/root-AGENTS.md \
+  "$RUNTIME"/core/root-AGENTS.md \
   && echo "no placeholders left"
 
 # c) every workspace got its task-artifact seeds
-for parent in $(bash "$RUNTIME/scripts/detect-monorepo-framework.sh" --workspaces 2>/dev/null); do
+for parent in $(bash "$RUNTIME/core/scripts/detect-monorepo-framework.sh" --workspaces 2>/dev/null); do
   [ -d "$parent" ] || continue
   for d in "$parent"/*/; do
     [ -f "$d/.agents/artifacts/index.md" ] || echo "missing index seed: ${d%/}"
@@ -244,8 +212,8 @@ for parent in $(bash "$RUNTIME/scripts/detect-monorepo-framework.sh" --workspace
 done
 echo "seed check done"
 
-# d) runtime symlinks resolve
-ls -l "$RUNTIME"/skills/ "$RUNTIME"/scripts/
+# d) key runtime files exist
+ls -l "$RUNTIME"/core/scripts/ "$RUNTIME"/core/skills/
 ```
 
 **End-to-end check of the memory-gate** (the core enforcement, agent-free default mode).
@@ -255,12 +223,12 @@ Simulate a fabricated task dir for today:
 TODAY="$(date +%Y_%m_%d)"
 mkdir -p apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 
-bash .agents/monorepo-agents-harness/scripts/memory-gate.sh; echo "exit=$?"
+bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh; echo "exit=$?"
 #   expect: exit=1 — 2_spec.md and 3_memory.md are missing
 
 : > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/2_spec.md
 : > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/3_memory.md
-bash .agents/monorepo-agents-harness/scripts/memory-gate.sh; echo "exit=$?"
+bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh; echo "exit=$?"
 #   expect: exit=0 (gate satisfied)
 
 rm -rf apps/web/.agents/artifacts/task_${TODAY}_smoke_test
@@ -296,16 +264,16 @@ If the first run exits 1 and the second exits 0, the core is live. Adapter-speci
 
 The harness is versioned at `.agents/monorepo-agents-harness/VERSION` (SemVer; upstream:
 `https://github.com/atayahmet/monorepo-agents-harness`, overridable via `HARNESS_UPSTREAM`). The
-bundle (`monorepo-agents-harness/core/VERSION`) is the source of truth during upgrades; the active
-agent copies the new version file into `.agents/monorepo-agents-harness/VERSION`. Every release
-documents behavior changes in `CHANGELOG.md` under **Upgrade Notes**, and the actual upgrade steps
-are described in `changelogs/version-X.Y.Z.md` prompts for the active agent to read and apply.
+bundle (`.agents/monorepo-agents-harness/core/VERSION`) is the source of truth during upgrades; the
+active agent copies the new version file into `.agents/monorepo-agents-harness/VERSION`. Every
+release documents behavior changes in `CHANGELOG.md` under **Upgrade Notes**, and the actual upgrade
+steps are described in `changelogs/version-X.Y.Z.md` prompts for the active agent to read and apply.
 
 **Check** (manual, or via the agent command):
 
 ```bash
-bash .agents/monorepo-agents-harness/scripts/harness-update.sh check          # exit: 0 current · 1 outdated · 2 unknown
-bash .agents/monorepo-agents-harness/scripts/harness-update.sh check --json   # {"installed","latest","status","upstream"}
+bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh check          # exit: 0 current · 1 outdated · 2 unknown
+bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh check --json   # {"installed","latest","status","upstream"}
 ```
 
 Or ask your agent: `/tah:update` (claude-code) /
@@ -316,14 +284,13 @@ the changelog prompts.
 **Upgrade** (consent-gated; driven by `changelogs/version-X.Y.Z.md` prompts):
 
 ```bash
-git clone --depth 1 --branch v<latest> https://github.com/atayahmet/monorepo-agents-harness .harness-update-tmp
+git clone --depth 1 --branch v<latest> https://github.com/atayahmet/monorepo-agents-harness .agents/.harness-update-tmp
 ```
 
 Then let your agent apply the upgrade by following the prompts in
-`.harness-update-tmp/changelogs/version-<latest>.md` (and any intermediate version prompts). The
-agent copies files, deletes obsolete files, runs commands, and presents manual follow-ups. It
+`.agents/.harness-update-tmp/changelogs/version-<latest>.md` (and any intermediate version prompts).
+The agent copies files, deletes obsolete files, runs commands, and presents manual follow-ups. It
 **never touches**: root `AGENTS.md` (merge manually against the fresh `core/root-AGENTS.md`
-template), `.agents/` working
-state and task history, or adapter configs (re-apply merges per your adapter README — see the
-follow-ups the agent prints).
+template), `.agents/` working state and task history, or adapter configs (re-apply merges per your
+adapter README — see the follow-ups the agent prints).
 

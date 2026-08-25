@@ -35,7 +35,7 @@ mandatory searchable index:
 The bundle is split into a shared core and per-agent adapters:
 
 ```
-monorepo-agents-harness/
+.agents/monorepo-agents-harness/
 ├── core/        # agent-neutral: rules, skill templates, enforcement scripts, docs governance
 └── adapters/    # per-agent enforcement wiring — install the ones you use
     ├── claude-code/
@@ -47,7 +47,7 @@ monorepo-agents-harness/
 
 From your monorepo root:
 
-1. **Copy this bundle** into your repo root as `monorepo-agents-harness/`.
+1. **Copy this bundle** into `.agents/monorepo-agents-harness/` under your repo root.
 2. **Install the core** (agent-neutral — same for everyone): copy `core/root-AGENTS.md` to
    `AGENTS.md`, seed the docs governance tree, scaffold per-workspace `.agents/` dirs, resolve
    placeholders.
@@ -61,7 +61,7 @@ From your monorepo root:
 Whichever adapter you pick, wire the universal hard gate (works even with no agent at all):
 
 ```bash
-ln -s ../../.agents/monorepo-agents-harness/scripts/memory-gate.sh .git/hooks/pre-commit
+ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit
 ```
 
 ## Adapters

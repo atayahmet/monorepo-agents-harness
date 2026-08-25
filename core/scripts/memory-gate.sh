@@ -14,8 +14,8 @@
 # This is the universal replacement for agent-specific stop-hooks on agents that cannot block
 # their own stop — wire the default mode as a git pre-commit hook and/or CI step.
 #
-#   git pre-commit:  ln -s ../../.agents/monorepo-agents-harness/scripts/memory-gate.sh .git/hooks/pre-commit
-#   CI:              bash .agents/monorepo-agents-harness/scripts/memory-gate.sh
+#   git pre-commit:  ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit
+#   CI:              bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh
 #   Claude Stop hook: see adapters/claude-code/.claude/settings.json
 
 set -euo pipefail
@@ -26,8 +26,8 @@ JSON_MODE=0
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 TODAY="$(date +%Y_%m_%d)"
 RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.agents/monorepo-agents-harness}"
-BUNDLE_DIR="${BUNDLE_DIR:-$ROOT/monorepo-agents-harness}"
-DETECT_SCRIPT="${DETECT_SCRIPT:-$RUNTIME_DIR/scripts/detect-monorepo-framework.sh}"
+BUNDLE_DIR="${BUNDLE_DIR:-$RUNTIME_DIR}"
+DETECT_SCRIPT="${DETECT_SCRIPT:-$RUNTIME_DIR/core/scripts/detect-monorepo-framework.sh}"
 [ ! -x "$DETECT_SCRIPT" ] && DETECT_SCRIPT="$BUNDLE_DIR/core/scripts/detect-monorepo-framework.sh"
 
 # Discover workspace directories using the framework detector.

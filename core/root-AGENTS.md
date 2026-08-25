@@ -51,8 +51,8 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
 > `artifacts/` task tree with its mandatory searchable `index.md`) live under **each**
 > `apps/<name>/.agents/` and `packages/<name>/.agents/` — never at the repo root. Always read and
 > write the ones belonging to the workspace your task targets. Seed new workspaces from
-> `.agents/monorepo-agents-harness/workspace-agents-template/` (or run
-> `.agents/monorepo-agents-harness/scripts/scaffold-workspace-agents.sh`).
+> `.agents/monorepo-agents-harness/core/workspace-agents-template/` (or run
+> `.agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh`).
 
 ## Core Principles
 
@@ -88,7 +88,7 @@ This is a {{MONOREPO_FRAMEWORK}} monorepo. Default context is the repository roo
 ## Agent Lifecycle
 
 1. **Load Context** — Prioritize technical specs, architecture docs, and recent sessions (`<target-workspace>/.agents/session-log.md`).
-2. **Plan Mode** — Enter for any non-trivial task. Write specs upfront. If something goes sideways, stop and re-plan. The `agent-workflow` skill (`.agents/monorepo-agents-harness/skills/agent-workflow/SKILL.md`) produces the plan/spec/memory artifacts.
+2. **Plan Mode** — Enter for any non-trivial task. Write specs upfront. If something goes sideways, stop and re-plan. The `agent-workflow` skill (`.agents/monorepo-agents-harness/core/skills/agent-workflow/SKILL.md`) produces the plan/spec/memory artifacts.
 3. **Subagent Strategy** — Offload research and exploration to subagents. One task per subagent.
 4. **Self-Improvement** — After any user correction: (1) update `<target-workspace>/.agents/lessons.md`; (2) if the correction reveals a module-specific rule, update the relevant workspace instruction file so the mistake is not repeated.
 5. **Verification Before Done** — Never mark complete without proof. Prefer narrowest scope first.
@@ -111,8 +111,8 @@ each one you add. This template ships none — do not link a rule file that does
   plus the task-artifact tree `.agents/artifacts/` (per-task plan/spec/memory dirs + mandatory
   searchable `index.md`). Read before any task targeting that workspace; update the index in the
   same commit as any task-dir change.
-- `.agents/monorepo-agents-harness/governance/artifacts/AGENTS.md` — Indexing rules for every
+- `.agents/monorepo-agents-harness/core/governance/artifacts/AGENTS.md` — Indexing rules for every
   workspace's `.agents/artifacts/index.md`.
-- `.agents/monorepo-agents-harness/` — Agent-neutral harness runtime: skill templates (`skills/`),
-  enforcement scripts (`scripts/`), workspace seeds (`workspace-agents-template/`), governance docs
-  (`governance/`).
+- `.agents/monorepo-agents-harness/` — Installed harness bundle: skill templates (`core/skills/`),
+  enforcement scripts (`core/scripts/`), workspace seeds (`core/workspace-agents-template/`),
+  governance docs (`core/governance/`), and per-agent adapters (`adapters/`).

@@ -17,7 +17,7 @@ implementations. This guide explains the model and how to add your own agent.
 | Layer | Portable? | How |
 |---|---|---|
 | **Instructions** (rules, workflow mandates) | ✅ Universal | `AGENTS.md` is read natively by Claude Code, opencode, Cursor, Codex, Zed, … Put the *rules* here — and only here (single source of truth). |
-| **Templates** (plan/spec/memory, monorepo) | ✅ Universal | `core/skills/**/SKILL.md` files are plain markdown. They are symlinked into `.agents/monorepo-agents-harness/skills/` at install time and referenced through each agent's instruction mechanism. |
+| **Templates** (plan/spec/memory, monorepo) | ✅ Universal | `core/skills/**/SKILL.md` files are plain markdown. They are installed into `.agents/monorepo-agents-harness/core/skills/` at install time and referenced through each agent's instruction mechanism. |
 | **Enforcement** (hooks that remind/block) | ⚠️ Per-agent | `core/scripts/*.sh` implement the logic; each adapter wires them into the agent's hook/plugin API — or falls back to git/CI where the agent can't block. |
 
 **Design principle:** push as much as possible into `core/` (universal), and keep the per-agent
@@ -29,11 +29,11 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 |---|---|---|---|---|---|
 | Project instructions / rules | root `AGENTS.md` | native + root `CLAUDE.md` = `@AGENTS.md` pointer | native | native | `AGENTS.md` — read by most agents |
 | Per-workspace working state (`session-log`/`lessons`/`todo` under `<ws>/.agents/`) | `core/workspace-agents-template/` + `core/scripts/scaffold-workspace-agents.sh` | `AGENTS.md` "Before You Start" mandate | same | same | `AGENTS.md` mandate (instruction-level → **universal**, no hook needed) |
-| Plan/spec/memory templates | `.agents/monorepo-agents-harness/skills/agent-workflow/SKILL.md` | symlinked into `.claude/skills/` (auto-registered skill) | referenced via `opencode.jsonc` `instructions` | symlinked into `.agents/skills/` (auto-registered skill) | reference the shared runtime templates via your agent's instruction mechanism |
-| Monorepo guidance | `.agents/monorepo-agents-harness/skills/monorepo/SKILL.md` | same as above | same as above | same as above | link from `AGENTS.md` |
+| Plan/spec/memory templates | `.agents/monorepo-agents-harness/core/skills/agent-workflow/SKILL.md` | symlinked into `.claude/skills/` (auto-registered skill) | referenced via `opencode.jsonc` `instructions` | symlinked into `.agents/skills/` (auto-registered skill) | reference the shared runtime templates via your agent's instruction mechanism |
+| Monorepo guidance | `.agents/monorepo-agents-harness/core/skills/monorepo/SKILL.md` | same as above | same as above | same as above | link from `AGENTS.md` |
 | Plan/spec reminder (start of impl.) | `AGENTS.md` gotcha #4 | `PostToolUse[ExitPlanMode]` hook + `/tah-build` command | `AGENTS.md` mandate + `/tah-build` command | `PostToolUse[update_plan]` hook + `SessionStart` reminder + `/tah-build` skill | `AGENTS.md` mandate |
 | **Memory-gate** (no finish without `3_memory.md`) | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (**hard block**) | universal hard gate (git pre-commit / CI) | `Stop` hook → script `--json` (soft reminder) | **script default mode as git pre-commit / CI — hard block, universal** |
-| Update check / upgrade (`/tah:update` / `/tah-update`) | `.agents/monorepo-agents-harness/scripts/harness-update.sh` + `.agents/monorepo-agents-harness/skills/harness-update/SKILL.md` | `.claude/commands/tah/update.md` → `/tah:update` | `.opencode/commands/tah-update.md` → `/tah-update` | `.agents/skills/tah-update/SKILL.md` → `/tah-update` | run `.agents/monorepo-agents-harness/scripts/harness-update.sh check` directly in a terminal |
+| Update check / upgrade (`/tah:update` / `/tah-update`) | `.agents/monorepo-agents-harness/core/scripts/harness-update.sh` + `.agents/monorepo-agents-harness/core/skills/harness-update/SKILL.md` | `.claude/commands/tah/update.md` → `/tah:update` | `.opencode/commands/tah-update.md` → `/tah-update` | `.agents/skills/tah-update/SKILL.md` → `/tah-update` | run `.agents/monorepo-agents-harness/core/scripts/harness-update.sh check` directly in a terminal |
 | Slash commands | — | `.claude/commands/**/*.md` (subdir = namespace) | `.opencode/commands/**/*.md` (flat filename or subdir = command ID) | `.agents/skills/**/*.md` auto-register as slash commands | n/a (agent-specific convenience) |
 
 ### Semantic differences you must not paper over
@@ -61,10 +61,10 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 2. **Instructions:** ensure the agent reads root `AGENTS.md` (native in most). If your agent uses a
    different file (e.g. `.cursor/rules`), make that file a thin pointer to `AGENTS.md` — never a
    copy of its content.
-3. **Templates:** reference `.agents/monorepo-agents-harness/skills/**/SKILL.md` through the
-   agent's instruction/config mechanism. If the agent requires physical presence for
-   auto-registration (claude-code does), symlink the shared runtime skill into the agent's skill
-   directory rather than copying it.
+3. **Templates:** reference `.agents/monorepo-agents-harness/core/skills/**/SKILL.md` through the
+    agent's instruction/config mechanism. If the agent requires physical presence for
+    auto-registration (claude-code does), symlink the shared runtime skill into the agent's skill
+    directory rather than copying it.
 4. **Enforcement:** wire `core/scripts/memory-gate.sh` into the agent's hook/plugin API if it has
    one; otherwise install the git/CI gate. The script is fail-open and dependency-light (`git` +
    coreutils; `--json` output mode for agents needing structured hook output). Ship the update-check
@@ -81,10 +81,10 @@ It depends only on `git` + coreutils, so it works with any agent — or none.
 
 ```bash
 # as a git pre-commit hook
-ln -s ../../.agents/monorepo-agents-harness/scripts/memory-gate.sh .git/hooks/pre-commit
-chmod +x .agents/monorepo-agents-harness/scripts/memory-gate.sh
+ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit
+chmod +x .agents/monorepo-agents-harness/core/scripts/memory-gate.sh
 # …or as a CI step
-bash .agents/monorepo-agents-harness/scripts/memory-gate.sh
+bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh
 ```
 
 This is what makes the memory-gate real on agents that cannot block their own stop.

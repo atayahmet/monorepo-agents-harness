@@ -26,7 +26,7 @@ config. Read `../../INSTALL.md` first (core must be installed before any adapter
 1. **Adapter dependencies.** If this adapter ships a `package.json`, install its dependencies
    before copying any files:
    ```bash
-   [ -f "monorepo-agents-harness/adapters/opencode/package.json" ] && (cd "monorepo-agents-harness/adapters/opencode" && npm install)
+   [ -f ".agents/monorepo-agents-harness/adapters/opencode/package.json" ] && (cd ".agents/monorepo-agents-harness/adapters/opencode" && npm install)
    ```
 
 2. **Config.** Merge `opencode.jsonc` into the repo-root `opencode.jsonc` (or `opencode.json`). It
@@ -36,16 +36,16 @@ config. Read `../../INSTALL.md` first (core must be installed before any adapter
 3. **Commands.** Copy the harness commands into place:
    ```bash
    mkdir -p .opencode/commands
-   cp monorepo-agents-harness/adapters/opencode/.opencode/commands/tah-update.md \
-      monorepo-agents-harness/adapters/opencode/.opencode/commands/tah-build.md \
+   cp .agents/monorepo-agents-harness/adapters/opencode/.opencode/commands/tah-update.md \
+      .agents/monorepo-agents-harness/adapters/opencode/.opencode/commands/tah-build.md \
       .opencode/commands/
    ```
 
 4. **Install the universal hard gate** (this is what makes the memory-gate real on opencode;
    opencode cannot block its own stop, so the git/CI gate is the only enforcement):
    ```bash
-    chmod +x .agents/monorepo-agents-harness/scripts/memory-gate.sh
-    ln -s ../../.agents/monorepo-agents-harness/scripts/memory-gate.sh .git/hooks/pre-commit   # and/or add to CI
+    chmod +x .agents/monorepo-agents-harness/core/scripts/memory-gate.sh
+    ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit   # and/or add to CI
    ```
 
 ## Verify
@@ -55,11 +55,11 @@ config. Read `../../INSTALL.md` first (core must be installed before any adapter
 opencode --help >/dev/null 2>&1 && echo "opencode present"
 
 # the update-check command resolves its engine
-test -x .agents/monorepo-agents-harness/scripts/harness-update.sh \
-  && bash .agents/monorepo-agents-harness/scripts/harness-update.sh current
+test -x .agents/monorepo-agents-harness/core/scripts/harness-update.sh \
+  && bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh current
 
 # the hard gate blocks a task dir missing 3_memory.md, passes once present
-bash .agents/monorepo-agents-harness/scripts/memory-gate.sh; echo "exit=$?"
+bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh; echo "exit=$?"
 
 # commands register: start opencode, type `/tah-update` and `/tah-build`
 ```

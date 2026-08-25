@@ -1,7 +1,7 @@
 # monorepo-agents-harness — Agent Guidelines
 
 This repository is the **agent harness template** itself. It produces the bundle that other
-monorepo projects install under `monorepo-agents-harness/`. Treat every change here as a
+monorepo projects install under `.agents/monorepo-agents-harness/`. Treat every change here as a
 change to a reusable template, not to a single application.
 
 ## Critical Gotchas

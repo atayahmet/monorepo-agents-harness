@@ -9,7 +9,7 @@ registration. Read `../../INSTALL.md` first (core must be installed before any a
 | Harness capability | Core (agent-agnostic) | This adapter |
 |---|---|---|
 | Rules / instructions | `AGENTS.md` (native to Claude Code) | root `CLAUDE.md` = thin `@AGENTS.md` pointer |
-| Plan/spec/memory + monorepo templates | `core/skills/**/SKILL.md` | symlinked from `.agents/monorepo-agents-harness/skills/` into `.claude/skills/` (auto-registration) |
+| Plan/spec/memory + monorepo templates | `core/skills/**/SKILL.md` | symlinked from `.agents/monorepo-agents-harness/core/skills/` into `.claude/skills/` (auto-registration) |
 | Plan/spec reminder (plan-mode exit) | — | `PostToolUse[ExitPlanMode]` hook (inline reminder) |
 | Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.claude/commands/tah-build.md` → `/tah-build` |
 | Memory-gate | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (**hard block**) |
@@ -24,9 +24,7 @@ registration. Read `../../INSTALL.md` first (core must be installed before any a
 
 ## Install steps
 
-Run from the target repo root. `BUNDLE=monorepo-agents-harness` below — adjust if you
-vendored the bundle under a different path (and update the two script paths in
-`.claude/settings.json` accordingly).
+Run from the target repo root. `BUNDLE=.agents/monorepo-agents-harness` below.
 
 1. **Adapter dependencies.** If this adapter ships a `package.json`, install its dependencies
    before copying any files:
@@ -38,11 +36,11 @@ vendored the bundle under a different path (and update the two script paths in
    Code auto-registers them — frontmatter (`name`, `description`) must stay intact:
    ```bash
     mkdir -p .claude/skills
-    ln -s "../../.agents/monorepo-agents-harness/skills/agent-workflow" .claude/skills/agent-workflow
-    ln -s "../../.agents/monorepo-agents-harness/skills/monorepo" .claude/skills/monorepo
+    ln -s "../../.agents/monorepo-agents-harness/core/skills/agent-workflow" .claude/skills/agent-workflow
+    ln -s "../../.agents/monorepo-agents-harness/core/skills/monorepo" .claude/skills/monorepo
    ```
-   The shared skills live under `.agents/monorepo-agents-harness/skills/` as
-   symlinks into the bundle; each agent links to that single runtime copy.
+   The shared skills live under `.agents/monorepo-agents-harness/core/skills/`; each agent links to
+   that single copy.
 
 3. **Hooks.** No `.claude/settings.json` yet → copy `adapters/claude-code/.claude/settings.json`.
    Already have one → merge the two hook blocks in without clobbering existing hooks:
@@ -93,7 +91,7 @@ head -3 .claude/skills/monorepo/SKILL.md
 
 # c) commands resolve their engines
 ls .claude/commands/tah-build.md .claude/commands/tah/update.md
-bash .agents/monorepo-agents-harness/scripts/harness-update.sh current
+bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh current
 ```
 
 **End-to-end check of the memory-gate** (the core enforcement). Simulate the `Stop` hook
@@ -105,11 +103,11 @@ ROOT="$(git rev-parse --show-toplevel)"
 TODAY="$(date +%Y_%m_%d)"
 mkdir -p apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 
-bash "$ROOT/.agents/monorepo-agents-harness/scripts/memory-gate.sh" --json; echo "exit=$?"
+bash "$ROOT/.agents/monorepo-agents-harness/core/scripts/memory-gate.sh" --json; echo "exit=$?"
 #   expect: {"decision":"block", ...} because 3_memory.md is missing
 
 : > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/3_memory.md
-bash "$ROOT/.agents/monorepo-agents-harness/scripts/memory-gate.sh" --json; echo "exit=$?"
+bash "$ROOT/.agents/monorepo-agents-harness/core/scripts/memory-gate.sh" --json; echo "exit=$?"
 #   expect: no output, exit=0 (gate satisfied)
 
 rm -rf apps/web/.agents/artifacts/task_${TODAY}_smoke_test

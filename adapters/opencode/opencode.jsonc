@@ -8,10 +8,11 @@
   // opencode would not otherwise read — the SAME single copy every adapter reuses.
   // Adjust the prefix if you vendored the bundle under a different path.
   "instructions": [
-    ".agents/monorepo-agents-harness/skills/agent-workflow/SKILL.md",
-    ".agents/monorepo-agents-harness/skills/monorepo/SKILL.md"
+    ".agents/monorepo-agents-harness/core/skills/agent-workflow/SKILL.md",
+    ".agents/monorepo-agents-harness/core/skills/monorepo/SKILL.md"
   ]
 
   // opencode loads instruction files listed above automatically. There is no local
   // enforcement plugin; the universal hard gate is core/scripts/memory-gate.sh at git/CI.
 }
+

@@ -24,6 +24,34 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.4.1] - 2026-08-25
+
+### Changed
+
+- **Installed harness location is now `.agents/monorepo-agents-harness/` only.** The bundle is no
+  longer copied to the repo root as `monorepo-agents-harness/`. The runtime symlink tree under
+  `.agents/monorepo-agents-harness/` is removed; the bundle directory itself serves as both source
+  and runtime.
+
+### Fixed
+
+- Prevented the installer and upgrader from leaving `monorepo-agents-harness/` or
+  `.harness-update-*` directories at the repo root. Temporary upgrade clones now go under `.agents/`.
+
+### Upgrade Notes
+
+- Follow `changelogs/version-0.4.1.md` to migrate existing installs. Key steps:
+  - Move the root `monorepo-agents-harness/` directory into `.agents/monorepo-agents-harness/`.
+  - Remove any stale runtime symlink tree (e.g. `.agents/monorepo-agents-harness/skills/`,
+    `.agents/monorepo-agents-harness/scripts/`, `.agents/monorepo-agents-harness/governance/`,
+    `.agents/monorepo-agents-harness/workspace-agents-template/`) — the bundle now lives directly
+    under `.agents/monorepo-agents-harness/`.
+  - Update adapter configs (`.claude/settings.json`, `opencode.jsonc`, `.codex/hooks.json`) and
+    skill/command files to point at `.agents/monorepo-agents-harness/core/scripts/` and
+    `.agents/monorepo-agents-harness/core/skills/`.
+  - Re-link `.git/hooks/pre-commit` to
+    `.agents/monorepo-agents-harness/core/scripts/memory-gate.sh`.
+
 ## [0.4.0] - 2026-08-25
 
 ### Added
@@ -182,7 +210,8 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.4.1
 [0.4.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.4.0
 [0.3.0]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.3.0
 [0.2.2]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.2.2

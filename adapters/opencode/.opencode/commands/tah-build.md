@@ -3,7 +3,7 @@ description: Manually trigger the plan/spec build for the current task
 ---
 
 Follow the shared instructions in
-`.agents/monorepo-agents-harness/skills/agent-workflow/SKILL.md` exactly:
+`.agents/monorepo-agents-harness/core/skills/agent-workflow/SKILL.md` exactly:
 
 1. Resolve the target workspace (`apps/<name>` or `packages/<name>`).
 2. Create the task directory `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/`.
