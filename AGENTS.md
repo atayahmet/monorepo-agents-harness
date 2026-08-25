@@ -1,7 +1,7 @@
-# turborepo-harness-template — Agent Guidelines
+# turborepo-agent-harness — Agent Guidelines
 
 This repository is the **agent harness template** itself. It produces the bundle that other
-Turborepo projects install under `turborepo-harness-template/`. Treat every change here as a
+Turborepo projects install under `turborepo-agent-harness/`. Treat every change here as a
 change to a reusable template, not to a single application.
 
 ## Critical Gotchas

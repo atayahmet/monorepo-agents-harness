@@ -34,12 +34,18 @@ Release procedure (harness maintainers):
   installed into a project that already has its own `AGENTS.md`.
 - Updated `INSTALL.md`, `README.md`, `changelogs/README.md`, and `changelogs/version-0.2.0.md` to
   reference `core/root-AGENTS.md` as the source of the installable template.
+- Renamed the installed bundle directory from `turborepo-harness-template/` to
+  `turborepo-agent-harness/` everywhere (docs, scripts, adapter configs). This aligns the bundle
+  name with the upstream repo and the `/tah-*` command namespace.
 
 ### Upgrade Notes
 
-- Copy the new `core/root-AGENTS.md` file into your installed `turborepo-harness-template/` directory.
+- Copy the new `core/root-AGENTS.md` file into your installed `turborepo-agent-harness/` directory.
 - Compare your project's root `AGENTS.md` against the fresh `core/root-AGENTS.md` template and merge
   any new rows/rules manually. The harness never auto-merges this file.
+- If you have an existing install under `turborepo-harness-template/`, rename it to
+  `turborepo-agent-harness/` and update any hard-coded paths in your git hooks, CI, or adapter
+  configs.
 
 ## [0.2.1] - 2026-08-24
 

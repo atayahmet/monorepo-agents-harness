@@ -8,8 +8,8 @@
   // would not otherwise read — the SAME single copy every adapter reuses.
   // Adjust the prefix if you vendored the bundle under a different path.
   "instructions": [
-    "turborepo-harness-template/core/skills/agent-workflow/SKILL.md",
-    "turborepo-harness-template/core/skills/turborepo/SKILL.md"
+    "turborepo-agent-harness/core/skills/agent-workflow/SKILL.md",
+    "turborepo-agent-harness/core/skills/turborepo/SKILL.md"
   ]
 
   // opencode loads instruction files listed above automatically. There is no local

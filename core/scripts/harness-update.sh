@@ -15,14 +15,14 @@
 #
 # Knobs (env):
 #   HARNESS_UPSTREAM   upstream git URL      default below
-#   BUNDLE_DIR         installed bundle dir  default <repo-root>/turborepo-harness-template
+#   BUNDLE_DIR         installed bundle dir  default <repo-root>/turborepo-agent-harness
 set -u
 
 DEFAULT_UPSTREAM="https://github.com/atayahmet/turborepo-agent-harness"
 UPSTREAM="${HARNESS_UPSTREAM:-$DEFAULT_UPSTREAM}"
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-BUNDLE_DIR="${BUNDLE_DIR:-$ROOT/turborepo-harness-template}"
+BUNDLE_DIR="${BUNDLE_DIR:-$ROOT/turborepo-agent-harness}"
 VERSION_FILE="$BUNDLE_DIR/core/VERSION"
 
 json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }

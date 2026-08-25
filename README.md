@@ -35,7 +35,7 @@ mandatory searchable index:
 The bundle is split into a shared core and per-agent adapters:
 
 ```
-turborepo-harness-template/
+turborepo-agent-harness/
 ├── core/        # agent-neutral: rules, skill templates, enforcement scripts, docs governance
 └── adapters/    # per-agent enforcement wiring — install the ones you use
     ├── claude-code/
@@ -47,7 +47,7 @@ turborepo-harness-template/
 
 From your Turborepo root:
 
-1. **Copy this bundle** into your repo root as `turborepo-harness-template/`.
+1. **Copy this bundle** into your repo root as `turborepo-agent-harness/`.
 2. **Install the core** (agent-neutral — same for everyone): copy `core/root-AGENTS.md` to
    `AGENTS.md`, seed the docs governance tree, scaffold per-workspace `.agents/` dirs, resolve
    placeholders.
@@ -61,7 +61,7 @@ From your Turborepo root:
 Whichever adapter you pick, wire the universal hard gate (works even with no agent at all):
 
 ```bash
-ln -s ../../turborepo-harness-template/core/scripts/memory-gate.sh .git/hooks/pre-commit
+ln -s ../../turborepo-agent-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit
 ```
 
 ## Adapters

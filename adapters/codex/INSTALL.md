@@ -26,7 +26,7 @@ for the mandatory-parity rule and semantic differences.
 
 ## Install steps
 
-Run from the target repo root. `BUNDLE=turborepo-harness-template` below — adjust if you vendored
+Run from the target repo root. `BUNDLE=turborepo-agent-harness` below — adjust if you vendored
 the bundle under a different path (and update the script path in `.codex/hooks.json` accordingly).
 
 1. **Adapter dependencies.** If this adapter ships a `package.json`, install its dependencies
@@ -70,8 +70,8 @@ the bundle under a different path (and update the script path in `.codex/hooks.j
    `Stop` hook can only remind, not block):
    ```bash
    chmod +x "$BUNDLE/core/scripts/memory-gate.sh"
-   ln -s ../../turborepo-harness-template/core/scripts/memory-gate.sh .git/hooks/pre-commit
-   # …and/or add `bash turborepo-harness-template/core/scripts/memory-gate.sh` to CI.
+   ln -s ../../turborepo-agent-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit
+   # …and/or add `bash turborepo-agent-harness/core/scripts/memory-gate.sh` to CI.
    ```
 
 The hooks are independent and fail-open (missing `jq`/git root/bundle → exit 0, no block), so they
@@ -93,14 +93,14 @@ head -3 .agents/skills/tah-update/SKILL.md
 head -3 .agents/skills/tah-build/SKILL.md
 
 # d) update-check command resolves its engine
-bash turborepo-harness-template/core/scripts/harness-update.sh current
+bash turborepo-agent-harness/core/scripts/harness-update.sh current
 ```
 
 **End-to-end check of the memory-gate** (the core enforcement). Simulate a fabricated task dir for
 today:
 
 ```bash
-BUNDLE="turborepo-harness-template"
+BUNDLE="turborepo-agent-harness"
 TODAY="$(date +%Y_%m_%d)"
 mkdir -p apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 

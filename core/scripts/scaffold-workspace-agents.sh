@@ -9,7 +9,7 @@
 # Existing files are never overwritten. Run once at install time, and re-run after adding a new
 # workspace.
 #
-#   bash turborepo-harness-template/core/scripts/scaffold-workspace-agents.sh   # from the target repo root
+#   bash turborepo-agent-harness/core/scripts/scaffold-workspace-agents.sh   # from the target repo root
 #   SEED=path/to/workspace-agents-template INDEX_TEMPLATE=path/to/index-template.md \
 #   RULES_TEMPLATE=path/to/workspace-AGENTS.md bash .../scaffold-workspace-agents.sh
 #
@@ -20,9 +20,9 @@
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-SEED="${SEED:-$ROOT/turborepo-harness-template/core/workspace-agents-template}"
-INDEX_TEMPLATE="${INDEX_TEMPLATE:-$ROOT/turborepo-harness-template/core/governance/artifacts/index-template.md}"
-RULES_TEMPLATE="${RULES_TEMPLATE:-$ROOT/turborepo-harness-template/core/governance/artifacts/workspace-AGENTS.md}"
+SEED="${SEED:-$ROOT/turborepo-agent-harness/core/workspace-agents-template}"
+INDEX_TEMPLATE="${INDEX_TEMPLATE:-$ROOT/turborepo-agent-harness/core/governance/artifacts/index-template.md}"
+RULES_TEMPLATE="${RULES_TEMPLATE:-$ROOT/turborepo-agent-harness/core/governance/artifacts/workspace-AGENTS.md}"
 
 if [ ! -d "$SEED" ]; then
   echo "seed dir not found: $SEED (set SEED=... to override)" >&2

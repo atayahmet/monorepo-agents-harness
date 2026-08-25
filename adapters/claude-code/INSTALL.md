@@ -24,7 +24,7 @@ registration. Read `../../INSTALL.md` first (core must be installed before any a
 
 ## Install steps
 
-Run from the target repo root. `BUNDLE=turborepo-harness-template` below — adjust if you
+Run from the target repo root. `BUNDLE=turborepo-agent-harness` below — adjust if you
 vendored the bundle under a different path (and update the two script paths in
 `.claude/settings.json` accordingly).
 
@@ -94,14 +94,14 @@ head -3 .claude/skills/turborepo/SKILL.md
 
 # c) commands resolve their engines
 ls .claude/commands/tah-build.md .claude/commands/tah/update.md
-bash turborepo-harness-template/core/scripts/harness-update.sh current
+bash turborepo-agent-harness/core/scripts/harness-update.sh current
 ```
 
 **End-to-end check of the memory-gate** (the core enforcement). Simulate the `Stop` hook
 against a fabricated task dir for today:
 
 ```bash
-BUNDLE="turborepo-harness-template"
+BUNDLE="turborepo-agent-harness"
 TODAY="$(date +%Y_%m_%d)"
 mkdir -p apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 

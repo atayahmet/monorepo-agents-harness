@@ -49,8 +49,8 @@ A Turborepo-managed monorepo with multiple workspaces under `apps/` and `package
 > `artifacts/` task tree with its mandatory searchable `index.md`) live under **each**
 > `apps/<name>/.agents/` and `packages/<name>/.agents/` — never at the repo root. Always read and
 > write the ones belonging to the workspace your task targets. Seed new workspaces from
-> `turborepo-harness-template/core/workspace-agents-template/` (or run
-> `turborepo-harness-template/core/scripts/scaffold-workspace-agents.sh`).
+> `turborepo-agent-harness/core/workspace-agents-template/` (or run
+> `turborepo-agent-harness/core/scripts/scaffold-workspace-agents.sh`).
 
 ## Core Principles
 
@@ -108,8 +108,8 @@ each one you add. This template ships none — do not link a rule file that does
   plus the task-artifact tree `.agents/artifacts/` (per-task plan/spec/memory dirs + mandatory
   searchable `index.md`). Read before any task targeting that workspace; update the index in the
   same commit as any task-dir change.
-- `turborepo-harness-template/core/governance/artifacts/AGENTS.md` — Indexing rules for every
+- `turborepo-agent-harness/core/governance/artifacts/AGENTS.md` — Indexing rules for every
   workspace's `.agents/artifacts/index.md`.
-- `turborepo-harness-template/core/` — Agent-neutral harness core: skill templates (`skills/`),
+- `turborepo-agent-harness/core/` — Agent-neutral harness core: skill templates (`skills/`),
   enforcement scripts (`scripts/`), workspace seeds (`workspace-agents-template/`), governance docs
   (`governance/`).

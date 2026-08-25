@@ -11,7 +11,7 @@ You are upgrading the turborepo-agent-harness from 0.2.1 to 0.2.2.
 ## Files to copy from the new bundle to the installed bundle
 
 Copy the following files and directories from the newly downloaded bundle into
-the installed `turborepo-harness-template/` directory. Directories ending in `/`
+the installed `turborepo-agent-harness/` directory. Directories ending in `/`
 should be copied recursively and replace the existing directory entirely.
 
 - `changelogs/version-0.2.2.md` -> `changelogs/version-0.2.2.md`
@@ -43,6 +43,9 @@ user-owned configuration files. Present them to the user after the upgrade.
 - If your install docs or scripts previously referenced the old repo-root
   `AGENTS.md` path as the template source, update them to point to
   `core/root-AGENTS.md`.
+- If you have an existing install under `turborepo-harness-template/`, rename
+  the directory to `turborepo-agent-harness/` and update any hard-coded paths in
+  your git hooks, CI, or adapter configs.
 
 ## Release summary
 
@@ -52,3 +55,5 @@ user-owned configuration files. Present them to the user after the upgrade.
   harness-template-specific rules.
 - Updated install docs and changelog prompts to reference `core/root-AGENTS.md`
   as the source of the installable template.
+- Renamed the installed bundle directory from `turborepo-harness-template/` to
+  `turborepo-agent-harness/` everywhere (docs, scripts, adapter configs).

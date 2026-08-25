@@ -80,10 +80,10 @@ It depends only on `git` + coreutils, so it works with any agent — or none.
 
 ```bash
 # as a git pre-commit hook
-ln -s ../../turborepo-harness-template/core/scripts/memory-gate.sh .git/hooks/pre-commit
-chmod +x turborepo-harness-template/core/scripts/memory-gate.sh
+ln -s ../../turborepo-agent-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit
+chmod +x turborepo-agent-harness/core/scripts/memory-gate.sh
 # …or as a CI step
-bash turborepo-harness-template/core/scripts/memory-gate.sh
+bash turborepo-agent-harness/core/scripts/memory-gate.sh
 ```
 
 This is what makes the memory-gate real on agents that cannot block their own stop.

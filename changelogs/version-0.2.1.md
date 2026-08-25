@@ -11,7 +11,7 @@ You are upgrading the turborepo-agent-harness from 0.2.0 to 0.2.1.
 ## Files to copy from the new bundle to the installed bundle
 
 Copy the following files and directories from the newly downloaded bundle into
-the installed `turborepo-harness-template/` directory. Directories ending in `/`
+the installed `turborepo-agent-harness/` directory. Directories ending in `/`
 should be copied recursively and replace the existing directory entirely.
 
 - `changelogs/version-0.2.1.md` -> `changelogs/version-0.2.1.md`

@@ -1,21 +1,21 @@
 ---
 name: harness-update
-description: Check whether the installed agent harness is up to date and, with user consent, upgrade it. Use when the user invokes /tah:update (Claude Code) or /tah-update (opencode/Codex CLI), or asks to check/update the harness, when a task touches turborepo-harness-template/** and a version mismatch matters, or before starting work after a known harness release.
+description: Check whether the installed agent harness is up to date and, with user consent, upgrade it. Use when the user invokes /tah:update (Claude Code) or /tah-update (opencode/Codex CLI), or asks to check/update the harness, when a task touches turborepo-agent-harness/** and a version mismatch matters, or before starting work after a known harness release.
 ---
 
 # Harness Update Check
 
 Shared instructions backing every adapter's `/tah:update` (Claude Code) and `/tah-update` (opencode/Codex CLI) commands.
 
-The version engine is `turborepo-harness-template/core/scripts/harness-update.sh` (git + coreutils only; exit 0 = current, 1 = update available, 2 = unknown/unreachable). The script only performs version checks; it does **not** execute upgrades.
+The version engine is `turborepo-agent-harness/core/scripts/harness-update.sh` (git + coreutils only; exit 0 = current, 1 = update available, 2 = unknown/unreachable). The script only performs version checks; it does **not** execute upgrades.
 
-The actual upgrade is performed by you, the active agent, by reading the changelog prompts in `turborepo-harness-template/changelogs/version-X.Y.Z.md`.
+The actual upgrade is performed by you, the active agent, by reading the changelog prompts in `turborepo-agent-harness/changelogs/version-X.Y.Z.md`.
 
 ## Workflow
 
 1. **Check** (from the repo root):
    ```bash
-   bash turborepo-harness-template/core/scripts/harness-update.sh check --json
+   bash turborepo-agent-harness/core/scripts/harness-update.sh check --json
    ```
    Parse `status`:
    - `current` → report "harness vX.Y.Z is up to date" and stop.
@@ -54,14 +54,14 @@ The actual upgrade is performed by you, the active agent, by reading the changel
 6. **Ask consent**: "Upgrade now?"
 
 7. **On consent, execute the plan**:
-   - **Copy**: For each listed path, copy from `.harness-update-v<latest>/...` to `turborepo-harness-template/...`. Directories ending in `/` are copied recursively and replace the target directory entirely.
-   - **Delete**: Remove each listed path from `turborepo-harness-template/...`. If the prompt says "(only if they exist)", skip silently when missing; otherwise treat a missing target as an error.
+   - **Copy**: For each listed path, copy from `.harness-update-v<latest>/...` to `turborepo-agent-harness/...`. Directories ending in `/` are copied recursively and replace the target directory entirely.
+   - **Delete**: Remove each listed path from `turborepo-agent-harness/...`. If the prompt says "(only if they exist)", skip silently when missing; otherwise treat a missing target as an error.
    - **Run**: Execute each command block from the installed bundle root. Stop if any command returns a non-zero exit code and report which command failed.
    - Do **not** execute `Manual follow-ups` automatically.
 
 8. **Update the installed version file**:
    ```bash
-   cp .harness-update-v<latest>/core/VERSION turborepo-harness-template/core/VERSION
+   cp .harness-update-v<latest>/core/VERSION turborepo-agent-harness/core/VERSION
    ```
 
 9. **Clean up** the temporary clone:

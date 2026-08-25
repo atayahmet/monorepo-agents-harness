@@ -2,7 +2,7 @@
 
 A portable **plan → spec → memory** agent harness for **any coding agent** (Claude Code, opencode,
 Cursor, Codex, …), packaged so you can install it into **any Turborepo project**. This directory
-(`turborepo-harness-template/`) contains ready-to-copy files; this guide tells you exactly where each
+(`turborepo-agent-harness/`) contains ready-to-copy files; this guide tells you exactly where each
 one goes and what to edit.
 
 > **Audience:** an agent (or engineer) installing the harness into a target repo. Read this whole
@@ -56,7 +56,7 @@ workspace).
 ## 3. Bundle contents
 
 ```
-turborepo-harness-template/
+turborepo-agent-harness/
 ├── INSTALL.md                                  # this guide (core + adapter phases)
 ├── PORTABILITY.md                              # capability matrix + authoring new adapters
 ├── core/root-AGENTS.md                         # TEMPLATE root instructions — single source of truth (placeholders)
@@ -87,7 +87,7 @@ turborepo-harness-template/
 
 Let `ROOT` = target repo root.
 
-1. **Copy the bundle** into the target repo root as `turborepo-harness-template/` (keep the name —
+1. **Copy the bundle** into the target repo root as `turborepo-agent-harness/` (keep the name —
    adapter configs and scripts reference it; if you rename it, adjust those references).
 2. **Copy `core/root-AGENTS.md`** to `ROOT/AGENTS.md` (merge by hand if one exists — it is the
    single source of truth every agent reads natively). On every upgrade, compare your project's
@@ -95,7 +95,7 @@ Let `ROOT` = target repo root.
    auto-merges this file to avoid overwriting your project-specific rules.
 3. **Scaffold per-workspace state**:
    ```bash
-   bash turborepo-harness-template/core/scripts/scaffold-workspace-agents.sh
+   bash turborepo-agent-harness/core/scripts/scaffold-workspace-agents.sh
    ```
    For every app and package it creates `.agents/{session-log,lessons,todo}.md` plus the task tree
    `.agents/artifacts/{index.md,AGENTS.md}` (empty searchable index + rules pointer). The agent
@@ -126,10 +126,10 @@ stop, MUST) be wired without any agent support:
 
 ```bash
 # as a git pre-commit hook
-ln -s ../../turborepo-harness-template/core/scripts/memory-gate.sh .git/hooks/pre-commit
-chmod +x turborepo-harness-template/core/scripts/memory-gate.sh
+ln -s ../../turborepo-agent-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit
+chmod +x turborepo-agent-harness/core/scripts/memory-gate.sh
 # …or as a CI step
-bash turborepo-harness-template/core/scripts/memory-gate.sh
+bash turborepo-agent-harness/core/scripts/memory-gate.sh
 ```
 
 Each adapter also ships a harness update command: `/tah:update` for claude-code,
@@ -174,7 +174,7 @@ Hand-edit `ROOT/AGENTS.md` (copied from `core/root-AGENTS.md`) to fill `{{PROJEC
 Run these from the target repo root after Phase 1:
 
 ```bash
-BUNDLE="turborepo-harness-template"
+BUNDLE="turborepo-agent-harness"
 
 # a) core scripts have no syntax errors
 for f in "$BUNDLE"/core/scripts/*.sh; do bash -n "$f" && echo "$f OK"; done
@@ -198,12 +198,12 @@ Simulate a fabricated task dir for today:
 TODAY="$(date +%Y_%m_%d)"
 mkdir -p apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 
-bash turborepo-harness-template/core/scripts/memory-gate.sh; echo "exit=$?"
+bash turborepo-agent-harness/core/scripts/memory-gate.sh; echo "exit=$?"
 #   expect: exit=1 — 2_spec.md and 3_memory.md are missing
 
 : > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/2_spec.md
 : > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/3_memory.md
-bash turborepo-harness-template/core/scripts/memory-gate.sh; echo "exit=$?"
+bash turborepo-agent-harness/core/scripts/memory-gate.sh; echo "exit=$?"
 #   expect: exit=0 (gate satisfied)
 
 rm -rf apps/web/.agents/artifacts/task_${TODAY}_smoke_test
@@ -245,8 +245,8 @@ steps are described in `changelogs/version-X.Y.Z.md` prompts for the active agen
 **Check** (manual, or via the agent command):
 
 ```bash
-bash turborepo-harness-template/core/scripts/harness-update.sh check          # exit: 0 current · 1 outdated · 2 unknown
-bash turborepo-harness-template/core/scripts/harness-update.sh check --json   # {"installed","latest","status","upstream"}
+bash turborepo-agent-harness/core/scripts/harness-update.sh check          # exit: 0 current · 1 outdated · 2 unknown
+bash turborepo-agent-harness/core/scripts/harness-update.sh check --json   # {"installed","latest","status","upstream"}
 ```
 
 Or ask your agent: `/tah:update` (claude-code) /
