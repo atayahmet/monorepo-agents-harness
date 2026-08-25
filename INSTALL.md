@@ -59,7 +59,7 @@ workspace).
 turborepo-harness-template/
 ├── INSTALL.md                                  # this guide (core + adapter phases)
 ├── PORTABILITY.md                              # capability matrix + authoring new adapters
-├── AGENTS.md                                   # TEMPLATE root instructions — single source of truth (placeholders)
+├── core/root-AGENTS.md                         # TEMPLATE root instructions — single source of truth (placeholders)
 ├── core/                                       # ★ agent-neutral — identical for every agent
 │   ├── skills/
 │   │   ├── agent-workflow/SKILL.md             # plan/spec/memory templates (fixed paths, no placeholders)
@@ -89,8 +89,10 @@ Let `ROOT` = target repo root.
 
 1. **Copy the bundle** into the target repo root as `turborepo-harness-template/` (keep the name —
    adapter configs and scripts reference it; if you rename it, adjust those references).
-2. **Copy `AGENTS.md`** to `ROOT/AGENTS.md` (merge by hand if one exists — it is the single source
-   of truth every agent reads natively).
+2. **Copy `core/root-AGENTS.md`** to `ROOT/AGENTS.md` (merge by hand if one exists — it is the
+   single source of truth every agent reads natively). On every upgrade, compare your project's
+   `AGENTS.md` against the fresh `core/root-AGENTS.md` and merge changes manually; the harness never
+   auto-merges this file to avoid overwriting your project-specific rules.
 3. **Scaffold per-workspace state**:
    ```bash
    bash turborepo-harness-template/core/scripts/scaffold-workspace-agents.sh
@@ -143,15 +145,15 @@ Replace these tokens across the copied files before use:
 
 | Placeholder | Meaning | Default | Appears in |
 |---|---|---|---|
-| `{{PROJECT_NAME}}` | Your monorepo's display name | — | `AGENTS.md`, `adapters/claude-code/CLAUDE.md` |
-| `{{PROJECT_GOTCHAS}}` | Project-specific rules (layering, boundaries, conventions); delete the example if none | — | `AGENTS.md` |
+| `{{PROJECT_NAME}}` | Your monorepo's display name | — | `core/root-AGENTS.md`, `adapters/claude-code/CLAUDE.md` |
+| `{{PROJECT_GOTCHAS}}` | Project-specific rules (layering, boundaries, conventions); delete the example if none | — | `core/root-AGENTS.md` |
 
 > Nothing else is parameterized. The plan/spec/memory artifact location is a fixed convention —
 > `<workspace>/.agents/artifacts/` for every app and package — and the memory-gate discovers
 > workspaces automatically. The harness-update script embeds one upstream URL (see §10) overridable
 > via the `HARNESS_UPSTREAM` env var.
 
-Hand-edit `AGENTS.md` to fill `{{PROJECT_NAME}}` and `{{PROJECT_GOTCHAS}}`.
+Hand-edit `ROOT/AGENTS.md` (copied from `core/root-AGENTS.md`) to fill `{{PROJECT_NAME}}` and `{{PROJECT_GOTCHAS}}`.
 
 ---
 
@@ -163,7 +165,7 @@ Hand-edit `AGENTS.md` to fill `{{PROJECT_NAME}}` and `{{PROJECT_GOTCHAS}}`.
 | `.claude/settings.local.json` | Local machine permissions — never portable. |
 | Per-module instruction files (e.g. `apps/api/src/modules/**/AGENTS.md`) | Project content, not harness. Add your own where useful. |
 | Populated `<workspace>/.agents/artifacts/task_*` dirs and their `index.md` rows | Task history is repo-specific; you start empty (the scaffold seeds each workspace with `index-template.md`). |
-| `.agents/rules/*.md` | The source repo referenced these but did not ship them; the template deliberately references **no** rule file. Add your own and list them in `AGENTS.md`'s Reference Map. |
+| `.agents/rules/*.md` | The source repo referenced these but did not ship them; the template deliberately references **no** rule file. Add your own and list them in `AGENTS.md`'s Reference Map (in the `core/root-AGENTS.md` template). |
 
 ---
 
@@ -179,6 +181,7 @@ for f in "$BUNDLE"/core/scripts/*.sh; do bash -n "$f" && echo "$f OK"; done
 
 # b) no unresolved placeholders remain in the installed copies
 ! grep -rn '{{PROJECT_NAME}}\|{{PROJECT_GOTCHAS}}' AGENTS.md \
+  "$BUNDLE"/core/root-AGENTS.md \
   && echo "no placeholders left"
 
 # c) every workspace got its task-artifact seeds
@@ -260,7 +263,8 @@ git clone --depth 1 --branch v<latest> https://github.com/atayahmet/turborepo-ag
 Then let your agent apply the upgrade by following the prompts in
 `.harness-update-tmp/changelogs/version-<latest>.md` (and any intermediate version prompts). The
 agent copies files, deletes obsolete files, runs commands, and presents manual follow-ups. It
-**never touches**: root `AGENTS.md` (merge manually against the fresh template), `.agents/` working
+**never touches**: root `AGENTS.md` (merge manually against the fresh `core/root-AGENTS.md`
+template), `.agents/` working
 state and task history, or adapter configs (re-apply merges per your adapter README — see the
 follow-ups the agent prints).
 

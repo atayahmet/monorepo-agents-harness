@@ -1,43 +1,39 @@
-# turborepo-harness-template — Agent Guidelines
+<!--
+  TEMPLATE — root AGENTS.md for a Turborepo project using the agent harness.
+  This is the SINGLE SOURCE OF TRUTH for agent instructions — every agent reads it natively
+  (Claude Code, opencode, Cursor, Codex, ...). Claude Code users additionally get a thin root
+  CLAUDE.md that just imports this file (see adapters/claude-code/).
+  Resolve the placeholders before use:
+    {{PROJECT_NAME}}    -> your monorepo name
+    {{PROJECT_GOTCHAS}} -> project-specific rules (architecture/layering/etc.); delete if none
+  The "Reference Map" was intentionally trimmed to files this template actually ships. Add rows
+  only for `.agents/rules/*.md` you create — never reference a rule file that does not exist.
+-->
 
-This repository is the **agent harness template** itself. It produces the bundle that other
-Turborepo projects install under `turborepo-harness-template/`. Treat every change here as a
-change to a reusable template, not to a single application.
+# {{PROJECT_NAME}} — Agent Guidelines
+
+A Turborepo-managed monorepo with multiple workspaces under `apps/` and `packages/`.
 
 ## Critical Gotchas
 
-1. **This is a template, not an app.** Every file in the bundle may be copied into another repo.
-   Do not put project-specific secrets, names, or rules into files that are meant to be installed
-   unchanged (e.g. `core/`, adapters, skills, scripts).
+<!-- {{PROJECT_GOTCHAS}} — replace the example below with your own project rules, or remove. -->
+1. **(example) Respect module boundaries.** Cross-module communication goes through a defined public
+   port; never import concrete implementations from another module directly.
 
-2. **Version consistency is mandatory.** When changing the harness, update all of the following
-   together:
-   - `core/VERSION`
-   - `CHANGELOG.md`
-   - `changelogs/version-X.Y.Z.md` (the upgrade prompt for that version)
-   - Any docs that mention the current version.
-
-3. **`core/root-AGENTS.md` is the installable template.** It is copied to the consuming project's
-   root as `AGENTS.md`. Any change to `core/root-AGENTS.md` affects every project that installs the
-   harness, so it must be listed in `CHANGELOG.md` and the corresponding `changelogs/version-X.Y.Z.md`.
-
-4. **Keep adapters thin.** Adapters (`adapters/claude-code/`, `adapters/opencode/`, `adapters/codex/`)
-   should only contain the minimal wiring each agent needs. They must not duplicate rules that belong
-   in `core/root-AGENTS.md` or in skills.
-
-5. **Plan/spec/memory artifact workflow is mandatory for plan-mode tasks.** When you signal plan
-   approval, create a per-task directory `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/`
-   (where `<workspace>` is the primary target: an app under `apps/` or a package under `packages/`)
-   containing `1_plan.md`, `2_spec.md`, and (at task end) `3_memory.md`. Every add/update/delete on a
-   task directory must be reflected in that workspace's searchable index
-   `<workspace>/.agents/artifacts/index.md` in the same commit. The memory-gate
-   (`core/scripts/memory-gate.sh`) scans every workspace's artifacts dir and blocks until today's
-   task dir has `3_memory.md`.
-
-6. **Always run the narrowest workspace-scoped verification command first.** Use
+2. **Always run the narrowest workspace-scoped verification command first.** Use
    `pnpm --filter <workspace>` or `turbo run <task> --filter=<workspace>` before widening scope.
 
-7. **Commits are mandatory at the end of any file-changing task** unless the user explicitly opts out.
+3. **Commits are mandatory at the end of any file-changing task** unless the user explicitly opts out.
+
+4. **Plan/spec/memory artifact workflow is mandatory for plan-mode tasks.** When your agent signals
+   plan approval, apply the `agent-workflow` skill templates and create a per-task directory
+   `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/` (where `<workspace>` is the primary
+   target: an app name under `apps/` or a package name under `packages/`) containing `1_plan.md`,
+   `2_spec.md`, and (at task end) `3_memory.md`. Every add/update/delete on a task directory must be
+   reflected in that workspace's searchable index `<workspace>/.agents/artifacts/index.md` in the
+   same commit. The memory-gate (your agent adapter's stop-hook and/or
+   `core/scripts/memory-gate.sh` at git pre-commit/CI) scans every workspace's artifacts dir and
+   blocks until today's task dir has `3_memory.md`.
 
 ## Before You Start — Mandatory Checklist
 
@@ -53,7 +49,8 @@ change to a reusable template, not to a single application.
 > `artifacts/` task tree with its mandatory searchable `index.md`) live under **each**
 > `apps/<name>/.agents/` and `packages/<name>/.agents/` — never at the repo root. Always read and
 > write the ones belonging to the workspace your task targets. Seed new workspaces from
-> `core/workspace-agents-template/` (or run `core/scripts/scaffold-workspace-agents.sh`).
+> `turborepo-harness-template/core/workspace-agents-template/` (or run
+> `turborepo-harness-template/core/scripts/scaffold-workspace-agents.sh`).
 
 ## Core Principles
 
@@ -65,8 +62,7 @@ change to a reusable template, not to a single application.
 
 ## Workspace Routing & Execution
 
-This repo has a Turborepo-shaped layout but exists to ship the harness template. Default context is
-`apps/<name>` or `packages/<name>` when they exist; otherwise the root.
+This is a Turborepo monorepo. Default context is the repository root.
 
 **Target styles:** `apps/<name>`, `packages/<name>`, workspace package name, or short aliases.
 
@@ -89,7 +85,7 @@ This repo has a Turborepo-shaped layout but exists to ship the harness template.
 ## Agent Lifecycle
 
 1. **Load Context** — Prioritize technical specs, architecture docs, and recent sessions (`<target-workspace>/.agents/session-log.md`).
-2. **Plan Mode** — Enter for any non-trivial task. Write specs upfront. If something goes sideways, stop and re-plan. The `agent-workflow` skill (`core/skills/agent-workflow/SKILL.md`) produces the plan/spec/memory artifacts.
+2. **Plan Mode** — Enter for any non-trivial task. Write specs upfront. If something goes sideways, stop and re-plan. The `agent-workflow` skill (`core/skills/agent-workflow/SKILL.md` in the harness bundle) produces the plan/spec/memory artifacts.
 3. **Subagent Strategy** — Offload research and exploration to subagents. One task per subagent.
 4. **Self-Improvement** — After any user correction: (1) update `<target-workspace>/.agents/lessons.md`; (2) if the correction reveals a module-specific rule, update the relevant workspace instruction file so the mistake is not repeated.
 5. **Verification Before Done** — Never mark complete without proof. Prefer narrowest scope first.
@@ -99,12 +95,12 @@ This repo has a Turborepo-shaped layout but exists to ship the harness template.
 
 ## Reference Map
 
+Team-specific rule files are optional. Create them under `.agents/rules/*.md` and add a row here for
+each one you add. This template ships none — do not link a rule file that does not exist.
+
 | Topic | Rule File |
 | ----- | --------- |
-| Workspace artifact indexing | `core/governance/artifacts/AGENTS.md` |
-| Plan/spec/memory workflow | `core/skills/agent-workflow/SKILL.md` |
-| Turborepo guidance | `core/skills/turborepo/SKILL.md` |
-| Portability / adapter rules | `adapters/AGENTS.md` |
+| _(add your own rows as you create `.agents/rules/*.md`)_ | |
 
 ## Additional Context Locations
 
@@ -112,9 +108,8 @@ This repo has a Turborepo-shaped layout but exists to ship the harness template.
   plus the task-artifact tree `.agents/artifacts/` (per-task plan/spec/memory dirs + mandatory
   searchable `index.md`). Read before any task targeting that workspace; update the index in the
   same commit as any task-dir change.
-- `core/governance/artifacts/AGENTS.md` — Indexing rules for every workspace's
-  `.agents/artifacts/index.md`.
-- `core/root-AGENTS.md` — The installable root agent-guidelines template copied to consuming
-  projects as `AGENTS.md`. Changes here must be propagated and documented per release.
-- `core/` — Agent-neutral harness core: skill templates (`skills/`), enforcement scripts (`scripts/`),
-  workspace seeds (`workspace-agents-template/`), governance docs (`governance/`).
+- `turborepo-harness-template/core/governance/artifacts/AGENTS.md` — Indexing rules for every
+  workspace's `.agents/artifacts/index.md`.
+- `turborepo-harness-template/core/` — Agent-neutral harness core: skill templates (`skills/`),
+  enforcement scripts (`scripts/`), workspace seeds (`workspace-agents-template/`), governance docs
+  (`governance/`).

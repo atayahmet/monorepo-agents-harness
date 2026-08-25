@@ -48,8 +48,9 @@ turborepo-harness-template/
 From your Turborepo root:
 
 1. **Copy this bundle** into your repo root as `turborepo-harness-template/`.
-2. **Install the core** (agent-neutral — same for everyone): copy `AGENTS.md`, seed the docs
-   governance tree, scaffold per-workspace `.agents/` dirs, resolve placeholders.
+2. **Install the core** (agent-neutral — same for everyone): copy `core/root-AGENTS.md` to
+   `AGENTS.md`, seed the docs governance tree, scaffold per-workspace `.agents/` dirs, resolve
+   placeholders.
    → Step-by-step: **[INSTALL.md](INSTALL.md)** (Phase 1)
 3. **Install your agent's adapter**:
    - Claude Code → [adapters/claude-code/INSTALL.md](adapters/claude-code/INSTALL.md)
@@ -78,7 +79,7 @@ ln -s ../../turborepo-harness-template/core/scripts/memory-gate.sh .git/hooks/pr
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | [INSTALL.md](INSTALL.md)                                                   | Full install: core phase, adapter phase, placeholders, verification                        |
 | [PORTABILITY.md](PORTABILITY.md)                                           | Cross-agent capability matrix; how to author a new adapter                                 |
-| [AGENTS.md](AGENTS.md)                                                     | Template root instructions — the single source of truth copied into target repos           |
+| [core/root-AGENTS.md](core/root-AGENTS.md)                                 | Template root instructions — the single source of truth copied into target repos as `AGENTS.md` |
 | [core/skills/agent-workflow/SKILL.md](core/skills/agent-workflow/SKILL.md) | Plan/spec/memory file templates                                                            |
 | [core/skills/harness-update/SKILL.md](core/skills/harness-update/SKILL.md) | Update-check / upgrade workflow (shared by both adapter commands)                          |
 | [core/governance/artifacts/AGENTS.md](core/governance/artifacts/AGENTS.md) | Task-index format & searchability rules for every `<workspace>/.agents/artifacts/index.md` |

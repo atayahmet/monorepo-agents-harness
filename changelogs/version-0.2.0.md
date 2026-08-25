@@ -45,7 +45,7 @@ bash core/scripts/scaffold-workspace-agents.sh
 The following steps are intentionally not automated because they touch
 user-owned configuration files. Present them to the user after the upgrade.
 
-- Merge any new rows from the fresh `AGENTS.md` template into the repo-root `AGENTS.md`.
+- Merge any new rows from the fresh `core/root-AGENTS.md` template into the repo-root `AGENTS.md`.
 - Re-apply adapter config merges per the relevant adapter install guide:
   - claude-code -> `adapters/claude-code/INSTALL.md`
   - opencode -> `adapters/opencode/INSTALL.md`

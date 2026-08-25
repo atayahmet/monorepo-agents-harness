@@ -24,6 +24,23 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.2.2] - 2026-08-25
+
+### Changed
+
+- Moved the installable root agent-guidelines template from repo-root `AGENTS.md` to
+  `core/root-AGENTS.md`. The repo-root `AGENTS.md` is now independent and contains only
+  harness-template-specific rules. This prevents naming collisions when the harness bundle is
+  installed into a project that already has its own `AGENTS.md`.
+- Updated `INSTALL.md`, `README.md`, `changelogs/README.md`, and `changelogs/version-0.2.0.md` to
+  reference `core/root-AGENTS.md` as the source of the installable template.
+
+### Upgrade Notes
+
+- Copy the new `core/root-AGENTS.md` file into your installed `turborepo-harness-template/` directory.
+- Compare your project's root `AGENTS.md` against the fresh `core/root-AGENTS.md` template and merge
+  any new rows/rules manually. The harness never auto-merges this file.
+
 ## [0.2.1] - 2026-08-24
 
 ### Changed
@@ -94,7 +111,8 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/turborepo-agent-harness/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/atayahmet/turborepo-agent-harness/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.2.2
 [0.2.1]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.2.1
 [0.2.0]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.2.0
 [0.1.0]: https://github.com/atayahmet/turborepo-agent-harness/releases/tag/v0.1.0

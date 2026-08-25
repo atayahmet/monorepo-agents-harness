@@ -49,7 +49,7 @@ bash core/scripts/scaffold-workspace-agents.sh
 
 ## Manual follow-ups for the user
 
-- Merge any new rows from the fresh `AGENTS.md` template into the repo-root `AGENTS.md`.
+- Merge any new rows from the fresh `core/root-AGENTS.md` template into the repo-root `AGENTS.md`.
 
 ## Release summary
 
