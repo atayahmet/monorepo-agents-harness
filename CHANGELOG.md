@@ -24,6 +24,18 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.4.2] - 2026-08-25
+
+### Changed
+
+- Pointed the repository origin remote and all historic release links in `CHANGELOG.md` to the
+  renamed `monorepo-agents-harness` GitHub repository (`https://github.com/atayahmet/monorepo-agents-harness`).
+
+### Upgrade Notes
+
+- No action required for installed copies. If you override `HARNESS_UPSTREAM`, ensure it still
+  resolves to the correct repository.
+
 ## [0.4.1] - 2026-08-25
 
 ### Changed
@@ -210,7 +222,8 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.4.2
 [0.4.1]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.4.1
 [0.4.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.4.0
 [0.3.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.3.0
