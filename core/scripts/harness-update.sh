@@ -9,9 +9,11 @@
 #   harness-update.sh current                    print the installed harness version
 #   harness-update.sh latest   [--json]          resolve the newest upstream tag (network)
 #   harness-update.sh check    [--json]          compare installed vs latest (exit 0/1/2)
+#   harness-update.sh verify-copy <src> <dst>     confirm every file under <src> exists under <dst>
 #
 # Exit codes (check/latest): 0 = up-to-date/resolved, 1 = update available,
-# 2 = unknown/unreachable. Dependencies: git + coreutils only. Fails open.
+# 2 = unknown/unreachable. verify-copy: 0 = every file present, 1 = at least one missing (paths
+# printed to stderr), 2 = usage error. Dependencies: git + coreutils only. Fails open.
 #
 # Knobs (env):
 #   HARNESS_UPSTREAM   upstream git URL      default below
@@ -98,9 +100,30 @@ cmd_check() {
   return 0
 }
 
+cmd_verify_copy() {
+  local src="${1:-}" dst="${2:-}" missing=0 rel
+  if [ -z "$src" ] || [ -z "$dst" ] || [ ! -d "$src" ]; then
+    echo "harness-update: verify-copy needs an existing <src> dir and a <dst> dir" >&2
+    return 2
+  fi
+  while IFS= read -r rel; do
+    if [ ! -e "$dst/$rel" ]; then
+      echo "harness-update: missing after copy: $rel" >&2
+      missing=1
+    fi
+  done < <(cd "$src" && find . -type f | sed 's#^\./##')
+  if [ "$missing" -eq 1 ]; then
+    echo "harness-update: verify-copy FAILED — $src -> $dst is incomplete" >&2
+    return 1
+  fi
+  echo "harness-update: verify-copy OK — $src -> $dst"
+  return 0
+}
+
 case "${1:-}" in
   current) shift; cmd_current "$@" ;;
   latest) shift; cmd_latest "$@" ;;
   check) shift; cmd_check "$@" ;;
-  *) sed -n '3,12p' "$0"; exit 2 ;;
+  verify-copy) shift; cmd_verify_copy "$@" ;;
+  *) sed -n '3,13p' "$0"; exit 2 ;;
 esac

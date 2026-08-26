@@ -70,6 +70,14 @@ Run from the target repo root. `BUNDLE=.agents/monorepo-agents-harness` below.
     # …and/or add `bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh` to CI.
    ```
 
+6. **Optional harness-plumbing skills.** Copy whichever of these you want to use (each is
+   independent of the others — see §11/§12/§13 of `../../INSTALL.md`):
+   ```bash
+   cp -R "$BUNDLE/adapters/codex/.agents/skills/monorepo-harness-ci"     .agents/skills/   # /monorepo-harness-ci
+   cp -R "$BUNDLE/adapters/codex/.agents/skills/monorepo-harness-review" .agents/skills/   # /monorepo-harness-review
+   cp -R "$BUNDLE/adapters/codex/.agents/skills/monorepo-harness-intent" .agents/skills/   # /monorepo-harness-intent
+   ```
+
 The hooks are independent and fail-open (missing `jq`/git root/bundle → exit 0, no block), so they
 coexist with other hooks safely.
 

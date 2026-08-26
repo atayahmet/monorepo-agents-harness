@@ -49,6 +49,15 @@ config. Read `../../INSTALL.md` first (core must be installed before any adapter
     ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit   # and/or add to CI
    ```
 
+5. **Optional harness-plumbing commands.** Copy whichever of these you want to use (each is
+   independent of the others — see §11/§12/§13 of `../../INSTALL.md`):
+   ```bash
+   cp .agents/monorepo-agents-harness/adapters/opencode/.opencode/commands/monorepo-harness-ci.md \
+      .agents/monorepo-agents-harness/adapters/opencode/.opencode/commands/monorepo-harness-review.md \
+      .agents/monorepo-agents-harness/adapters/opencode/.opencode/commands/monorepo-harness-intent.md \
+      .opencode/commands/
+   ```
+
 ## Verify
 
 ```bash

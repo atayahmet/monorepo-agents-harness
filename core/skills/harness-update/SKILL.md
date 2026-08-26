@@ -9,7 +9,16 @@ Shared instructions backing every adapter's `/monorepo-harness:update` (Claude C
 
 The version engine is `.agents/monorepo-agents-harness/core/scripts/harness-update.sh` (git + coreutils only; exit 0 = current, 1 = update available, 2 = unknown/unreachable). The script only performs version checks; it does **not** execute upgrades.
 
-The actual upgrade is performed by you, the active agent, by reading the changelog prompts from the freshly downloaded bundle at `.agents/.harness-update-v<latest>/changelogs/version-X.Y.Z.md` (see step 2). The installed copy's `changelogs/` directory is removed at the end of every install and update (step 10) and must never be relied on as a prompt source.
+The actual upgrade is performed by you, the active agent. Since 0.11.0, the bundle's `core/` and
+`adapters/` trees are synced **wholesale** from the freshly downloaded clone (step 7) — not from an
+itemized per-version file list — because a hand-maintained "Files to copy" list is structurally
+prone to omissions (a new skill, script, or adapter command silently missing from a release's
+list means it never reaches installed projects). Changelog prompts under
+`.agents/.harness-update-v<latest>/changelogs/version-X.Y.Z.md` (see step 2) are still read in
+order, but now only for their `Commands to run` and `Manual follow-ups` sections (and any rare
+non-bundle `Files to copy`/`Files to delete` entries — see `changelogs/README.md`). The installed
+copy's `changelogs/` directory is removed at the end of every install and update (step 10) and
+must never be relied on as a prompt source.
 
 Since 0.5.0 the upgrade also reconciles the project's root `AGENTS.md` against the new `core/root-AGENTS.md` (step 9) instead of leaving it as a recurring manual follow-up. That step has its own consent gate, separate from the "Upgrade now?" consent in step 6.
 
@@ -43,35 +52,75 @@ Since 0.5.0 the upgrade also reconciles the project's root `AGENTS.md` against t
    - Sort the selected prompts by version and read them in order.
 
 4. **Build an upgrade plan** from the selected prompts.
-   - Extract each prompt's standard sections:
-     - `Files to copy from the new bundle to the installed bundle`
-     - `Files to delete from the installed bundle`
+   - The `core/` and `adapters/` sync itself is NOT built from these prompts — it's a fixed
+     wholesale operation, see step 7.
+   - From each selected prompt, extract:
      - `Commands to run`
      - `Manual follow-ups for the user`
      - `Release summary`
-   - Translate copy/delete/run sections into concrete operations.
+     - Any `Files to copy`/`Files to delete` entries that name paths **outside** `core/` and
+       `adapters/` (rare — flag these explicitly if found, since the wholesale sync in step 7
+       does not cover them).
    - Collect manual follow-ups to present at the end.
+   - Determine which adapter(s) are already installed in the project (`.claude/` → claude-code,
+     `.opencode/` → opencode, `.agents/skills/` → codex) — needed for step 7.5.
    - Determine the root `AGENTS.md` reconciliation mode using
      `core/skills/agents-md-merge/SKILL.md` Step 0 (reads only — do not clone a base tag or build a
      proposal yet). Record it for the report below.
 
 5. **Report** the plan before asking anything:
    - Installed `<installed>` → available `<latest>`.
-   - Number of files to copy, delete, and commands to run.
+   - "Full `core/` and `adapters/` sync" (not an itemized count — see step 7), plus any
+     out-of-tree `Files to copy`/`Files to delete` entries, and the number of commands to run.
+   - Adapter(s) detected as installed (from step 4) that will be re-synced in step 7.5.
    - Root `AGENTS.md`: `<three-way merge from v<base> | adoption merge (no provenance marker) |
      already in sync | will be created>`.
    - Manual follow-ups verbatim.
    - Reference the relevant `CHANGELOG.md` Upgrade Notes if present.
 
-6. **Ask consent**: "Upgrade now?" Consenting here authorizes the file copies, deletions, and
-   commands in steps 7-8. It does **not** authorize writing `AGENTS.md` — that has its own approval
-   gate in step 9.
+6. **Ask consent**: "Upgrade now?" Consenting here authorizes the bundle sync, adapter re-install,
+   and commands in steps 7-7.5. It does **not** authorize writing `AGENTS.md` — that has its own
+   approval gate in step 9.
 
-7. **On consent, execute the plan**:
-    - **Copy**: For each listed path, copy from `.agents/.harness-update-v<latest>/...` to `.agents/monorepo-agents-harness/...`. Directories ending in `/` are copied recursively and replace the target directory entirely.
-    - **Delete**: Remove each listed path from `.agents/monorepo-agents-harness/...`. If the prompt says "(only if they exist)", skip silently when missing; otherwise treat a missing target as an error.
-    - **Run**: Execute each command block from `.agents/monorepo-agents-harness/`. Stop if any command returns a non-zero exit code and report which command failed.
+7. **On consent, sync the bundle**:
+    - **Wholesale sync of `core/` and `adapters/`** (this is a full replace, not an itemized
+      copy — see the skill intro for why):
+      ```bash
+      rm -rf .agents/monorepo-agents-harness/core
+      cp -R .agents/.harness-update-v<latest>/core .agents/monorepo-agents-harness/core
+      rm -rf .agents/monorepo-agents-harness/adapters
+      cp -R .agents/.harness-update-v<latest>/adapters .agents/monorepo-agents-harness/adapters
+      ```
+    - **Verify** the sync deterministically (do not skip — this is the safety net if a copy is
+      interrupted by a disk/permission error):
+      ```bash
+      bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh verify-copy \
+        .agents/.harness-update-v<latest>/core .agents/monorepo-agents-harness/core
+      bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh verify-copy \
+        .agents/.harness-update-v<latest>/adapters .agents/monorepo-agents-harness/adapters
+      ```
+      A non-zero exit means the upgrade is incomplete — stop and report which files are missing;
+      do not continue to step 7.5 or claim success.
+    - **Out-of-tree copy/delete** (rare): apply any paths flagged in step 4 that live outside
+      `core/`/`adapters/`.
+    - **Run**: execute each `Commands to run` block from `.agents/monorepo-agents-harness/`. Stop
+      if any command returns a non-zero exit code and report which command failed.
     - Do **not** execute `Manual follow-ups` automatically.
+
+7.5. **Self-healing adapter re-install.** For every adapter detected as installed in step 4,
+    re-apply its own `adapters/<agent>/INSTALL.md` **copy/symlink steps** (skills, update-check
+    command, build command, verifier subagent, and every optional harness-plumbing command already
+    present in the project — e.g. `monorepo-harness-ci`, `-review`, `-intent`) against the
+    freshly-synced bundle from step 7. This is what actually gets newly-added entry-point files
+    into an already-adapted project — do not skip it and do not demote it to a manual follow-up.
+    - Only re-run steps that copy/symlink a fixed, known file (`cp`, `ln -s`) — these are
+      idempotent (overwrite / recreate) and safe to run unconditionally.
+    - **Do NOT re-run the `settings.json`/`hooks.json`/`opencode.jsonc` config-merge step** — it
+      is not idempotent (re-running a `jq`-based append duplicates hook entries). Only touch that
+      file if the adapter's own hook/config definitions changed in this release, and only via the
+      normal `Manual follow-ups` list, reviewed by the user before writing.
+    - If the project has a harness-plumbing command file the current adapter no longer ships
+      (renamed/removed), report it as a follow-up — do not delete it silently.
 
 8. **Update the installed version file**:
     ```bash
@@ -109,10 +158,19 @@ Since 0.5.0 the upgrade also reconciles the project's root `AGENTS.md` against t
     ```
     chore(harness): upgrade to v<latest>
     ```
+    Summarize what step 7.5 re-installed per adapter (new files added, none if already current).
     If the `AGENTS.md` merge from step 9 was declined, list its proposal path and review command
     (`git diff --no-index AGENTS.md AGENTS.md.harness-proposed`) as the first follow-up.
 
 ## Edge cases
+
+- **`verify-copy` reports missing files (step 7)**: this means the sync itself failed partway
+  (disk full, permission denied, interrupted clone) — it is not expected in normal operation
+  since `core/` and `adapters/` are always synced wholesale. Stop, report the exact missing paths
+  the command printed, and do not proceed to step 7.5 or update the version file (step 8).
+- **No adapter detected in step 4** (`.claude/`, `.opencode/`, and `.agents/skills/` all absent):
+  skip step 7.5 entirely — nothing to re-install yet; the user has not run Phase 2 (`INSTALL.md`
+  §5) for any agent.
 
 - **Pre-versioning install** (no `.agents/monorepo-agents-harness/VERSION` and no legacy `.agents/monorepo-agents-harness/core/VERSION`, exit status outdated with empty installed): treat as "very old install" — recommend following INSTALL.md §4 afresh instead of upgrading.
 - **Installed newer than upstream** (dev build): report and stop; offer to downgrade to the published release only on explicit user request.

@@ -343,18 +343,26 @@ the changelog prompts.
 git clone --depth 1 --branch v<latest> https://github.com/atayahmet/monorepo-agents-harness .agents/.harness-update-tmp
 ```
 
-Then let your agent apply the upgrade by following the prompts in
-`.agents/.harness-update-tmp/changelogs/version-<latest>.md` (and any intermediate version prompts).
-The agent copies files, deletes obsolete files, runs commands, and presents manual follow-ups. As its
-final steps the agent reconciles your root `AGENTS.md` against the new `core/root-AGENTS.md`
+Then let your agent apply the upgrade. Since 0.11.0, `core/` and `adapters/` inside the installed
+bundle are synced **wholesale** from this fresh clone (not from an itemized per-version file list —
+see `changelogs/README.md`'s 0.11.0+ note for why), then verified with
+`harness-update.sh verify-copy` so an incomplete sync is never reported as a success. The agent then
+re-applies each already-installed adapter's own `INSTALL.md` copy/symlink steps against the fresh
+bundle — this is what gets newly-added commands/skills (e.g. `/monorepo-harness-review`) into a
+project that adapted an earlier version, without you having to copy them by hand. Only each
+adapter's config-merge step (`.claude/settings.json`, `.codex/hooks.json`, `opencode.jsonc`) is
+excluded from that automatic re-apply, since a repeated `jq` merge would duplicate hook entries —
+that one stays a manual follow-up, and only when the adapter's hook definitions actually changed.
+The agent also runs any `Commands to run` from `.agents/.harness-update-tmp/changelogs/version-<latest>.md`
+(and any intermediate version prompts) and presents their manual follow-ups. As its final steps the
+agent reconciles your root `AGENTS.md` against the new `core/root-AGENTS.md`
 (`core/skills/harness-update/SKILL.md` step 9, backed by `core/skills/agents-md-merge/SKILL.md`) and
 removes the installed `.agents/monorepo-agents-harness/changelogs/` directory (step 10) — that
 directory is never a prompt source, prompts are always read from the temporary clone. The `AGENTS.md`
 reconciliation is a three-way merge against the template version recorded in your file's provenance
 marker (or an additive adoption merge if the file has no marker yet), presented as a clean diff and
 **written only after you approve it** — declining leaves the file untouched. The upgrade still
-**never touches**: `.agents/` working state and task history, or adapter configs (re-apply merges per
-your adapter README — see the follow-ups the agent prints).
+**never touches** `.agents/` working state and task history.
 
 ## 11. CI integration (optional)
 

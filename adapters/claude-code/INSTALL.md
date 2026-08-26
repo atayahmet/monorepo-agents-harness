@@ -80,7 +80,15 @@ Run from the target repo root. `BUNDLE=.agents/monorepo-agents-harness` below.
    cp "$BUNDLE/adapters/claude-code/.claude/agents/verifier.md" .claude/agents/
    ```
 
-8. **Placeholders.** Resolve `{{PROJECT_NAME}}` in the root `CLAUDE.md`. The hook commands contain
+8. **Optional harness-plumbing commands.** Copy whichever of these you want to use (each is
+   independent of the others — see §11/§12/§13 of `../../INSTALL.md`):
+   ```bash
+   cp "$BUNDLE/adapters/claude-code/.claude/commands/monorepo-harness-ci.md"     .claude/commands/   # /monorepo-harness-ci
+   cp "$BUNDLE/adapters/claude-code/.claude/commands/monorepo-harness-review.md" .claude/commands/   # /monorepo-harness-review
+   cp "$BUNDLE/adapters/claude-code/.claude/commands/monorepo-harness-intent.md" .claude/commands/   # /monorepo-harness-intent
+   ```
+
+9. **Placeholders.** Resolve `{{PROJECT_NAME}}` in the root `CLAUDE.md`. The hook commands contain
    no placeholders — task artifacts use the fixed convention `<workspace>/.agents/artifacts/`.
 
 The hooks are independent and fail-open (missing `jq`/git root/bundle → exit 0, never blocks),

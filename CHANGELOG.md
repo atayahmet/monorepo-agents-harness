@@ -24,6 +24,50 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.11.0] - 2026-08-26
+
+### Added
+
+- **`harness-update.sh verify-copy <src> <dst>`** — new deterministic subcommand that confirms
+  every file under `<src>` exists under `<dst>`, printing any missing paths and exiting 1. Run
+  automatically at the end of the bundle sync (see Changed) as a safety net against an
+  interrupted `core/`/`adapters/` copy.
+
+### Changed
+
+- **Bundle updates are now wholesale, not itemized.** `core/skills/harness-update/SKILL.md` step 7
+  replaces the installed `core/` and `adapters/` directories entirely from the freshly downloaded
+  clone, instead of copying only the files a changelog prompt's "Files to copy" section happened
+  to list. A hand-maintained per-release file list is structurally prone to omissions — this
+  session's own `INSTALL.md` §3 bundle-contents tree went stale for two releases before being
+  caught, and the equivalent gap in the actual copy list is exactly what caused new skills and
+  adapter commands to silently never reach installed projects. `changelogs/version-X.Y.Z.md`
+  prompts no longer need `Files to copy`/`Files to delete` sections for anything under `core/` or
+  `adapters/`; those sections are now reserved for the rare path outside both trees (see
+  `changelogs/README.md`'s 0.11.0+ note).
+- **New adapter entry-point commands/skills are now installed automatically during an update.**
+  `core/skills/harness-update/SKILL.md` step 7.5 detects which adapter(s) are already installed
+  (`.claude/`, `.opencode/`, `.agents/skills/`) and re-applies that adapter's own `INSTALL.md`
+  copy/symlink steps against the freshly-synced bundle. Previously these files (e.g. a new
+  `/monorepo-harness-review` command) were only ever listed as a "Manual follow-up," which the
+  update workflow explicitly never executes — this was the direct, confirmed cause of "new
+  commands didn't get installed" reports. The one exception is each adapter's config-merge step
+  (`.claude/settings.json`, `.codex/hooks.json`, `opencode.jsonc`), which is not idempotent and
+  stays a manual follow-up.
+- Filled in three previously-missing install steps: `adapters/{claude-code,opencode,codex}/INSTALL.md`
+  now each list a copy step for `/monorepo-harness-ci`, `/monorepo-harness-review`, and
+  `/monorepo-harness-intent` — confirmed absent from all three files before this release, meaning
+  even a fresh install never picked them up.
+
+### Upgrade Notes
+
+- No artifact-layout or workflow-shape change. Existing `.agents/artifacts/` and `.agents/intents/`
+  content is untouched.
+- After this update, re-run your adapter's `INSTALL.md` "Optional harness-plumbing commands" step
+  once by hand if you want any of `/monorepo-harness-ci`, `/monorepo-harness-review`, or
+  `/monorepo-harness-intent` that you don't already have — from 0.11.0 onward, future releases of
+  these will install automatically per the Changed section above.
+
 ## [0.10.0] - 2026-08-26
 
 ### Added
@@ -509,7 +553,8 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.11.0
 [0.10.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.10.0
 [0.9.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.9.0
 [0.8.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.8.0

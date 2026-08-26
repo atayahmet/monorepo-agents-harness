@@ -1,12 +1,18 @@
 # Changelog Prompts
 
-Each release that requires more than a verbatim file copy ships a human-readable
-upgrade prompt under this directory: `version-X.Y.Z.md`.
+Each release that needs commands run, manual follow-ups, or a release summary ships a
+human-readable upgrade prompt under this directory: `version-X.Y.Z.md`.
 
 These prompts are consumed by the active agent (Claude Code, opencode, Codex,
 Cursor, etc.). The agent reads the markdown, interprets the instructions, and
 performs the upgrade operations. `core/scripts/harness-update.sh` does **not**
-parse these files; it only resolves the installed and latest versions.
+parse these files; it only resolves the installed and latest versions (and, since
+0.11.0, verifies the bundle sync — see `verify-copy` below).
+
+**Since 0.11.0, prompts no longer drive file copying.** `core/` and `adapters/` are synced
+wholesale from the fresh clone every update (`core/skills/harness-update/SKILL.md` step 7) —
+nothing is enumerated, so nothing can be silently left out of a release's list. Prompts now exist
+only for `Commands to run`, `Manual follow-ups for the user`, and `Release summary`.
 
 ## File naming
 
@@ -23,23 +29,14 @@ can interpret it reliably:
 
 ```markdown
 ---
-version: 0.2.0
-from: 0.1.0
-date: 2026-08-24
+version: 0.11.0
+from: 0.10.0
+date: 2026-08-26
 ---
 
-# Version 0.2.0 Upgrade Instructions
+# Version 0.11.0 Upgrade Instructions
 
-You are upgrading the turborepo-agent-harness from 0.1.0 to 0.2.0.
-
-## Files to copy from the new bundle to the installed bundle
-
-- `core/VERSION` -> `core/VERSION`
-- `core/scripts/` -> `core/scripts/` (recursive directory copy)
-
-## Files to delete from the installed bundle (only if they exist)
-
-- `.claude/commands/turborepo-harness/update-check.md`
+You are upgrading the monorepo-agents-harness from 0.10.0 to 0.11.0.
 
 ## Commands to run
 
@@ -60,11 +57,25 @@ bash core/scripts/scaffold-workspace-agents.sh
 
 | Section | Purpose |
 |---|---|
-| `Files to copy from the new bundle to the installed bundle` | Copy listed files/directories from the downloaded bundle to the installed bundle. Directories ending in `/` are copied recursively. |
-| `Files to delete from the installed bundle` | Remove listed files/directories. If `(only if they exist)` is present, silently skip missing targets. |
 | `Commands to run` | Execute each command block from the installed bundle root. Stop on first failure. |
 | `Manual follow-ups for the user` | Present these to the user at the end; do not execute automatically. |
 | `Release summary` | Human-readable summary used when reporting the upgrade. |
+| `Files to copy from the new bundle to the installed bundle` (rare, opt-in — omit unless needed) | Only for paths **outside** `core/` and `adapters/`, which are always synced wholesale (see the 0.11.0+ note below). Directories ending in `/` are copied recursively. |
+| `Files to delete from the installed bundle` (rare, opt-in — omit unless needed) | Same scope restriction as above. If `(only if they exist)` is present, silently skip missing targets. |
+
+### `core/` and `adapters/` sync wholesale, not by itemized list (0.11.0+)
+
+Before 0.11.0, every release's "Files to copy" list had to enumerate each new/changed file under
+`core/` — a hand-maintained list that could (and did) silently omit files, leaving installed
+projects with a stale or incomplete bundle. From 0.11.0 on, `core/skills/harness-update/SKILL.md`
+step 7 replaces `core/` and `adapters/` wholesale from the fresh clone every time, then verifies
+the result with `harness-update.sh verify-copy`. **Do not** list `core/...` or `adapters/...`
+paths under "Files to copy"/"Files to delete" in prompts released from 0.11.0 onward — reserve
+those sections for the rare path that lives outside both trees. (Prompts released before 0.11.0
+still list `core/...` paths; historical artifact, harmless since the wholesale sync already
+covers them — left as-is.) Adapter entry-point files (new slash commands/skills) are also no
+longer a manual follow-up: `core/skills/harness-update/SKILL.md` step 7.5 re-applies each
+installed adapter's own `INSTALL.md` copy steps automatically.
 
 ### Installed `changelogs/` is ephemeral (0.4.4+)
 
