@@ -24,6 +24,44 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.10.0] - 2026-08-26
+
+### Added
+
+- **`/monorepo-harness-intent` — intent capture and review.** New per-workspace inbox
+  `<workspace>/.agents/intents/` (`intent_<YYYY_MM_DD>_<slug>.md`, `status:
+  pending|approved|rejected`) lets any stakeholder file a problem description before it's scoped
+  into engineering work. New `core/skills/intent-workflow/SKILL.md` handles both Capture and
+  Review; Review gates every status change behind an explicit **"Approve this intent?"** question,
+  answered in the current turn — the same consent discipline as `agents-md-merge`'s "Apply this
+  merge to AGENTS.md?" gate. Approved and rejected intents are both kept, never deleted.
+- New governance templates `core/governance/intents/AGENTS.md` (full format + lifecycle rules) and
+  `core/governance/intents/workspace-AGENTS.md` (per-workspace pointer, seeded by
+  `scaffold-workspace-agents.sh`, which now also creates `<workspace>/.agents/intents/`).
+- `core/skills/agent-workflow/SKILL.md` Phase 1 gained an optional, best-effort step: before
+  writing `1_plan.md`, check for an approved intent matching the task; if found, copy it into the
+  task directory as `0_intent.md` and reference it from the plan's `## Problem` section. This is
+  *not* a mandatory search like the existing prior-art index check — most ad-hoc tasks have no
+  intent behind them and skip it silently.
+- New `/monorepo-harness-intent` entry point on all three adapters, following the same thin-pointer
+  pattern as the other harness-plumbing commands.
+
+### Changed
+
+- `core/governance/artifacts/AGENTS.md`'s directory layout gains the optional `0_intent.md` line.
+- `PORTABILITY.md` capability matrix gains an intent-capture row; `adapters/AGENTS.md` Hard Rule 6
+  and its `agent-workflow` expectations section both reference the new optional artifact.
+
+### Upgrade Notes
+
+- Purely additive: no existing artifact, script, or hook changes behavior. Existing task
+  directories without `0_intent.md` are unaffected — the field is optional and never retroactively
+  required.
+- Installs should re-run `core/scripts/scaffold-workspace-agents.sh` to seed
+  `<workspace>/.agents/intents/AGENTS.md` for existing workspaces, and copy the new
+  `monorepo-harness-intent` command/skill file for whichever adapter(s) they use (see the relevant
+  `adapters/<agent>/INSTALL.md`).
+
 ## [0.9.0] - 2026-08-26
 
 ### Added
@@ -471,7 +509,8 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.10.0
 [0.9.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.9.0
 [0.8.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.8.0
 [0.7.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.7.0

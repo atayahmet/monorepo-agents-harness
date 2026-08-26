@@ -32,11 +32,13 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
    `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/` (where `<workspace>` is the primary
    target: an app name under `apps/` or a package name under `packages/`) containing `1_plan.md`,
    `2_spec.md`, (at task end) `3_memory.md`, and `4_verify.md` (required unless the spec's Test/
-   verification plan is `N/A`). Every add/update/delete on a task directory must be reflected in
-   that workspace's searchable index `<workspace>/.agents/artifacts/index.md` in the same commit.
-   The memory-gate (your agent adapter's stop-hook and/or `core/scripts/memory-gate.sh` at git
-   pre-commit/CI) scans every workspace's artifacts dir and blocks until today's task dir has
-   `3_memory.md` and (when required) `4_verify.md`.
+   verification plan is `N/A`) — plus, optionally, `0_intent.md` when an approved entry under
+   `<workspace>/.agents/intents/` seeded the task (see `core/skills/intent-workflow/SKILL.md`).
+   Every add/update/delete on a task directory must be reflected in that workspace's searchable
+   index `<workspace>/.agents/artifacts/index.md` in the same commit. The memory-gate (your agent
+   adapter's stop-hook and/or `core/scripts/memory-gate.sh` at git pre-commit/CI) scans every
+   workspace's artifacts dir and blocks until today's task dir has `3_memory.md` and (when
+   required) `4_verify.md`.
 
 ## Before You Start — Mandatory Checklist
 

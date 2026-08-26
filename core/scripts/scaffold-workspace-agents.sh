@@ -5,17 +5,20 @@
 #   .agents/{session-log,lessons,todo}.md   seeded from core/workspace-agents-template/
 #   .agents/artifacts/index.md              task index, seeded from core/governance/artifacts/index-template.md
 #   .agents/artifacts/AGENTS.md             rules pointer, seeded from core/governance/artifacts/workspace-AGENTS.md
+#   .agents/intents/AGENTS.md               rules pointer, seeded from core/governance/intents/workspace-AGENTS.md
 #
 # Existing files are never overwritten. Run once at install time, and re-run after adding a new
 # workspace.
 #
 #   bash .agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh   # from the target repo root
 #   SEED=path/to/workspace-agents-template INDEX_TEMPLATE=path/to/index-template.md \
-#   RULES_TEMPLATE=path/to/workspace-AGENTS.md bash .../scaffold-workspace-agents.sh
+#   RULES_TEMPLATE=path/to/workspace-AGENTS.md INTENTS_RULES_TEMPLATE=path/to/intents/workspace-AGENTS.md \
+#   bash .../scaffold-workspace-agents.sh
 #
 # The agent reads <target-workspace>/.agents/{session-log,lessons}.md BEFORE starting work, writes
-# <target-workspace>/.agents/todo.md (see AGENTS.md "Before You Start" checklist), and creates its
-# per-task plan/spec/memory dirs under <target-workspace>/.agents/artifacts/.
+# <target-workspace>/.agents/todo.md (see AGENTS.md "Before You Start" checklist), creates its
+# per-task plan/spec/memory/verify dirs under <target-workspace>/.agents/artifacts/, and may draw on
+# approved requests under <target-workspace>/.agents/intents/ (see core/governance/intents/AGENTS.md).
 
 set -euo pipefail
 
@@ -37,6 +40,10 @@ fi
 RULES_TEMPLATE="${RULES_TEMPLATE:-$RUNTIME_DIR/core/governance/artifacts/workspace-AGENTS.md}"
 if [ ! -f "$RULES_TEMPLATE" ]; then
   RULES_TEMPLATE="$BUNDLE_DIR/core/governance/artifacts/workspace-AGENTS.md"
+fi
+INTENTS_RULES_TEMPLATE="${INTENTS_RULES_TEMPLATE:-$RUNTIME_DIR/core/governance/intents/workspace-AGENTS.md}"
+if [ ! -f "$INTENTS_RULES_TEMPLATE" ]; then
+  INTENTS_RULES_TEMPLATE="$BUNDLE_DIR/core/governance/intents/workspace-AGENTS.md"
 fi
 
 if [ ! -d "$SEED" ]; then
@@ -84,6 +91,15 @@ for parent in "${workspace_parents[@]}"; do
       echo "  + ${dest#"$ROOT"/}/artifacts/$out"
     fi
   done
+  # Intent inbox: seed the workspace's rules pointer (no index — see core/governance/intents/AGENTS.md).
+  if [ ! -d "$dest/intents" ]; then
+    mkdir -p "$dest/intents"
+  fi
+  if [ -f "$INTENTS_RULES_TEMPLATE" ] && [ ! -e "$dest/intents/AGENTS.md" ]; then
+    cp "$INTENTS_RULES_TEMPLATE" "$dest/intents/AGENTS.md"
+    created=$((created + 1))
+    echo "  + ${dest#"$ROOT"/}/intents/AGENTS.md"
+  fi
 done
 done
 

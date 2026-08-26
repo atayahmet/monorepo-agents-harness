@@ -31,8 +31,9 @@ in the same change.
    - `../PORTABILITY.md` — capability matrix + semantic-difference notes;
    - `../INSTALL.md` — Phase 2 table (Agent / Adapter / Guide) if a new adapter ships.
 6. **Slash commands and subagents ship only for harness plumbing** (the update check, the plan/spec
-   build trigger, the CI integration trigger, the PR review trigger, and the `verifier` subagent).
-   Project-specific commands/subagents do not belong here (see `../INSTALL.md` §7).
+   build trigger, the CI integration trigger, the PR review trigger, the intent capture/review
+   trigger, and the `verifier` subagent). Project-specific commands/subagents do not belong here
+   (see `../INSTALL.md` §7).
 7. **Shipped dependencies.** If an adapter ships a `package.json` (e.g., a plugin that needs
    `node_modules`), the adapter README install steps MUST include installing those dependencies
    (`npm install`, `pnpm install`, or equivalent) before copying files into the target repo. Never
@@ -47,11 +48,13 @@ enforcement layer must support exactly these expectations (native mechanism or f
 
 1. **Task directory convention** — one dir per task:
    `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/` containing `1_plan.md`, `2_spec.md`,
-   `3_memory.md`, and `4_verify.md` (required whenever the spec's Test/verification plan is not
-   `N/A`). `<slug>` is `snake_case`, `[a-z0-9_]`, 3–5 words, decided in the plan phase and
-   never renamed; dashes in the date become `_` (`2026-06-03` → `task_2026_06_03_<slug>`).
-   The gate discovers tasks by scanning `apps/*/.agents/artifacts/` +
-   `packages/*/.agents/artifacts/` — placement is load-bearing, do not invent other locations.
+   `3_memory.md`, `4_verify.md` (required whenever the spec's Test/verification plan is not `N/A`),
+   and optionally `0_intent.md` (only when an approved entry under `<workspace>/.agents/intents/`
+   seeded the task — see `core/governance/intents/AGENTS.md`). `<slug>` is `snake_case`,
+   `[a-z0-9_]`, 3–5 words, decided in the plan phase and never renamed; dashes in the date become
+   `_` (`2026-06-03` → `task_2026_06_03_<slug>`). The gate discovers tasks by scanning
+   `apps/*/.agents/artifacts/` + `packages/*/.agents/artifacts/` — placement is load-bearing, do
+   not invent other locations.
 2. **Plan/spec reminder at plan-mode exit** — when the agent exits plan mode, *before the first
    implementation Edit/Write*, it must be nudged to create the task dir and write `1_plan.md`
    (frontmatter `phase: plan`, `status: approved`) then `2_spec.md` (`phase: spec`) in the same

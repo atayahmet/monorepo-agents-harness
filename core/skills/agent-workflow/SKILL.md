@@ -21,6 +21,7 @@ apps/api/
     └── artifacts/                           # ★ task history for this workspace
         ├── index.md                         # task index for the workspace
         └── task_<YYYY_MM_DD>_<slug>/
+            ├── 0_intent.md                  # optional — only if an approved intent seeded this task
             ├── 1_plan.md
             ├── 2_spec.md
             ├── 3_memory.md
@@ -30,6 +31,7 @@ apps/api/
 ```
 packages/example-pkg/.agents/artifacts/
 └── task_<YYYY_MM_DD>_<slug>/
+    ├── 0_intent.md   # optional — see Phase 1
     ├── 1_plan.md
     ├── 2_spec.md
     ├── 3_memory.md
@@ -58,9 +60,16 @@ The memory-gate scans `apps/*/.agents/artifacts/` and `packages/*/.agents/artifa
 
 When plan mode is approved (e.g., `ExitPlanMode` is invoked on Claude Code, or the user runs `/monorepo-harness-build` on any agent), **before the first implementation tool call**, create the directory and write `1_plan.md`.
 
-**Before writing it**, search for prior art: grep `<workspace>/.agents/artifacts/index.md` using
-1–3 keywords derived from the task. On a match, read that task's `2_spec.md` (and `3_memory.md` if
-marked ◆) and summarize its relevance in the `## Related prior work` section below.
+**Before writing it**, two checks:
+
+1. **Prior art (mandatory)** — grep `<workspace>/.agents/artifacts/index.md` using 1–3 keywords
+   derived from the task. On a match, read that task's `2_spec.md` (and `3_memory.md` if marked ◆)
+   and summarize its relevance in the `## Related prior work` section below.
+2. **Approved intent (optional, best-effort)** — if `<workspace>/.agents/intents/` exists, check
+   whether an `approved` intent plausibly matches this task (by slug, keywords, or affected files).
+   On a match, copy it into the task directory as `0_intent.md` and reference it from `## Problem`
+   below. Most ad-hoc tasks have no intent behind them — skip silently if none matches or the
+   directory doesn't exist. See `core/skills/intent-workflow/SKILL.md`.
 
 ```markdown
 ---
@@ -219,3 +228,5 @@ slug: <slug>
 - **Commit requirement**: Memory must be written *after* the commit so `commits:` can be filled in.
   `4_verify.md` has no such ordering constraint relative to `3_memory.md` — both are required by
   task end, in either order.
+- **No matching approved intent**: normal and expected for most tasks — `0_intent.md` is simply
+  omitted; nothing warns about this, unlike the mandatory prior-art search above.

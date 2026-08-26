@@ -67,18 +67,25 @@ workspace).
 ├── core/                                         # ★ agent-neutral — identical for every agent
 │   ├── VERSION
 │   ├── root-AGENTS.md                            # TEMPLATE root instructions (placeholders)
+│   ├── root-REVIEW.md                            # TEMPLATE review policy (optional, placeholders)
 │   ├── skills/
-│   │   ├── agent-workflow/SKILL.md               # plan/spec/memory templates
+│   │   ├── agent-workflow/SKILL.md               # plan/spec/memory/verify templates
 │   │   ├── agents-md-merge/SKILL.md              # root AGENTS.md reconciliation (install + upgrade)
 │   │   ├── harness-update/SKILL.md               # upgrade workflow instructions
-│   │   └── monorepo/SKILL.md                     # generic monorepo guidance
+│   │   ├── monorepo/SKILL.md                     # generic monorepo guidance
+│   │   ├── ci-integration/SKILL.md               # CI provider detection + memory-gate wiring
+│   │   ├── pr-review/SKILL.md                    # diff review against REVIEW.md + task artifacts
+│   │   └── intent-workflow/SKILL.md              # intent capture + approve/reject review
 │   ├── scripts/
 │   │   ├── memory-gate.sh                        # HARD gate
 │   │   ├── harness-update.sh                     # version engine
 │   │   ├── scaffold-workspace-agents.sh          # workspace seeding
-│   │   └── detect-monorepo-framework.sh          # framework detector
+│   │   ├── detect-monorepo-framework.sh          # framework detector
+│   │   └── detect-ci-provider.sh                 # CI provider detector
 │   ├── workspace-agents-template/                # PER-WORKSPACE working-state seed
-│   └── governance/artifacts/                     # indexing rules + seeds
+│   └── governance/
+│       ├── artifacts/                            # indexing rules + seeds
+│       └── intents/                              # intent format + status-lifecycle rules + seeds
 └── adapters/                                     # ★ per-agent enforcement wiring
     ├── claude-code/
     ├── codex/
@@ -133,10 +140,11 @@ Let `ROOT` = target repo root.
    ```bash
    bash .agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh
    ```
-   For every app and package it creates `.agents/{session-log,lessons,todo}.md` plus the task tree
-   `.agents/artifacts/{index.md,AGENTS.md}` (empty searchable index + rules pointer). The agent
-   reads these *before* each task and writes its `todo.md` there (see `AGENTS.md` "Before You
-   Start"). Re-run after adding any workspace.
+   For every app and package it creates `.agents/{session-log,lessons,todo}.md`, the task tree
+   `.agents/artifacts/{index.md,AGENTS.md}` (empty searchable index + rules pointer), and the intent
+   inbox `.agents/intents/AGENTS.md` (rules pointer — see §13). The agent reads these *before* each
+   task and writes its `todo.md` there (see `AGENTS.md` "Before You Start"). Re-run after adding any
+   workspace.
 6. **Resolve placeholders** (§6).
 7. **Verify** (§8), then **commit** the core install as its own change.
 
@@ -383,4 +391,19 @@ exclusions) — otherwise it uses built-in defaults. When the diff maps to a tas
 This only ever produces a report: it never posts to a PR platform, tags comments, or merges/approves
 anything (see `core/skills/pr-review/SKILL.md` "Out of scope"). Copying `REVIEW.md` in is optional —
 skip it if the built-in defaults are fine.
+
+## 13. Intent capture (optional)
+
+`/monorepo-harness-intent` (every adapter) lets any stakeholder — not just an engineer mid-task —
+describe a problem before it's scoped into work. Each request becomes
+`<workspace>/.agents/intents/intent_<YYYY_MM_DD>_<slug>.md` with `status: pending`, seeded per
+workspace by `scaffold-workspace-agents.sh` (§4 step 5). A product owner or manager later asks the
+same command to review pending intents; each is presented individually and gated behind an explicit
+**"Approve this intent?"** question — nothing changes `status` without an answer in the current
+turn. Approved and rejected intents are both kept, never deleted, as an audit trail.
+
+An **approved** intent is optional input to plan-mode work: `core/skills/agent-workflow/SKILL.md`
+Phase 1 does a best-effort match against `<workspace>/.agents/intents/` before writing `1_plan.md`,
+and copies a match in as the task's `0_intent.md`. Most ad-hoc engineering tasks have no intent
+behind them and skip this silently — full rules: `core/governance/intents/AGENTS.md`.
 

@@ -27,6 +27,10 @@ Codex, and more.
   defaults) and, when the diff maps to a tracked task, against that task's own
   `1_plan.md`/`2_spec.md`/`4_verify.md` — a ground truth generic review bots don't have. Reports
   Important/Nit findings; never posts to a PR platform or merges anything.
+- **Intent capture** — `/monorepo-harness-intent` lets any stakeholder file a problem description
+  before it's scoped into a task, and a product owner/manager approve or reject it explicitly. An
+  approved intent optionally seeds a later task's plan as `0_intent.md`; rejected ones are kept, not
+  deleted, as an audit trail.
 
 ## How it works
 
@@ -80,9 +84,9 @@ ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hoo
 
 | Adapter       | Enforcement provided                                                                                                                                                               |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-build` manual plan/spec trigger, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness:update` command, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `verifier` subagent  |
-| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-update` command, `/monorepo-harness-build` manual plan/spec trigger, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review                                                        |
-| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-update`, `/monorepo-harness-build`, `/monorepo-harness-ci`, and `/monorepo-harness-review` skills |
+| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-build` manual plan/spec trigger, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness:update` command, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `verifier` subagent  |
+| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-update` command, `/monorepo-harness-build` manual plan/spec trigger, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture                                                        |
+| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-update`, `/monorepo-harness-build`, `/monorepo-harness-ci`, `/monorepo-harness-review`, and `/monorepo-harness-intent` skills |
 | yours         | Follow the capability matrix in [PORTABILITY.md](PORTABILITY.md) — new adapters are the intended growth path                                                                       |
 
 ## Documentation map
@@ -99,6 +103,8 @@ ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hoo
 | [core/skills/ci-integration/SKILL.md](core/skills/ci-integration/SKILL.md) | Detects the target project's CI provider and wires `memory-gate.sh` into it (`/monorepo-harness-ci`) |
 | [core/skills/pr-review/SKILL.md](core/skills/pr-review/SKILL.md) | Reviews a diff against `REVIEW.md` policy and, when possible, a task's plan/spec/verify artifacts (`/monorepo-harness-review`) |
 | [core/root-REVIEW.md](core/root-REVIEW.md) | Optional installable review-policy template — copied into target repos as `REVIEW.md` |
+| [core/skills/intent-workflow/SKILL.md](core/skills/intent-workflow/SKILL.md) | Captures stakeholder intents and lets a product owner approve/reject them (`/monorepo-harness-intent`) |
+| [core/governance/intents/AGENTS.md](core/governance/intents/AGENTS.md) | Intent file format and status-lifecycle rules for every `<workspace>/.agents/intents/` |
 | [core/governance/artifacts/AGENTS.md](core/governance/artifacts/AGENTS.md) | Task-index format & searchability rules for every `<workspace>/.agents/artifacts/index.md` |
 
 ## Requirements
