@@ -92,8 +92,8 @@ Let `ROOT` = target repo root.
    the only installed harness location; nothing stays at the repo root:
    ```bash
    mkdir -p .agents
-   cp -R <path-to-bundle>/. .agents/monorepo-agents-harness/
-   rm -rf .agents/monorepo-agents-harness/changelogs
+   cp -R <path-to-bundle>/. .agents/monorepo-agents-harness/ && \
+     rm -rf .agents/monorepo-agents-harness/changelogs
    ```
    `changelogs/` only carries upgrade prompts, which are always read from a temporary clone at
    update time (§10) — never from the installed copy — so it is removed immediately after install.
@@ -217,6 +217,14 @@ echo "seed check done"
 
 # d) key runtime files exist
 ls -l "$RUNTIME"/core/scripts/ "$RUNTIME"/core/skills/
+
+# e) changelogs/ must not exist in the installed copy — self-heal if it does
+# (it is never a prompt source; prompts are always read from a temporary clone at update time)
+if [ -d "$RUNTIME/changelogs" ]; then
+  echo "changelogs/ should have been removed during install — removing now"
+  rm -rf "$RUNTIME/changelogs"
+fi
+echo "changelogs/ absent: OK"
 ```
 
 **End-to-end check of the memory-gate** (the core enforcement, agent-free default mode).

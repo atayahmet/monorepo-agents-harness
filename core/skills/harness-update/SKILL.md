@@ -72,12 +72,13 @@ The actual upgrade is performed by you, the active agent, by reading the changel
 
 9. **Clean up**:
    ```bash
-   rm -rf .agents/.harness-update-v<latest>
-   rm -rf .agents/monorepo-agents-harness/changelogs
+   rm -rf .agents/.harness-update-v<latest> .agents/monorepo-agents-harness/changelogs
    ```
    Always remove the installed `changelogs/` directory too, unconditionally — it is never read from
    the installed copy (prompts always come from a fresh temporary clone, per step 2), so leaving it
-   around after every install/update is pure accumulated clutter.
+   around after every install/update is pure accumulated clutter. Confirm
+   `.agents/monorepo-agents-harness/changelogs/` no longer exists before continuing to step 10; if it
+   still exists, delete it again — do not report the upgrade complete otherwise.
 
 10. **Present manual follow-ups** and recommend a commit:
     ```

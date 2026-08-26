@@ -24,6 +24,29 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.4.5] - 2026-08-26
+
+### Changed
+
+- **Made the 0.4.4 `changelogs/` deletion atomic and self-healing.** Confirmed on a real install
+  that the previous two-line form (`cp -R ...` then a separate `rm -rf ... changelogs`) could run
+  partially — the copy happened but the delete did not — leaving the installed `changelogs/`
+  directory in place. `INSTALL.md` step 1 now chains both commands with `&&` so they run as one
+  unit, and `core/skills/harness-update/SKILL.md` step 9 now passes both cleanup paths to a single
+  `rm -rf` call.
+- Added a self-healing check to `INSTALL.md` §8 Verification: it now asserts the installed
+  `changelogs/` directory does not exist and removes it if it does, so anyone following the
+  mandatory verify step catches and fixes a partial install before committing.
+- `core/skills/harness-update/SKILL.md` step 9 now states explicitly that the agent must confirm
+  `changelogs/` no longer exists before reporting the upgrade complete, rather than treating the
+  `rm -rf` as fire-and-forget.
+
+### Upgrade Notes
+
+- Follow `changelogs/version-0.4.5.md` to migrate existing installs. Key step: delete the installed
+  `changelogs/` directory again — if your install already applied 0.4.4, the directory may still be
+  sitting there due to the partial-run gap this release fixes.
+
 ## [0.4.4] - 2026-08-26
 
 ### Changed
