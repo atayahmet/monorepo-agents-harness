@@ -42,6 +42,9 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
 - [ ] Resolve the **target workspace** (`apps/<name>`, `packages/<name>`, or the equivalent for the detected framework) — see Workspace Routing below.
 - [ ] Read `<target-workspace>/.agents/session-log.md`, bump version, write an entry — include the session's **artifact dir** path (`<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/`).
 - [ ] Read `<target-workspace>/.agents/lessons.md`.
+- [ ] Search `<target-workspace>/.agents/artifacts/index.md` for prior work related to this task
+      (1–3 keyword grep). On a match, read that task's `2_spec.md` (and `3_memory.md` if marked ◆)
+      before planning.
 - [ ] Write `<target-workspace>/.agents/todo.md` plan.
 - [ ] Enter plan mode if task has 3+ steps.
 - [ ] All `.md` files must be in English. Code comments and commit messages must be in English.
@@ -87,7 +90,7 @@ This is a {{MONOREPO_FRAMEWORK}} monorepo. Default context is the repository roo
 
 ## Agent Lifecycle
 
-1. **Load Context** — Prioritize technical specs, architecture docs, and recent sessions (`<target-workspace>/.agents/session-log.md`).
+1. **Load Context** — Prioritize technical specs, architecture docs, recent sessions (`<target-workspace>/.agents/session-log.md`), and prior task artifacts (`<target-workspace>/.agents/artifacts/index.md`).
 2. **Plan Mode** — Enter for any non-trivial task. Write specs upfront. If something goes sideways, stop and re-plan. The `agent-workflow` skill (`.agents/monorepo-agents-harness/core/skills/agent-workflow/SKILL.md`) produces the plan/spec/memory artifacts.
 3. **Subagent Strategy** — Offload research and exploration to subagents. One task per subagent.
 4. **Self-Improvement** — After any user correction: (1) update `<target-workspace>/.agents/lessons.md`; (2) if the correction reveals a module-specific rule, update the relevant workspace instruction file so the mistake is not repeated.

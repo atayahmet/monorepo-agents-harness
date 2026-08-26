@@ -24,6 +24,27 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.6.0] - 2026-08-26
+
+### Added
+
+- **Mandatory pre-plan artifact-index search.** `core/skills/agent-workflow/SKILL.md` Phase 1 now
+  requires grepping the target workspace's `<workspace>/.agents/artifacts/index.md` for prior art
+  (1–3 keywords derived from the task) before `1_plan.md` is written, reading the matched
+  `2_spec.md` (and `3_memory.md` if ◆-marked) when a hit is found. The `1_plan.md` template gained a
+  required `## Related prior work` section (cite a match, or state `- none found`) so the search is
+  visible and greppable rather than silent.
+- `core/root-AGENTS.md`'s "Before You Start" checklist and "Agent Lifecycle" step 1 ("Load
+  Context") now reference the workspace artifact index alongside `session-log.md`/`lessons.md`.
+- `core/governance/artifacts/AGENTS.md` cross-references the new mandatory search timing, so the
+  index-format doc and the workflow-timing doc stay in sync.
+
+### Upgrade Notes
+
+- Purely additive to instructions/templates — no artifact-layout change, no script/hook change.
+  Existing `1_plan.md` files without a `## Related prior work` section remain valid; only new plans
+  written after upgrading need the section.
+
 ## [0.5.0] - 2026-08-26
 
 ### Added

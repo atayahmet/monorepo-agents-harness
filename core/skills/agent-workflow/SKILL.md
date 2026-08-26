@@ -56,6 +56,10 @@ The memory-gate scans `apps/*/.agents/artifacts/` and `packages/*/.agents/artifa
 
 When plan mode is approved (e.g., `ExitPlanMode` is invoked on Claude Code, or the user runs `/monorepo-harness-build` on any agent), **before the first implementation tool call**, create the directory and write `1_plan.md`.
 
+**Before writing it**, search for prior art: grep `<workspace>/.agents/artifacts/index.md` using
+1–3 keywords derived from the task. On a match, read that task's `2_spec.md` (and `3_memory.md` if
+marked ◆) and summarize its relevance in the `## Related prior work` section below.
+
 ```markdown
 ---
 phase: plan
@@ -71,6 +75,10 @@ status: approved
 
 ## Approach
 <High-level strategy, 2–5 sentences>
+
+## Related prior work
+<Grep `<workspace>/.agents/artifacts/index.md` for related keywords. List matches as
+`- [slug](task_YYYY_MM_DD_slug/2_spec.md) — why relevant`, or `- none found`.>
 
 ## Steps
 1. ...

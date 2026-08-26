@@ -64,7 +64,11 @@ minimal redundancy, fixed column order.
    # newest task anywhere
    ls -td apps/*/.agents/artifacts/task_* packages/*/.agents/artifacts/task_* | head -1
    ```
-6. **English everywhere** — mixed-language rows break keyword search; the whole tree stays English.
+6. **Mandatory pre-plan search:** `core/skills/agent-workflow/SKILL.md` Phase 1 requires grepping
+   this index for prior art *before* `1_plan.md` is written, and the resulting `1_plan.md` template
+   has a `## Related prior work` section that must cite a match or state `- none found`. This file
+   defines the index's *format*; the skill defines *when* it gets searched — keep both in sync.
+7. **English everywhere** — mixed-language rows break keyword search; the whole tree stays English.
 
 ### Type legend (single letters, defined once in the index header)
 
