@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
-# Memory-gate — the HARD enforcement of the plan/spec/memory workflow. Agent-agnostic.
+# Memory-gate — the HARD enforcement of the plan/spec/memory/verify workflow. Agent-agnostic.
 #
 # Task artifact convention: <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ where
 # <workspace> is discovered by detect-monorepo-framework.sh (apps/*, packages/*, libs/*, etc.).
 #
 # Two modes:
-#   default (git pre-commit / CI):  exit 1 when today's latest task dir is missing 2_spec.md
-#                                   or 3_memory.md. Works with ANY agent — or none.
+#   default (git pre-commit / CI):  exit 1 when today's latest task dir is missing 2_spec.md,
+#                                   3_memory.md, or (when required) 4_verify.md. Works with ANY
+#                                   agent — or none.
 #   --json (Claude Code Stop hook): print a {"decision":"block",...} JSON object when
-#                                   3_memory.md is missing; silent exit 0 otherwise.
+#                                   3_memory.md or (when required) 4_verify.md is missing;
+#                                   silent exit 0 otherwise.
+#
+# 4_verify.md (Feedback Loop enforcement) is only required when 2_spec.md's "## Test /
+# verification plan" section is not N/A — mirrors the existing research-only exemption for
+# tasks with nothing verifiable to check.
 #
 # Depends only on git + coreutils; --json mode additionally needs jq (fail-open without it).
 # This is the universal replacement for agent-specific stop-hooks on agents that cannot block
@@ -57,18 +63,40 @@ fi
 [ -z "$LATEST" ] && exit 0   # no task started today → nothing to enforce
 rel="${LATEST#"$ROOT"/}"
 
+# 4_verify.md is only required when 2_spec.md's "## Test / verification plan" section says
+# something other than N/A. No spec → nothing to require verify against (not this function's
+# job to also flag the missing spec; the callers already check that separately).
+verify_required() {
+  local spec="$1/2_spec.md" section
+  [ -f "$spec" ] || return 1
+  section="$(awk '/^## Test \/ verification plan/{f=1; next} /^## /{f=0} f' "$spec" 2>/dev/null || true)"
+  case "$section" in
+    *N/A*) return 1 ;;
+    "") return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
 if [ "$JSON_MODE" -eq 1 ]; then
-  # Stop-hook mode: only the memory file gates the stop (spec may legitimately be absent
-  # for research-only plans — see the skill's edge cases).
-  [ -f "$LATEST/3_memory.md" ] && exit 0
+  # Stop-hook mode: gates on 3_memory.md always, and on 4_verify.md whenever required (spec may
+  # legitimately be absent for research-only plans — see the skill's edge cases).
+  json_missing=()
+  [ -f "$LATEST/3_memory.md" ] || json_missing+=("3_memory.md")
+  if verify_required "$LATEST" && [ ! -f "$LATEST/4_verify.md" ]; then
+    json_missing+=("4_verify.md")
+  fi
+  [ "${#json_missing[@]}" -eq 0 ] && exit 0
   command -v jq >/dev/null 2>&1 || exit 0   # fail-open without jq
-  jq -n --arg dir "$rel" '{"decision":"block","reason":("agent-workflow: Task is ending but " + $dir + "/3_memory.md is missing. Write it following the agent-workflow skill template, then you may stop.")}'
+  jq -n --arg dir "$rel" --arg files "${json_missing[*]}" '{"decision":"block","reason":("agent-workflow: Task is ending but " + $dir + " is missing: " + $files + ". Write the missing artifact(s) following the agent-workflow skill templates, then you may stop.")}'
   exit 0
 fi
 
 missing=()
 [ -f "$LATEST/2_spec.md" ]   || missing+=("2_spec.md")
 [ -f "$LATEST/3_memory.md" ] || missing+=("3_memory.md")
+if verify_required "$LATEST" && [ ! -f "$LATEST/4_verify.md" ]; then
+  missing+=("4_verify.md")
+fi
 
 if [ "${#missing[@]}" -gt 0 ]; then
   echo "agent-workflow gate: $rel is missing: ${missing[*]}" >&2

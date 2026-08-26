@@ -18,13 +18,14 @@ one goes and what to edit.
 ## 1. What this harness is (and how it enforces itself)
 
 The harness makes plan-mode work **auditable and self-documenting**. Every non-trivial task produces
-three artifacts in a dedicated directory, and the **memory-gate** enforces the loop:
+artifacts in a dedicated directory, and the **memory-gate** enforces the loop:
 
 | Phase | Artifact | Trigger | Enforcement |
 |---|---|---|---|
 | Plan | `1_plan.md` | after plan approval (or `/monorepo-harness-build` on any agent) | adapter hook reminds you to create the task dir + write `1_plan.md` / `2_spec.md` before the first Edit/Write |
 | Spec | `2_spec.md` | before implementation | same reminder + `core/scripts/memory-gate.sh` at commit/CI |
 | Memory | `3_memory.md` | at task end | adapter stop-hook and/or `core/scripts/memory-gate.sh` **blocks** until today's task dir contains `3_memory.md` |
+| Verify | `4_verify.md` | at task end, whenever `2_spec.md`'s Test/verification plan is not `N/A` | same gate as Memory — **blocks** until `4_verify.md` exists (Feedback Loop enforcement) |
 
 Artifacts live under the target workspace itself:
 
@@ -33,6 +34,7 @@ Artifacts live under the target workspace itself:
     1_plan.md
     2_spec.md
     3_memory.md
+    4_verify.md
 ```
 
 plus a mandatory searchable index at `<workspace>/.agents/artifacts/index.md`.
@@ -262,16 +264,22 @@ mkdir -p apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh; echo "exit=$?"
 #   expect: exit=1 — 2_spec.md and 3_memory.md are missing
 
-: > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/2_spec.md
+printf '## Test / verification plan\nrun smoke test\n' \
+  > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/2_spec.md
 : > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/3_memory.md
+bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh; echo "exit=$?"
+#   expect: exit=1 — 4_verify.md is missing (the spec's verification plan is not N/A)
+
+: > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/4_verify.md
 bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh; echo "exit=$?"
 #   expect: exit=0 (gate satisfied)
 
 rm -rf apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 ```
 
-If the first run exits 1 and the second exits 0, the core is live. Adapter-specific verification
-(skill registration, hook wiring, plugin behavior) is in each adapter's README.
+If the first run exits 1, the second also exits 1 (now missing only `4_verify.md`), and the third
+exits 0, the core is live. Adapter-specific verification (skill registration, hook wiring, plugin
+behavior) is in each adapter's README.
 
 ---
 
@@ -283,10 +291,13 @@ If the first run exits 1 and the second exits 0, the core is live. Adapter-speci
 2. Apply the **`agent-workflow`** skill templates; create
    `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/` and write `1_plan.md` + `2_spec.md`
    before the first Edit/Write.
-3. Implement; keep changes scoped to the workspace (see `AGENTS.md`).
-4. Commit, then write `3_memory.md` (with commit SHAs) — the memory-gate won't release the task
-   until it exists. Update the workspace's searchable index `.agents/artifacts/index.md` in the
-   same commit (rules: `core/governance/artifacts/AGENTS.md`).
+3. Implement; keep changes scoped to the workspace (see `AGENTS.md`). Before wrapping up, verify
+   the work against `2_spec.md`'s "Test / verification plan" — directly, or by delegating to the
+   `verifier` subagent where your adapter ships one (see `PORTABILITY.md`).
+4. Commit, then write `3_memory.md` (with commit SHAs) and, unless the verification plan is `N/A`,
+   `4_verify.md` (the verification evidence) — the memory-gate won't release the task until both
+   exist. Update the workspace's searchable index `.agents/artifacts/index.md` in the same commit
+   (rules: `core/governance/artifacts/AGENTS.md`).
 
 > **Migrating from an older install** (artifacts previously lived under
 > `<docs-app>/agents/<workspace>/`)? Move each `task_*` dir into its workspace

@@ -19,6 +19,7 @@ read it before scanning task directories, and keep it searchable (rules below).*
         1_plan.md          <- optional (research-only tasks skip implementation phases)
         2_spec.md          <- always present
         3_memory.md        <- optional (written at task end)
+        4_verify.md        <- required at task end unless 2_spec.md's Test/verification plan is N/A
 ```
 
 Workspaces are seeded by `.agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh`

@@ -1,6 +1,6 @@
 ---
 name: agent-workflow
-description: 3-phase agent workflow — opens a dedicated task directory per task; writes 1_plan.md and 2_spec.md on plan approval, and 3_memory.md on task completion, under <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ where <workspace> is the target app or package (api, web, example-pkg, ...). Triggered automatically when exiting plan mode, or manually via /monorepo-harness-build, before implementation starts; also used when the task ends.
+description: 4-phase agent workflow — opens a dedicated task directory per task; writes 1_plan.md and 2_spec.md on plan approval, and 3_memory.md plus 4_verify.md on task completion (verify only when the spec's Test/verification plan is not N/A), under <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ where <workspace> is the target app or package (api, web, example-pkg, ...). Triggered automatically when exiting plan mode, or manually via /monorepo-harness-build, before implementation starts; also used when the task ends.
 ---
 
 # Agent Workflow — Per-Task Plan / Spec / Memory Artifacts
@@ -23,7 +23,8 @@ apps/api/
         └── task_<YYYY_MM_DD>_<slug>/
             ├── 1_plan.md
             ├── 2_spec.md
-            └── 3_memory.md
+            ├── 3_memory.md
+            └── 4_verify.md
 ```
 
 ```
@@ -31,7 +32,8 @@ packages/example-pkg/.agents/artifacts/
 └── task_<YYYY_MM_DD>_<slug>/
     ├── 1_plan.md
     ├── 2_spec.md
-    └── 3_memory.md
+    ├── 3_memory.md
+    └── 4_verify.md
 ```
 
 **`<workspace>`** — the target app or package name. Apps use their `apps/<name>` directory name; named packages under `packages/` use their package directory name. Current workspaces: `api`, `web`, `example-pkg`.
@@ -50,7 +52,7 @@ Pick `<workspace>` from the file paths the task will touch:
 
 The memory-gate scans `apps/*/.agents/artifacts/` and `packages/*/.agents/artifacts/` for today's task — placement matters for the gate to find it.
 
-**Important**: All three files for one task live in the **same directory**. The numeric prefix (`1_`, `2_`, `3_`) indicates phase order.
+**Important**: All files for one task live in the **same directory**. The numeric prefix (`1_`, `2_`, `3_`, `4_`) indicates phase order. `4_verify.md` is required whenever `2_spec.md`'s "Test / verification plan" section is not `N/A` — see Phase 4.
 
 ## Phase 1 — `1_plan.md` (after plan approval or `/monorepo-harness-build`)
 
@@ -166,7 +168,40 @@ commits: [<sha1>, <sha2>]
 **Index update (mandatory, same commit):** every task-dir change must be reflected in
 `<workspace>/.agents/artifacts/index.md` — new dir → new row; `3_memory.md` written → append `◆`.
 Keep rows greppable: fixed columns, stable slug, concrete identifiers in a ≤10-word summary. See
-`core/governance/artifacts/AGENTS.md` in the harness bundle for the full indexing rules.
+`core/governance/artifacts/AGENTS.md` in the harness bundle for the full indexing rules. The `◆`
+marker's meaning is unchanged by Phase 4 below — it still means "plan + memory both present."
+
+## Phase 4 — `4_verify.md` (task end, alongside memory)
+
+Required whenever `2_spec.md`'s "## Test / verification plan" section is **not** `N/A` — i.e.
+whenever there was something verifiable to check. Records the *actual* verification run as
+evidence, not narration: this is what makes "Verification Before Done" (root `AGENTS.md` Agent
+Lifecycle) checkable rather than a self-report. The memory-gate enforces this the same way it
+enforces `3_memory.md` (see `core/scripts/memory-gate.sh`); when a spec's verification plan is
+`N/A`, `4_verify.md` is not required, mirroring the existing research-only exemption.
+
+If a dedicated `verifier` subagent is available (see `adapters/claude-code/.claude/agents/verifier.md`
+for Claude Code; other agents run the same commands inline in the main session — no capability is
+lost, see `PORTABILITY.md`), delegate the verification run to it and transcribe its findings here.
+
+```markdown
+---
+phase: verify
+date: <YYYY-MM-DD>
+slug: <slug>
+---
+
+# Verify: <Task title>
+
+## Verification run
+<Command(s) actually executed, verbatim, plus their real output/exit code — evidence, not narration>
+
+## Acceptance criteria results
+- [x]/[ ] <criterion copied from 2_spec.md> — <how it was confirmed>
+
+## Deviations
+<Any acceptance criterion not met, or verification steps skipped and why>
+```
 
 ## Slug & directory naming rules
 
@@ -178,5 +213,9 @@ Keep rows greppable: fixed columns, stable slug, concrete identifiers in a ≤10
 
 - **Implementation without plan mode**: Skill is inactive; hooks do not warn.
 - **Plan exists, no implementation (research only)**: Spec and memory can be skipped; plan stays.
+- **Spec's verification plan is `N/A`**: `4_verify.md` is not required (mirrors the research-only
+  exemption above — nothing verifiable was ever claimed).
 - **Updating an existing task directory**: Overwrite files; add a `revisions:` log to `1_plan.md`.
 - **Commit requirement**: Memory must be written *after* the commit so `commits:` can be filled in.
+  `4_verify.md` has no such ordering constraint relative to `3_memory.md` — both are required by
+  task end, in either order.

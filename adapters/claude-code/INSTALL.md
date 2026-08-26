@@ -12,7 +12,8 @@ registration. Read `../../INSTALL.md` first (core must be installed before any a
 | Plan/spec/memory + monorepo templates | `core/skills/**/SKILL.md` | symlinked from `.agents/monorepo-agents-harness/core/skills/` into `.claude/skills/` (auto-registration) |
 | Plan/spec reminder (plan-mode exit) | — | `PostToolUse[ExitPlanMode]` hook (inline reminder) |
 | Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.claude/commands/monorepo-harness-build.md` → `/monorepo-harness-build` |
-| Memory-gate | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (**hard block**) |
+| Memory-gate (incl. `4_verify.md` when required) | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (**hard block**) |
+| Verifier subagent | `core/skills/agent-workflow/SKILL.md` Phase 4 | `.claude/agents/verifier.md` (isolated, read-only) |
 | Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.claude/commands/monorepo-harness/update.md` → `/monorepo-harness:update` |
 
 ## Prerequisites
@@ -73,7 +74,13 @@ Run from the target repo root. `BUNDLE=.agents/monorepo-agents-harness` below.
       .claude/commands/
    ```
 
-7. **Placeholders.** Resolve `{{PROJECT_NAME}}` in the root `CLAUDE.md`. The hook commands contain
+7. **Verifier subagent.** Copy the subagent definition so Claude Code auto-discovers it:
+   ```bash
+   mkdir -p .claude/agents
+   cp "$BUNDLE/adapters/claude-code/.claude/agents/verifier.md" .claude/agents/
+   ```
+
+8. **Placeholders.** Resolve `{{PROJECT_NAME}}` in the root `CLAUDE.md`. The hook commands contain
    no placeholders — task artifacts use the fixed convention `<workspace>/.agents/artifacts/`.
 
 The hooks are independent and fail-open (missing `jq`/git root/bundle → exit 0, never blocks),
@@ -92,6 +99,9 @@ head -3 .claude/skills/monorepo/SKILL.md
 # c) commands resolve their engines
 ls .claude/commands/monorepo-harness-build.md .claude/commands/monorepo-harness/update.md
 bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh current
+
+# d) verifier subagent is discoverable
+head -3 .claude/agents/verifier.md
 ```
 
 **End-to-end check of the memory-gate** (the core enforcement). Simulate the `Stop` hook
@@ -106,11 +116,18 @@ mkdir -p apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 bash "$ROOT/.agents/monorepo-agents-harness/core/scripts/memory-gate.sh" --json; echo "exit=$?"
 #   expect: {"decision":"block", ...} because 3_memory.md is missing
 
+printf '## Test / verification plan\nrun smoke test\n' \
+  > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/2_spec.md
 : > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/3_memory.md
+bash "$ROOT/.agents/monorepo-agents-harness/core/scripts/memory-gate.sh" --json; echo "exit=$?"
+#   expect: {"decision":"block", ...} because 4_verify.md is missing (the spec's verification plan is not N/A)
+
+: > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/4_verify.md
 bash "$ROOT/.agents/monorepo-agents-harness/core/scripts/memory-gate.sh" --json; echo "exit=$?"
 #   expect: no output, exit=0 (gate satisfied)
 
 rm -rf apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 ```
 
-If the first run prints a `block` decision and the second exits 0, the adapter is live.
+If the first run prints a `block` decision, the second also prints a `block` decision (now for
+`4_verify.md`), and the third exits 0, the adapter is live.

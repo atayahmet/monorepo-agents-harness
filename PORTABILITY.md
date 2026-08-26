@@ -32,7 +32,8 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 | Plan/spec/memory templates | `.agents/monorepo-agents-harness/core/skills/agent-workflow/SKILL.md` | symlinked into `.claude/skills/` (auto-registered skill) | referenced via `opencode.jsonc` `instructions` | symlinked into `.agents/skills/` (auto-registered skill) | reference the shared runtime templates via your agent's instruction mechanism |
 | Monorepo guidance | `.agents/monorepo-agents-harness/core/skills/monorepo/SKILL.md` | same as above | same as above | same as above | link from `AGENTS.md` |
 | Plan/spec reminder (start of impl.) | `AGENTS.md` gotcha #4 | `PostToolUse[ExitPlanMode]` hook + `/monorepo-harness-build` command | `AGENTS.md` mandate + `/monorepo-harness-build` command | `PostToolUse[update_plan]` hook + `SessionStart` reminder + `/monorepo-harness-build` skill | `AGENTS.md` mandate |
-| **Memory-gate** (no finish without `3_memory.md`) | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (**hard block**) | universal hard gate (git pre-commit / CI) | `Stop` hook → script `--json` (soft reminder) | **script default mode as git pre-commit / CI — hard block, universal** |
+| **Memory-gate** (no finish without `3_memory.md`, plus `4_verify.md` when the spec's Test/verification plan is not N/A) | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (**hard block**) | universal hard gate (git pre-commit / CI) | `Stop` hook → script `--json` (soft reminder) | **script default mode as git pre-commit / CI — hard block, universal** |
+| Verifier subagent (produces the `4_verify.md` evidence) | `core/skills/agent-workflow/SKILL.md` Phase 4 | `.claude/agents/verifier.md` (isolated context, read-only) | — main session runs the same verification commands inline | — same as opencode | Universal: verification commands run in the main session per the skill's Phase 4 instructions — no capability lost, just no isolated context |
 | Update check / upgrade (`/monorepo-harness:update` / `/monorepo-harness-update`) | `.agents/monorepo-agents-harness/core/scripts/harness-update.sh` + `.agents/monorepo-agents-harness/core/skills/harness-update/SKILL.md` | `.claude/commands/monorepo-harness/update.md` → `/monorepo-harness:update` | `.opencode/commands/monorepo-harness-update.md` → `/monorepo-harness-update` | `.agents/skills/monorepo-harness-update/SKILL.md` → `/monorepo-harness-update` | run `.agents/monorepo-agents-harness/core/scripts/harness-update.sh check` directly in a terminal |
 | Root `AGENTS.md` reconciliation (install + upgrade) | `.agents/monorepo-agents-harness/core/skills/agents-md-merge/SKILL.md` | performed by the active agent — no adapter wiring needed | same | same | run the skill's `git merge-file` one-liners by hand |
 | Slash commands | — | `.claude/commands/**/*.md` (subdir = namespace) | `.opencode/commands/**/*.md` (flat filename or subdir = command ID) | `.agents/skills/**/*.md` auto-register as slash commands | n/a (agent-specific convenience) |
@@ -54,6 +55,12 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 - **Codex slash commands come from skills.** Codex does not support user-defined slash commands
   directly; skills under `.agents/skills/` auto-register and appear in the slash list. The update
   check therefore ships as the `/monorepo-harness-update` skill rather than a command file.
+- **No subagent primitive on opencode/codex.** Only claude-code has an isolated-context subagent
+  mechanism (`.claude/agents/*.md`). The `verifier` subagent is a claude-code-only convenience, not
+  a capability the other two agents lack outright: `agent-workflow` SKILL.md Phase 4's verification
+  instructions are agent-neutral, so opencode/codex sessions run the same commands inline in the
+  main session — the *capability* (verification before `4_verify.md`) is universal; only the
+  *isolated-context delivery mechanism* is claude-code-specific.
 
 ## Authoring a new adapter
 

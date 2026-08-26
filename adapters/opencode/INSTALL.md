@@ -12,7 +12,8 @@ config. Read `../../INSTALL.md` first (core must be installed before any adapter
 | Rules / instructions | `AGENTS.md` (native to opencode) | — (no extra wiring) |
 | Plan/spec/memory + monorepo templates | `.agents/monorepo-agents-harness/skills/**/SKILL.md` | referenced via `opencode.jsonc` `instructions` |
 | Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.opencode/commands/monorepo-harness-build.md` → `/monorepo-harness-build` |
-| Memory-gate | `core/scripts/memory-gate.sh` | core script at git/CI (hard) |
+| Memory-gate (incl. `4_verify.md` when required) | `core/scripts/memory-gate.sh` | core script at git/CI (hard) |
+| Verifier | `core/skills/agent-workflow/SKILL.md` Phase 4 | — (no subagent primitive on opencode; run the same verification commands inline in the main session) |
 | Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.opencode/commands/monorepo-harness-update.md` → `/monorepo-harness-update` |
 
 ## Prerequisites
@@ -58,7 +59,8 @@ opencode --help >/dev/null 2>&1 && echo "opencode present"
 test -x .agents/monorepo-agents-harness/core/scripts/harness-update.sh \
   && bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh current
 
-# the hard gate blocks a task dir missing 3_memory.md, passes once present
+# the hard gate blocks a task dir missing 3_memory.md (or 4_verify.md when the spec's
+# verification plan is not N/A), passes once present
 bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh; echo "exit=$?"
 
 # commands register: start opencode, type `/monorepo-harness-update` and `/monorepo-harness-build`
@@ -71,5 +73,7 @@ bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh; echo "exit=$?"
   step.
 - **Parity checklist:** every harness capability must have a live opencode counterpart —
   instructions ✔ (config), templates ✔ (config), plan/spec build trigger ✔ (command file),
-  memory-gate ✔ (git/CI hard gate), update-check ✔ (command file). Do not skip step 4, or the
-  memory-gate is unenforced.
+  memory-gate ✔ (git/CI hard gate, now also covering `4_verify.md`), verifier ✔ (no subagent
+  primitive, so the same verification instructions run inline in the main session — see
+  `PORTABILITY.md`), update-check ✔ (command file). Do not skip step 4, or the memory-gate is
+  unenforced.

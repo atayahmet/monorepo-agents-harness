@@ -6,12 +6,14 @@ Codex, and more.
 
 ## What you get
 
-- **Auditable tasks** — every non-trivial task produces `1_plan.md`, `2_spec.md`, and `3_memory.md`
-  in a dedicated per-task directory, so you can always answer "why was this built this way?"
+- **Auditable tasks** — every non-trivial task produces `1_plan.md`, `2_spec.md`, `3_memory.md`, and
+  (when there's something verifiable) `4_verify.md` in a dedicated per-task directory, so you can
+  always answer "why was this built this way, and how do we know it works?"
 - **Per-workspace working state** — each app/package owns `.agents/{session-log,lessons,todo}.md`;
   agents read them before work and record what they learned after.
-- **Enforced follow-through** — the memory-gate blocks the task from ending until `3_memory.md`
-  exists (agent stop-hook where supported, git pre-commit / CI everywhere else).
+- **Enforced follow-through (Feedback Loop)** — the memory-gate blocks the task from ending until
+  `3_memory.md` exists, and until `4_verify.md` exists whenever the spec's Test/verification plan
+  is not `N/A` (agent stop-hook where supported, git pre-commit / CI everywhere else).
 - **Updatable** — the bundle carries a version; a `/monorepo-harness:update` command compares your install
   against upstream and, with your consent, the active agent upgrades it in place by following the
   `changelogs/version-X.Y.Z.md` prompts.
@@ -29,7 +31,8 @@ mandatory searchable index:
 └── task_<YYYY_MM_DD>_<slug>/
     ├── 1_plan.md                     # the "how" (approved plan)
     ├── 2_spec.md                     # the "what" (contract, acceptance criteria)
-    └── 3_memory.md                   # the outcome (findings, decisions, commit SHAs)
+    ├── 3_memory.md                   # the outcome (findings, decisions, commit SHAs)
+    └── 4_verify.md                   # the proof (verification run, per-criterion pass/fail)
 ```
 
 The bundle is split into a shared core and per-agent adapters:

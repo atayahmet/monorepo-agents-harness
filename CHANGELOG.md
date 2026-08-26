@@ -24,6 +24,45 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.7.0] - 2026-08-26
+
+### Added
+
+- **`4_verify.md` — Feedback Loop enforcement.** `core/skills/agent-workflow/SKILL.md` gained
+  Phase 4: after implementation, whenever `2_spec.md`'s "Test / verification plan" section is not
+  `N/A`, the task directory must also contain `4_verify.md` — the actual verification run (commands
+  executed, real output, per-acceptance-criterion pass/fail), not a narrative claim.
+  `core/scripts/memory-gate.sh` now enforces this in both modes: default (git pre-commit/CI) and
+  `--json` (Claude Code `Stop` hook), the latter previously only checking `3_memory.md`.
+- **`verifier` subagent (Claude Code).** `adapters/claude-code/.claude/agents/verifier.md` — a
+  read-only subagent that runs a task's verification commands and reports pass/fail evidence,
+  without editing any files. opencode/codex have no subagent primitive; per the mandatory-parity
+  rule, they run the same verification instructions inline in the main session instead (documented
+  in `PORTABILITY.md`'s new capability-matrix row and "semantic differences" section) — no
+  capability is lost, only the isolated-context delivery mechanism differs.
+- **`2_spec.md` gained `## Data model` and `## Test / verification plan` sections** (implemented
+  previously, formally released here): Data model records fields/types/structure of any persisted
+  or transmitted data the task reads or writes (`N/A` if none); Test / verification plan states how
+  each acceptance criterion is checked. `## Architectural constraints` wording was also expanded to
+  explicitly cover non-functional requirements (performance, security, compatibility).
+
+### Changed
+
+- `core/governance/artifacts/AGENTS.md`, `core/root-AGENTS.md`, top-level `AGENTS.md`, and every
+  adapter's `INSTALL.md`/`README.md` now document the plan/spec/memory/**verify** quad instead of
+  the plan/spec/memory triad, including updated smoke-test commands.
+
+### Upgrade Notes
+
+- Purely additive: existing task directories without `4_verify.md` are never retroactively gated —
+  the memory-gate only ever inspects **today's** task dir. New tasks whose spec has a non-`N/A`
+  verification plan need `4_verify.md` going forward.
+- Claude Code installs should copy the new `adapters/claude-code/.claude/agents/verifier.md` file
+  into `.claude/agents/` (see `adapters/claude-code/INSTALL.md` step 7). opencode/codex need no new
+  files for this release.
+- No breaking change to `memory-gate.sh`'s CLI (flags, exit codes, JSON shape) — only the set of
+  files it checks grew.
+
 ## [0.6.0] - 2026-08-26
 
 ### Added
@@ -368,7 +407,9 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.7.0
+[0.6.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.6.0
 [0.5.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.5.0
 [0.4.5]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.4.5
 [0.4.4]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.4.4

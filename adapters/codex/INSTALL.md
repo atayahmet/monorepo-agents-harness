@@ -14,7 +14,8 @@ for the mandatory-parity rule and semantic differences.
 | Plan/spec reminder (start of impl.) | — | `PostToolUse[update_plan]` hook (`systemMessage` reminder) |
 | Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.agents/skills/monorepo-harness-build/SKILL.md` → `/monorepo-harness-build` |
 | Session-start reminder | — | `SessionStart` hook (`additionalContext` reminder) |
-| Memory-gate | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (soft reminder) |
+| Memory-gate (incl. `4_verify.md` when required) | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (soft reminder) |
+| Verifier | `core/skills/agent-workflow/SKILL.md` Phase 4 | — (no subagent primitive on Codex; run the same verification commands inline in the main session) |
 | Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.agents/skills/monorepo-harness-update/SKILL.md` → `/monorepo-harness-update` |
 
 ## Prerequisites
@@ -103,15 +104,21 @@ mkdir -p apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 bash "$ROOT/.agents/monorepo-agents-harness/core/scripts/memory-gate.sh"; echo "exit=$?"
 #   expect: exit=1 — 2_spec.md and 3_memory.md are missing
 
-: > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/2_spec.md
+printf '## Test / verification plan\nrun smoke test\n' \
+  > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/2_spec.md
 : > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/3_memory.md
+bash "$ROOT/.agents/monorepo-agents-harness/core/scripts/memory-gate.sh"; echo "exit=$?"
+#   expect: exit=1 — 4_verify.md is missing (the spec's verification plan is not N/A)
+
+: > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/4_verify.md
 bash "$ROOT/.agents/monorepo-agents-harness/core/scripts/memory-gate.sh"; echo "exit=$?"
 #   expect: exit=0 (gate satisfied)
 
 rm -rf apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 ```
 
-If the first run exits 1 and the second exits 0, the hard gate is live.
+If the first run exits 1, the second also exits 1 (now missing only `4_verify.md`), and the third
+exits 0, the hard gate is live.
 
 **Skill registration check:** start Codex and type `/`. You should see `/monorepo-harness-update` and `/monorepo-harness-build` in the slash
 command list.
@@ -131,4 +138,6 @@ command list.
 - **Parity checklist:** every harness capability has a live Codex counterpart — instructions ✔
   (native), templates ✔ (skills), plan reminder ✔ (`PostToolUse[update_plan]` + `SessionStart`),
   manual plan/spec build trigger ✔ (`/monorepo-harness-build` skill), memory-gate ✔ (`Stop` soft reminder +
-  git/CI hard gate), update check ✔ (`/monorepo-harness-update` skill).
+  git/CI hard gate, now also covering `4_verify.md`), verifier ✔ (no subagent primitive, so the
+  same verification instructions run inline in the main session — see `PORTABILITY.md`), update
+  check ✔ (`/monorepo-harness-update` skill).

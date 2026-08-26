@@ -8,7 +8,8 @@ This adapter wires the harness into **opencode**. Because opencode has no `ExitP
 
 - **`/monorepo-harness-build`** — manually create the task directory and write `1_plan.md` + `2_spec.md` before implementation.
 - **`/monorepo-harness-update`** — compare your installed harness against upstream and upgrade the agent-neutral core with your consent.
-- **Universal hard gate** — the git pre-commit / CI version of `core/scripts/memory-gate.sh` blocks commits until `3_memory.md` exists.
+- **Universal hard gate** — the git pre-commit / CI version of `core/scripts/memory-gate.sh` blocks commits until `3_memory.md` exists, and `4_verify.md` too whenever the spec's Test/verification plan is not `N/A` (Feedback Loop enforcement).
+- **Feedback Loop, without a dedicated subagent** — opencode has no subagent primitive, so run your verification commands inline in the main session before writing `4_verify.md`; the underlying instructions are the same ones a `verifier` subagent would follow on Claude Code (see `PORTABILITY.md`).
 
 ## Day-to-day commands
 
@@ -38,9 +39,12 @@ Use `/monorepo-harness-update` when you suspect the harness is out of date or af
 1. Start a non-trivial task and create your plan.
 2. Once the plan is approved, type `/monorepo-harness-build`.
 3. Implement the task, scoped to the target workspace.
-4. Commit your changes.
-5. Write `3_memory.md` in the same task directory and update the workspace index.
-6. The git pre-commit hook blocks the commit until `3_memory.md` is written.
+4. Verify the work against `2_spec.md`'s "Test / verification plan" — run the commands it describes
+   yourself (opencode has no subagent to delegate this to).
+5. Commit your changes.
+6. Write `3_memory.md`, and `4_verify.md` (unless the verification plan is `N/A`), in the same task
+   directory and update the workspace index.
+7. The git pre-commit hook blocks the commit until `3_memory.md` (and `4_verify.md`, when required) is written.
 
 ## Notes
 
