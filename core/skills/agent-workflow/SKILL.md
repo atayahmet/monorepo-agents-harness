@@ -118,11 +118,20 @@ slug: <slug>
 ## API / contracts
 <Endpoints, function signatures, event payloads — changing contracts>
 
+## Data model
+<Fields/types/structure of any persisted or transmitted data this task reads or writes —
+table/column names, JSON payload shape, event schema. Write "N/A" if no data model is touched.>
+
 ## Acceptance criteria
 - [ ] ...
 
+## Test / verification plan
+<How each acceptance criterion above is checked — command, test file, or manual repro steps.
+Write "N/A" only for research-only tasks with no verifiable behavior change.>
+
 ## Architectural constraints
-<Layer rules, module boundaries — consistent with root AGENTS.md gotchas>
+<Layer rules, module boundaries, and non-functional requirements (performance, security,
+compatibility) — consistent with root AGENTS.md gotchas>
 ```
 
 ## Phase 3 — `3_memory.md` (task end / Stop)
