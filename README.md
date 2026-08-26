@@ -1,8 +1,9 @@
 # Agent Harness for Monorepos
 
-A portable **plan → spec → memory** workflow harness that makes AI coding agents **auditable and
-self-documenting** in any JavaScript/TypeScript monorepo — with **any agent**: Claude Code, opencode, Cursor,
-Codex, and more.
+A portable **plan → spec → memory → verify** workflow harness that makes AI coding agents
+**auditable and self-documenting**, and wires them into the rest of the software lifecycle —
+intent intake, CI, and PR review — in any JavaScript/TypeScript monorepo, with **any agent**:
+Claude Code, opencode, Cursor, Codex, and more.
 
 ## What you get
 
@@ -14,9 +15,11 @@ Codex, and more.
 - **Enforced follow-through (Feedback Loop)** — the memory-gate blocks the task from ending until
   `3_memory.md` exists, and until `4_verify.md` exists whenever the spec's Test/verification plan
   is not `N/A` (agent stop-hook where supported, git pre-commit / CI everywhere else).
-- **Updatable** — the bundle carries a version; a `/monorepo-harness:update` command compares your install
-  against upstream and, with your consent, the active agent upgrades it in place by following the
-  `changelogs/version-X.Y.Z.md` prompts.
+- **Updatable, reliably** — the bundle carries a version; a `/monorepo-harness:update` command
+  compares your install against upstream and, with your consent, syncs `core/` and `adapters/`
+  **wholesale** from the upstream tag (verified deterministically, not an itemized file list that
+  can silently omit something) and **self-heals already-installed adapters** — newly added
+  commands/skills reach your project automatically, without a manual copy step.
 - **Agent portability** — an agent-neutral `core/` plus thin per-agent `adapters/`; switching or
   mixing agents never loses a capability (mandatory-parity rule).
 - **CI integration** — `/monorepo-harness-ci` detects your project's CI provider and wires
@@ -34,17 +37,26 @@ Codex, and more.
 
 ## How it works
 
-Every plan-mode task produces three artifacts inside the workspace it targets, cataloged by a
-mandatory searchable index:
+Every plan-mode task produces artifacts inside the workspace it targets, cataloged by a mandatory
+searchable index:
 
 ```
 <workspace>/.agents/artifacts/
 ├── index.md                          # searchable task index (entry point)
 └── task_<YYYY_MM_DD>_<slug>/
+    ├── 0_intent.md                   # optional — copied in if an approved intent seeded this task
     ├── 1_plan.md                     # the "how" (approved plan)
     ├── 2_spec.md                     # the "what" (contract, acceptance criteria)
     ├── 3_memory.md                   # the outcome (findings, decisions, commit SHAs)
     └── 4_verify.md                   # the proof (verification run, per-criterion pass/fail)
+```
+
+Requests that haven't been scoped into engineering work yet live one step earlier, in a separate
+per-workspace inbox:
+
+```
+<workspace>/.agents/intents/
+└── intent_<YYYY_MM_DD>_<slug>.md     # status: pending | approved | rejected — never deleted
 ```
 
 The bundle is split into a shared core and per-agent adapters:
@@ -57,6 +69,274 @@ The bundle is split into a shared core and per-agent adapters:
     ├── opencode/
     └── codex/
 ```
+
+## SDLC scenarios
+
+The sections above describe *what exists*. This section shows *how it plays out*, end to end, using
+the harness's actual commands and file formats. All five scenarios continue one running example —
+`apps/api`, a workspace that already has a couple of prior tasks in its history — so later scenarios
+can show the harness reusing what earlier ones produced (prior-art search, spec-compliance review,
+an update months later).
+
+### Scenario 1 — A non-engineer's request becomes a shipped, verified feature
+
+A support lead notices duplicate webhook deliveries and can't write code, but can describe the
+problem. They type `/monorepo-harness-intent`.
+
+**Capture** (`core/skills/intent-workflow/SKILL.md`) writes
+`apps/api/.agents/intents/intent_2026_08_20_webhook_retry.md`:
+
+```markdown
+---
+status: pending
+author: support-lead
+date: 2026-08-20
+slug: webhook_retry
+---
+
+# Intent: Order webhooks sometimes fire twice
+
+## Problem
+Downstream merchants report duplicate order.created webhook deliveries roughly 1 in 200 times,
+with no way for their systems to detect or ignore the repeat.
+
+## Proposed outcome
+Merchants can safely ignore a duplicate delivery — either it stops happening, or every delivery
+carries an idempotency key they can dedupe on.
+
+## Affected users / systems
+apps/api webhook dispatcher; every merchant integration consuming order.created.
+
+## Constraints
+No breaking change to the existing webhook payload shape.
+
+## Open questions
+Is the duplicate coming from a retry-on-timeout in our dispatcher, or from the queue redelivering?
+```
+
+A few days later, an engineering lead runs `/monorepo-harness-intent review`. The skill lists every
+`pending` intent, shows this one's sections, and asks **"Approve this intent?"** — never inferred,
+always an explicit answer in that turn. On "yes" it appends:
+
+```markdown
+## Review
+- Decision: approved
+- Reviewer: eng-lead
+- Date: 2026-08-21
+- Notes: Confirmed via logs — it's a queue redelivery, not a dispatcher retry. Scope accordingly.
+```
+
+A developer picks it up. Entering plan mode, `core/skills/agent-workflow/SKILL.md` Phase 1 runs its
+two pre-plan checks: it greps `apps/api/.agents/artifacts/index.md` for prior art (finds
+`webhook_signature_verification`, cites it as related), and separately checks
+`apps/api/.agents/intents/` for an approved intent matching this task — finds `webhook_retry`, copies
+it in as `0_intent.md`, and references it from the plan:
+
+```markdown
+---
+phase: plan
+date: 2026-08-21
+slug: webhook_retry
+status: approved
+---
+
+# Plan: Add idempotency key to order.created webhook deliveries
+
+## Problem
+See `0_intent.md` — queue redelivery causes ~1-in-200 duplicate order.created deliveries with no
+way for merchants to detect a repeat.
+
+## Approach
+Stamp every delivery with a stable `X-Idempotency-Key` header derived from the order+event id, so
+a merchant's existing dedupe logic (most already have one, per the intent's Open questions answer)
+just works without a payload shape change.
+
+## Related prior work
+- [webhook_signature_verification](task_2026_07_02_webhook_signature_verification/2_spec.md) —
+  same dispatcher code path, same header-injection point.
+
+## Steps
+1. Add `X-Idempotency-Key` header in `apps/api/src/webhooks/dispatch.ts`.
+2. Derive the key deterministically from `orderId:eventType`, not a random UUID (must be stable
+   across redeliveries of the *same* event).
+3. Update the dispatcher's integration test fixture.
+
+## Affected files / modules
+- `apps/api/src/webhooks/dispatch.ts`
+- `apps/api/test/webhooks/dispatch.test.ts`
+
+## Risks & assumptions
+- Assumes merchants dedupe on a header, not the payload body — confirmed acceptable per the intent.
+
+## Definition of done
+- [ ] Every order.created delivery carries a stable X-Idempotency-Key
+- [ ] Redelivering the same event produces the same key
+- [ ] No change to the existing payload body
+```
+
+`2_spec.md` follows immediately, before any `Edit`/`Write` call:
+
+```markdown
+## Acceptance criteria
+- [ ] `X-Idempotency-Key` header present on every order.created delivery
+- [ ] Same event redelivered → identical key
+- [ ] Different event, same order → different key
+
+## Test / verification plan
+`pnpm --filter api test webhooks/dispatch` covers key derivation and header presence; manual
+redelivery via the queue's local emulator confirms the key is stable across retries.
+```
+
+Implementation happens. At task end, the `verifier` subagent (Claude Code) — or the same
+verification commands run inline (other adapters) — executes the plan the way it's written, and
+reports pass/fail per criterion. That transcribes directly into `4_verify.md`:
+
+```markdown
+## Verification run
+`pnpm --filter api test webhooks/dispatch` → 14 passed, 0 failed.
+Manual: replayed the same queue message twice via the local emulator — both deliveries carried
+`X-Idempotency-Key: order_9F2A:created`.
+
+## Acceptance criteria results
+- [x] X-Idempotency-Key present on every delivery — confirmed via test suite + manual replay
+- [x] Same event redelivered → identical key — confirmed via manual replay
+- [x] Different event, same order → different key — confirmed via test suite (`created` vs `updated`)
+
+## Deviations
+None.
+```
+
+`3_memory.md` records what future readers actually need — not a restatement of the diff:
+
+```markdown
+## What was done (single paragraph)
+Added a deterministic X-Idempotency-Key header to order.created webhook deliveries so merchants
+can dedupe on redelivery, closing out the support-lead-reported duplicate-delivery intent.
+
+## Surprising findings
+The duplicates were 100% queue redelivery, not dispatcher retry-on-timeout as originally suspected
+in the intent's Open questions — the dispatcher has no retry logic at all.
+
+## If I did it again
+Would check the queue's redelivery semantics first, before writing the plan — would have skipped
+one wrong hypothesis.
+
+## Related decisions
+Chose a deterministic key over a random UUID specifically so redeliveries of the *same* event
+produce the *same* key — a random key would defeat the entire point.
+```
+
+The memory-gate now finds both `3_memory.md` and `4_verify.md` (the spec's plan isn't `N/A`) and lets
+the task close. The same commit adds an index row:
+
+```
+| 08-21 | E | [webhook_retry](task_2026_08_21_webhook_retry/2_spec.md) ◆ | Idempotency key on order.created delivery |
+```
+
+**Full chain, one glance:** stakeholder problem → explicit human approval → plan grounded in that
+approval → contract with acceptance criteria → real verification evidence → durable memory → a
+permanently searchable, auditable trail. Nothing in this chain required the stakeholder to know
+what `apps/api/src/webhooks/dispatch.ts` is.
+
+### Scenario 2 — An ad-hoc bugfix reuses prior art automatically
+
+Not every task starts from an intent — most don't. A developer notices a flaky test and just starts
+fixing it, no `/monorepo-harness-intent` involved. Entering plan mode still runs the **mandatory**
+prior-art search (unlike the intent match, which is best-effort and silent when nothing matches):
+
+```markdown
+## Related prior work
+- [webhook_retry](task_2026_08_21_webhook_retry/2_spec.md) — touches the same dispatch.ts test
+  fixture; this fix adjusts the fixture's timing assumption introduced there.
+```
+
+No `0_intent.md` — the intent-match step checked `apps/api/.agents/intents/`, found nothing
+plausible, and silently skipped it, exactly as documented (`core/skills/agent-workflow/SKILL.md`
+edge cases: "no matching approved intent... nothing warns about this"). The rest of the chain
+(spec → implementation → memory → verify) runs the same as Scenario 1. This is the common case: the
+intent inbox is an *optional entry point*, not a gate every task must pass through.
+
+### Scenario 3 — Wiring CI enforcement, whichever provider you actually use
+
+The team wants the memory-gate enforced in CI, not just locally. Someone runs `/monorepo-harness-ci`.
+
+`core/scripts/detect-ci-provider.sh --provider` inspects the repo and returns `github-actions`
+(found `.github/workflows/`). Because GitHub Actions supports independent workflow files, this path
+is **fully automatic**: the skill checks `harness-memory-gate.yml` doesn't already exist, shows the
+exact file it's about to write, and asks **"Add this CI workflow file?"** — only on an explicit yes
+does it write:
+
+```yaml
+name: harness-memory-gate
+on: [pull_request, push]
+jobs:
+  memory-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run agent-workflow memory-gate
+        run: bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh
+```
+
+If the same repo used **GitLab** instead, the detector would return `gitlab`, and the skill would
+switch to *guided-only*: GitLab reads a single `.gitlab-ci.yml`, so a separate file would never run
+automatically. The skill shows the job snippet and tells the user exactly where to paste it — it
+never calls `Write` or `Edit` on that file itself. Same tiering for Bitbucket Pipelines and
+CircleCI. This isn't a missing feature; it's a deliberate boundary, because guessing at how to merge
+into someone's single pipeline file is worse than not touching it.
+
+### Scenario 4 — PR review catches scope creep against the task's own spec
+
+A reviewer runs `/monorepo-harness-review` on the `webhook_retry` branch before merging. The skill
+loads `REVIEW.md` (or built-in defaults if absent), diffs against the merge-base, and — because the
+touched files fall under `apps/api` — greps `apps/api/.agents/artifacts/index.md` and finds the
+`webhook_retry` task. It reads that task's own `1_plan.md` and `2_spec.md` as ground truth, not just
+generic code-quality heuristics:
+
+```
+Diff reviewed: origin/main...webhook_retry (apps/api)
+Task found: webhook_retry (2026-08-21) — spec-compliance pass enabled
+Policy: REVIEW.md
+
+Important:
+- apps/api/src/webhooks/dispatch.ts:142 — this diff also refactors the retry backoff timer,
+  which is outside 1_plan.md's "Affected files / modules" (dispatch.ts's header logic only) and
+  outside 2_spec.md's acceptance criteria. Likely scope creep — split into its own task or confirm
+  intentionally in scope.
+
+Nit:
+- apps/api/src/webhooks/dispatch.ts:98 — magic string "order.created" could reuse the existing
+  EVENT_TYPES constant already imported two lines up.
+
+Security: no issues found.
+```
+
+A generic review bot would see a diff and check style/security. This one additionally knows *what
+the diff promised to do* — because it read the plan and spec the harness already produced — and
+flags the unrelated backoff-timer change as scope creep instead of quietly approving it. It never
+posts this to the PR platform or merges anything; it's a report for the human reviewer.
+
+### Scenario 5 — Updating the harness itself, reliably
+
+Months later, upstream ships a new release. Someone runs `/monorepo-harness:update`
+(`core/skills/harness-update/SKILL.md`). It checks the installed version against upstream, reports
+what changed, and asks **"Upgrade now?"**. On consent:
+
+- `core/` and `adapters/` are synced **wholesale** from the fresh tag — not from a hand-maintained
+  per-release file list, which is what used to let a new skill or command silently never reach an
+  installed project. The sync is verified deterministically (`harness-update.sh verify-copy`); an
+  incomplete sync is reported, not silently accepted.
+- Because this project already has the `claude-code` adapter installed, the update **automatically
+  re-applies that adapter's own `INSTALL.md` copy steps** against the fresh bundle — any new
+  harness-plumbing command added upstream since the last update (say, a future
+  `/monorepo-harness-<something>`) shows up in `.claude/commands/` without anyone copying it by
+  hand. Only the non-idempotent hook/config-merge step is excluded from that automatic re-apply.
+- Root `AGENTS.md` is reconciled against the new `core/root-AGENTS.md` template via a three-way
+  merge, shown as a diff, and written only after a separate explicit approval.
+- `.agents/` working state — every intent, every task's plan/spec/memory/verify — is never touched.
+
+The team's own task history, built up across Scenarios 1–4, survives every upgrade untouched;
+only the harness's own machinery gets newer.
 
 ## Quickstart
 
@@ -80,6 +360,9 @@ Whichever adapter you pick, wire the universal hard gate (works even with no age
 ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit
 ```
 
+Then, as needed: `/monorepo-harness-ci` to wire CI (Scenario 3), `/monorepo-harness-intent` to open
+the intent inbox (Scenario 1), `/monorepo-harness-review` before merging a PR (Scenario 4).
+
 ## Adapters
 
 | Adapter       | Enforcement provided                                                                                                                                                               |
@@ -96,16 +379,17 @@ ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hoo
 | [INSTALL.md](INSTALL.md)                                                   | Full install: core phase, adapter phase, placeholders, verification                        |
 | [PORTABILITY.md](PORTABILITY.md)                                           | Cross-agent capability matrix; how to author a new adapter                                 |
 | [core/root-AGENTS.md](core/root-AGENTS.md)                                 | Template root instructions — the single source of truth copied into target repos as `AGENTS.md` |
-| [core/skills/agent-workflow/SKILL.md](core/skills/agent-workflow/SKILL.md) | Plan/spec/memory file templates                                                            |
+| [core/skills/agent-workflow/SKILL.md](core/skills/agent-workflow/SKILL.md) | Plan/spec/memory/verify file templates (Scenarios 1–2)                                     |
 | [core/skills/agents-md-merge/SKILL.md](core/skills/agents-md-merge/SKILL.md) | Reconciles a project's root `AGENTS.md` with the harness template on install/upgrade       |
-| [core/skills/harness-update/SKILL.md](core/skills/harness-update/SKILL.md) | Update-check / upgrade workflow (shared by both adapter commands)                          |
+| [core/skills/harness-update/SKILL.md](core/skills/harness-update/SKILL.md) | Update-check / upgrade workflow, wholesale bundle sync + self-healing adapter re-install (Scenario 5) |
 | [core/skills/monorepo/SKILL.md](core/skills/monorepo/SKILL.md)             | Monorepo guidance (framework-agnostic + Turborepo/Nx/Lerna/workspaces)                     |
-| [core/skills/ci-integration/SKILL.md](core/skills/ci-integration/SKILL.md) | Detects the target project's CI provider and wires `memory-gate.sh` into it (`/monorepo-harness-ci`) |
-| [core/skills/pr-review/SKILL.md](core/skills/pr-review/SKILL.md) | Reviews a diff against `REVIEW.md` policy and, when possible, a task's plan/spec/verify artifacts (`/monorepo-harness-review`) |
+| [core/skills/ci-integration/SKILL.md](core/skills/ci-integration/SKILL.md) | Detects the target project's CI provider and wires `memory-gate.sh` into it (Scenario 3)   |
+| [core/skills/pr-review/SKILL.md](core/skills/pr-review/SKILL.md)           | Reviews a diff against `REVIEW.md` policy and a task's plan/spec/verify artifacts (Scenario 4) |
 | [core/root-REVIEW.md](core/root-REVIEW.md) | Optional installable review-policy template — copied into target repos as `REVIEW.md` |
-| [core/skills/intent-workflow/SKILL.md](core/skills/intent-workflow/SKILL.md) | Captures stakeholder intents and lets a product owner approve/reject them (`/monorepo-harness-intent`) |
+| [core/skills/intent-workflow/SKILL.md](core/skills/intent-workflow/SKILL.md) | Captures stakeholder intents and lets a product owner approve/reject them (Scenario 1)     |
 | [core/governance/intents/AGENTS.md](core/governance/intents/AGENTS.md) | Intent file format and status-lifecycle rules for every `<workspace>/.agents/intents/` |
 | [core/governance/artifacts/AGENTS.md](core/governance/artifacts/AGENTS.md) | Task-index format & searchability rules for every `<workspace>/.agents/artifacts/index.md` |
+| [changelogs/README.md](changelogs/README.md)                              | Format of the per-release upgrade prompts the update workflow reads                        |
 
 ## Requirements
 
