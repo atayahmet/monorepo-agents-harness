@@ -12,4 +12,4 @@ targets the harness's own root.**
 - Scope: Phase 1 of the AI-native SDLC integration roadmap — add `4_verify.md` as a fourth
   plan-mode artifact (Feedback Loop enforcement) and a `verifier` subagent for Claude Code.
 - Artifacts: `.agents/artifacts/task_2026_08_26_feedback_loop_verify_gate/`
-- Outcome: pending (see task dir for current state)
+- Outcome: shipped as v0.7.0, commit `3801e0a31bd8c7d68745f235511bd12ce735b851`

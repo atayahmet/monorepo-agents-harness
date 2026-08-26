@@ -10,4 +10,4 @@ the spec. 1 task, 08-26 to 08-26.
 
 | Date  | Type | Task | Summary |
 | ----- | ---- | ---- | ------- |
-| 08-26 | I | [feedback_loop_verify_gate](task_2026_08_26_feedback_loop_verify_gate/2_spec.md) | Add 4_verify.md artifact + verifier subagent + memory-gate check |
+| 08-26 | I | [feedback_loop_verify_gate](task_2026_08_26_feedback_loop_verify_gate/2_spec.md) ◆ | Add 4_verify.md artifact + verifier subagent + memory-gate check |
