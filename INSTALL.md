@@ -93,7 +93,10 @@ Let `ROOT` = target repo root.
    ```bash
    mkdir -p .agents
    cp -R <path-to-bundle>/. .agents/monorepo-agents-harness/
+   rm -rf .agents/monorepo-agents-harness/changelogs
    ```
+   `changelogs/` only carries upgrade prompts, which are always read from a temporary clone at
+   update time (§10) — never from the installed copy — so it is removed immediately after install.
 2. **Detect the monorepo framework**. The detector reads repo markers (`turbo.json`, `nx.json`,
    `lerna.json`, `pnpm-workspace.yaml`, `package.json` `workspaces`) and prints both the framework
    name and the workspace directories:
@@ -289,8 +292,10 @@ git clone --depth 1 --branch v<latest> https://github.com/atayahmet/monorepo-age
 
 Then let your agent apply the upgrade by following the prompts in
 `.agents/.harness-update-tmp/changelogs/version-<latest>.md` (and any intermediate version prompts).
-The agent copies files, deletes obsolete files, runs commands, and presents manual follow-ups. It
-**never touches**: root `AGENTS.md` (merge manually against the fresh `core/root-AGENTS.md`
-template), `.agents/` working state and task history, or adapter configs (re-apply merges per your
-adapter README — see the follow-ups the agent prints).
+The agent copies files, deletes obsolete files, runs commands, and presents manual follow-ups. As
+its final step the agent always removes the installed `.agents/monorepo-agents-harness/changelogs/`
+directory (see `core/skills/harness-update/SKILL.md` step 9) — it is never a prompt source, prompts
+are always read from the temporary clone. It **never touches**: root `AGENTS.md` (merge manually
+against the fresh `core/root-AGENTS.md` template), `.agents/` working state and task history, or
+adapter configs (re-apply merges per your adapter README — see the follow-ups the agent prints).
 

@@ -9,7 +9,7 @@ Shared instructions backing every adapter's `/monorepo-harness:update` (Claude C
 
 The version engine is `.agents/monorepo-agents-harness/core/scripts/harness-update.sh` (git + coreutils only; exit 0 = current, 1 = update available, 2 = unknown/unreachable). The script only performs version checks; it does **not** execute upgrades.
 
-The actual upgrade is performed by you, the active agent, by reading the changelog prompts in `.agents/monorepo-agents-harness/changelogs/version-X.Y.Z.md`.
+The actual upgrade is performed by you, the active agent, by reading the changelog prompts from the freshly downloaded bundle at `.agents/.harness-update-v<latest>/changelogs/version-X.Y.Z.md` (see step 2). The installed copy's `changelogs/` directory is removed at the end of every install and update (step 9) and must never be relied on as a prompt source.
 
 > **Installed layout (0.4.1+).** The bundle itself lives under `.agents/monorepo-agents-harness/`
 > and is both the source of truth for upgrades and the runtime-facing directory. There is no
@@ -70,10 +70,14 @@ The actual upgrade is performed by you, the active agent, by reading the changel
     cp .agents/.harness-update-v<latest>/core/VERSION .agents/monorepo-agents-harness/VERSION
     ```
 
-9. **Clean up** the temporary clone:
+9. **Clean up**:
    ```bash
    rm -rf .agents/.harness-update-v<latest>
+   rm -rf .agents/monorepo-agents-harness/changelogs
    ```
+   Always remove the installed `changelogs/` directory too, unconditionally — it is never read from
+   the installed copy (prompts always come from a fresh temporary clone, per step 2), so leaving it
+   around after every install/update is pure accumulated clutter.
 
 10. **Present manual follow-ups** and recommend a commit:
     ```

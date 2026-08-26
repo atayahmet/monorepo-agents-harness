@@ -66,6 +66,18 @@ bash core/scripts/scaffold-workspace-agents.sh
 | `Manual follow-ups for the user` | Present these to the user at the end; do not execute automatically. |
 | `Release summary` | Human-readable summary used when reporting the upgrade. |
 
+### Installed `changelogs/` is ephemeral (0.4.4+)
+
+Every install and update ends by deleting the installed
+`.agents/monorepo-agents-harness/changelogs/` directory entirely (see
+`INSTALL.md` §4 step 1 and `core/skills/harness-update/SKILL.md` step 9). The
+agent always reads prompts from a temporary clone of the upstream bundle, never
+from the installed copy, so nothing is lost. **Do not** list a prompt's own
+`changelogs/version-X.Y.Z.md` under "Files to copy from the new bundle to the
+installed bundle" going forward — it would just be deleted moments later by
+the final cleanup step. (Prompts released before 0.4.4 still list their own
+self-copy line; that is a historical artifact, left as-is.)
+
 ## How the agent selects prompts
 
 When upgrading from version `A` to version `B`, the agent reads every prompt

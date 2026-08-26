@@ -24,6 +24,31 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.4.4] - 2026-08-26
+
+### Changed
+
+- **Install and update now always delete the installed `changelogs/` directory as their final
+  step.** `.agents/monorepo-agents-harness/changelogs/` was never actually read from the installed
+  copy — every upgrade prompt is sourced from a freshly cloned temporary bundle — so the directory
+  was pure accumulated clutter that grew by one file per applied release. `INSTALL.md` §4 step 1 now
+  runs `rm -rf .agents/monorepo-agents-harness/changelogs` right after the initial bundle copy, and
+  `core/skills/harness-update/SKILL.md` step 9 now removes it unconditionally alongside the
+  temporary clone at the end of every update.
+- Fixed a doc inconsistency in `core/skills/harness-update/SKILL.md`: the intro previously implied
+  prompts are read from the *installed* `changelogs/` directory; corrected it to point at the
+  freshly downloaded temporary bundle, matching the actual selection logic in step 3.
+- Documented in `changelogs/README.md` that prompts released from 0.4.4 onward should not list
+  their own `changelogs/version-X.Y.Z.md` under "Files to copy" — it would just be deleted by the
+  new cleanup step. Prompts released before 0.4.4 keep their existing self-copy line as historical
+  record.
+
+### Upgrade Notes
+
+- Follow `changelogs/version-0.4.4.md` to migrate existing installs. Key step: delete the
+  accumulated `.agents/monorepo-agents-harness/changelogs/` directory (it may hold several
+  historical prompt files by now) — this is the actual behavior change, applied retroactively.
+
 ## [0.4.3] - 2026-08-26
 
 ### Changed
