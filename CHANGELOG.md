@@ -24,6 +24,38 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.9.0] - 2026-08-26
+
+### Added
+
+- **`/monorepo-harness-review` — PR review skill.** New `core/skills/pr-review/SKILL.md` reviews a
+  diff (default `git diff <merge-base>...HEAD`) against `REVIEW.md` policy (or built-in defaults:
+  bugs/security/spec-compliance passes, Important/Nit thresholds, 5-nit cap), and — when the diff
+  maps to a task tracked under `.agents/artifacts/` — against that task's own
+  `1_plan.md`/`2_spec.md`/`4_verify.md`, catching scope creep and unmet acceptance criteria that a
+  generic review bot has no way to know about.
+- New optional installable template `core/root-REVIEW.md` (copied to a target repo's root as
+  `REVIEW.md`, same model as `core/root-AGENTS.md`), with a new `{{PROJECT_REVIEW_POLICY}}`
+  placeholder.
+- New `/monorepo-harness-review` entry point on all three adapters, following the same thin-pointer
+  pattern as `/monorepo-harness-build`/`-update`/`-ci`.
+
+### Changed
+
+- `PORTABILITY.md` capability matrix gains a PR-review row and a semantic-differences note: this
+  skill only ever produces a report, on every agent — it never posts to a PR platform, tags
+  comments, or merges/approves anything (deliberately out of scope, see the skill's own "Out of
+  scope" section).
+- `adapters/AGENTS.md` Hard Rule 6 now lists the PR review trigger among harness-plumbing commands.
+
+### Upgrade Notes
+
+- Purely additive: no existing script, hook, or artifact changes behavior.
+  `/monorepo-harness-review` never writes any file — it only reads and reports.
+- Installs should copy the new `core/root-REVIEW.md` (optional), `core/skills/pr-review/SKILL.md`,
+  and each adapter's new `monorepo-harness-review` command/skill file (see the relevant
+  `adapters/<agent>/INSTALL.md`).
+
 ## [0.8.0] - 2026-08-26
 
 ### Added
@@ -439,7 +471,8 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.9.0
 [0.8.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.8.0
 [0.7.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.7.0
 [0.6.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.6.0

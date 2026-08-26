@@ -184,8 +184,9 @@ Replace these tokens across the copied files before use:
 | `{{PROJECT_NAME}}` | Your monorepo's display name | — | `core/root-AGENTS.md`, `adapters/claude-code/CLAUDE.md` |
 | `{{MONOREPO_FRAMEWORK}}` | Detected monorepo framework (`turborepo`, `nx`, `lerna`, `pnpm`, `yarn`, `npm`) | — | `core/root-AGENTS.md` |
 | `{{PROJECT_GOTCHAS}}` | Project-specific rules (layering, boundaries, conventions); delete the example if none | — | `core/root-AGENTS.md` |
+| `{{PROJECT_REVIEW_POLICY}}` | Project-specific review rules (extra passes, thresholds, exclusions); delete the section if none | — | `core/root-REVIEW.md` (optional, see §12) |
 
-> Nothing else is parameterized. The plan/spec/memory artifact location is a fixed convention —
+> The plan/spec/memory/verify artifact location is a fixed convention —
 > `<workspace>/.agents/artifacts/` for every app and package — and the memory-gate discovers
 > workspaces automatically. The harness-update script embeds one upstream URL (see §10) overridable
 > via the `HARNESS_UPSTREAM` env var.
@@ -369,4 +370,17 @@ bash .agents/monorepo-agents-harness/core/scripts/detect-ci-provider.sh --provid
 ```
 
 or ask your agent: `/monorepo-harness-ci`. Full instructions: `core/skills/ci-integration/SKILL.md`.
+
+## 12. PR review (optional)
+
+`/monorepo-harness-ci` catches missing artifacts; `/monorepo-harness-review` (every adapter) reviews
+the actual diff. It reads `REVIEW.md` at your repo root if present (copy `core/root-REVIEW.md` there
+and resolve `{{PROJECT_NAME}}`/`{{PROJECT_REVIEW_POLICY}}` to customize passes, thresholds, and
+exclusions) — otherwise it uses built-in defaults. When the diff maps to a task tracked under
+`.agents/artifacts/`, it also checks the diff against that task's own `1_plan.md`/`2_spec.md`/
+`4_verify.md`, not just generic code-quality heuristics.
+
+This only ever produces a report: it never posts to a PR platform, tags comments, or merges/approves
+anything (see `core/skills/pr-review/SKILL.md` "Out of scope"). Copying `REVIEW.md` in is optional —
+skip it if the built-in defaults are fine.
 

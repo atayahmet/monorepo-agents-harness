@@ -37,6 +37,7 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 | Update check / upgrade (`/monorepo-harness:update` / `/monorepo-harness-update`) | `.agents/monorepo-agents-harness/core/scripts/harness-update.sh` + `.agents/monorepo-agents-harness/core/skills/harness-update/SKILL.md` | `.claude/commands/monorepo-harness/update.md` → `/monorepo-harness:update` | `.opencode/commands/monorepo-harness-update.md` → `/monorepo-harness-update` | `.agents/skills/monorepo-harness-update/SKILL.md` → `/monorepo-harness-update` | run `.agents/monorepo-agents-harness/core/scripts/harness-update.sh check` directly in a terminal |
 | Root `AGENTS.md` reconciliation (install + upgrade) | `.agents/monorepo-agents-harness/core/skills/agents-md-merge/SKILL.md` | performed by the active agent — no adapter wiring needed | same | same | run the skill's `git merge-file` one-liners by hand |
 | CI provider detection + `memory-gate.sh` integration (`/monorepo-harness-ci`) | `core/scripts/detect-ci-provider.sh` + `core/skills/ci-integration/SKILL.md` | `.claude/commands/monorepo-harness-ci.md` → `/monorepo-harness-ci` | `.opencode/commands/monorepo-harness-ci.md` → `/monorepo-harness-ci` | `.agents/skills/monorepo-harness-ci/SKILL.md` → `/monorepo-harness-ci` | run `.agents/monorepo-agents-harness/core/scripts/detect-ci-provider.sh --provider` directly and follow `core/skills/ci-integration/SKILL.md` by hand |
+| PR review (`/monorepo-harness-review`) | `core/root-REVIEW.md` (optional installable policy) + `core/skills/pr-review/SKILL.md` | `.claude/commands/monorepo-harness-review.md` → `/monorepo-harness-review` | `.opencode/commands/monorepo-harness-review.md` → `/monorepo-harness-review` | `.agents/skills/monorepo-harness-review/SKILL.md` → `/monorepo-harness-review` | follow `core/skills/pr-review/SKILL.md` by hand — it's plain `git diff` + read/report, no agent-specific mechanism needed |
 | Slash commands | — | `.claude/commands/**/*.md` (subdir = namespace) | `.opencode/commands/**/*.md` (flat filename or subdir = command ID) | `.agents/skills/**/*.md` auto-register as slash commands | n/a (agent-specific convenience) |
 
 ### Semantic differences you must not paper over
@@ -60,6 +61,10 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
   workflow files, so `/monorepo-harness-ci` writes a new, dedicated one after consent. GitLab,
   Bitbucket Pipelines, and CircleCI each read exactly one pipeline file, so the skill only shows the
   matching snippet and where to paste it — it never edits those files itself, on any agent.
+- **PR review is a report, not a service, on every agent.** `/monorepo-harness-review` never posts
+  to a PR platform, tags comments, or merges/approves anything, on claude-code, opencode, or codex
+  alike — that's deliberately left to platform-specific products (Claude Code's own Code Review,
+  `claude-code-action`, or equivalents), which the harness does not commit to.
 - **No subagent primitive on opencode/codex.** Only claude-code has an isolated-context subagent
   mechanism (`.claude/agents/*.md`). The `verifier` subagent is a claude-code-only convenience, not
   a capability the other two agents lack outright: `agent-workflow` SKILL.md Phase 4's verification

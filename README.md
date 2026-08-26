@@ -23,6 +23,10 @@ Codex, and more.
   `memory-gate.sh` into it: a new, dedicated workflow file for GitHub Actions (after your consent),
   or a guided snippet + paste location for GitLab/Bitbucket/CircleCI, whose single-pipeline-file
   formats can't be auto-integrated as a separate file.
+- **PR review** — `/monorepo-harness-review` checks a diff against `REVIEW.md` policy (or sensible
+  defaults) and, when the diff maps to a tracked task, against that task's own
+  `1_plan.md`/`2_spec.md`/`4_verify.md` — a ground truth generic review bots don't have. Reports
+  Important/Nit findings; never posts to a PR platform or merges anything.
 
 ## How it works
 
@@ -76,9 +80,9 @@ ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hoo
 
 | Adapter       | Enforcement provided                                                                                                                                                               |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-build` manual plan/spec trigger, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness:update` command, `/monorepo-harness-ci` CI integration, `verifier` subagent  |
-| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-update` command, `/monorepo-harness-build` manual plan/spec trigger, `/monorepo-harness-ci` CI integration                                                        |
-| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-update`, `/monorepo-harness-build`, and `/monorepo-harness-ci` skills |
+| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-build` manual plan/spec trigger, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness:update` command, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `verifier` subagent  |
+| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-update` command, `/monorepo-harness-build` manual plan/spec trigger, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review                                                        |
+| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-update`, `/monorepo-harness-build`, `/monorepo-harness-ci`, and `/monorepo-harness-review` skills |
 | yours         | Follow the capability matrix in [PORTABILITY.md](PORTABILITY.md) — new adapters are the intended growth path                                                                       |
 
 ## Documentation map
@@ -93,6 +97,8 @@ ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hoo
 | [core/skills/harness-update/SKILL.md](core/skills/harness-update/SKILL.md) | Update-check / upgrade workflow (shared by both adapter commands)                          |
 | [core/skills/monorepo/SKILL.md](core/skills/monorepo/SKILL.md)             | Monorepo guidance (framework-agnostic + Turborepo/Nx/Lerna/workspaces)                     |
 | [core/skills/ci-integration/SKILL.md](core/skills/ci-integration/SKILL.md) | Detects the target project's CI provider and wires `memory-gate.sh` into it (`/monorepo-harness-ci`) |
+| [core/skills/pr-review/SKILL.md](core/skills/pr-review/SKILL.md) | Reviews a diff against `REVIEW.md` policy and, when possible, a task's plan/spec/verify artifacts (`/monorepo-harness-review`) |
+| [core/root-REVIEW.md](core/root-REVIEW.md) | Optional installable review-policy template — copied into target repos as `REVIEW.md` |
 | [core/governance/artifacts/AGENTS.md](core/governance/artifacts/AGENTS.md) | Task-index format & searchability rules for every `<workspace>/.agents/artifacts/index.md` |
 
 ## Requirements
