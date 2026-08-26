@@ -347,3 +347,26 @@ marker (or an additive adoption merge if the file has no marker yet), presented 
 **never touches**: `.agents/` working state and task history, or adapter configs (re-apply merges per
 your adapter README — see the follow-ups the agent prints).
 
+## 11. CI integration (optional)
+
+`core/scripts/memory-gate.sh` runs in CI as a plain `bash` invocation, but *where* to put that
+invocation differs by provider. `/monorepo-harness-ci` (every adapter) detects the provider via
+`core/scripts/detect-ci-provider.sh` and wires it in — tiered by what each CI format actually
+supports:
+
+- **GitHub Actions** — supports independent workflow files, so the skill writes a new, dedicated
+  `.github/workflows/harness-memory-gate.yml` running `memory-gate.sh`, after asking **"Add this CI
+  workflow file?"**. It never overwrites an existing file of that name.
+- **GitLab / Bitbucket Pipelines / CircleCI** — each reads exactly one pipeline file, so the skill
+  only detects the provider and shows the matching snippet + paste location; it never edits
+  `.gitlab-ci.yml` / `bitbucket-pipelines.yml` / `.circleci/config.yml` itself.
+- **Unknown** — reports that no provider was detected and offers an opt-in GitHub Actions starter.
+
+Run it any time after Phase 1 (core install):
+
+```bash
+bash .agents/monorepo-agents-harness/core/scripts/detect-ci-provider.sh --provider
+```
+
+or ask your agent: `/monorepo-harness-ci`. Full instructions: `core/skills/ci-integration/SKILL.md`.
+

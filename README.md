@@ -19,6 +19,10 @@ Codex, and more.
   `changelogs/version-X.Y.Z.md` prompts.
 - **Agent portability** — an agent-neutral `core/` plus thin per-agent `adapters/`; switching or
   mixing agents never loses a capability (mandatory-parity rule).
+- **CI integration** — `/monorepo-harness-ci` detects your project's CI provider and wires
+  `memory-gate.sh` into it: a new, dedicated workflow file for GitHub Actions (after your consent),
+  or a guided snippet + paste location for GitLab/Bitbucket/CircleCI, whose single-pipeline-file
+  formats can't be auto-integrated as a separate file.
 
 ## How it works
 
@@ -72,9 +76,9 @@ ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hoo
 
 | Adapter       | Enforcement provided                                                                                                                                                               |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-build` manual plan/spec trigger, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness:update` command  |
-| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-update` command, `/monorepo-harness-build` manual plan/spec trigger                                                        |
-| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-update` and `/monorepo-harness-build` skills |
+| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-build` manual plan/spec trigger, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness:update` command, `/monorepo-harness-ci` CI integration, `verifier` subagent  |
+| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-update` command, `/monorepo-harness-build` manual plan/spec trigger, `/monorepo-harness-ci` CI integration                                                        |
+| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-update`, `/monorepo-harness-build`, and `/monorepo-harness-ci` skills |
 | yours         | Follow the capability matrix in [PORTABILITY.md](PORTABILITY.md) — new adapters are the intended growth path                                                                       |
 
 ## Documentation map
@@ -88,6 +92,7 @@ ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hoo
 | [core/skills/agents-md-merge/SKILL.md](core/skills/agents-md-merge/SKILL.md) | Reconciles a project's root `AGENTS.md` with the harness template on install/upgrade       |
 | [core/skills/harness-update/SKILL.md](core/skills/harness-update/SKILL.md) | Update-check / upgrade workflow (shared by both adapter commands)                          |
 | [core/skills/monorepo/SKILL.md](core/skills/monorepo/SKILL.md)             | Monorepo guidance (framework-agnostic + Turborepo/Nx/Lerna/workspaces)                     |
+| [core/skills/ci-integration/SKILL.md](core/skills/ci-integration/SKILL.md) | Detects the target project's CI provider and wires `memory-gate.sh` into it (`/monorepo-harness-ci`) |
 | [core/governance/artifacts/AGENTS.md](core/governance/artifacts/AGENTS.md) | Task-index format & searchability rules for every `<workspace>/.agents/artifacts/index.md` |
 
 ## Requirements

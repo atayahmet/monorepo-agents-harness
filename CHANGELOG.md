@@ -24,6 +24,38 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.8.0] - 2026-08-26
+
+### Added
+
+- **`/monorepo-harness-ci` — CI provider detection + integration.** New
+  `core/scripts/detect-ci-provider.sh` detects GitHub Actions, GitLab, Bitbucket Pipelines, or
+  CircleCI (or reports `unknown`). New `core/skills/ci-integration/SKILL.md` wires
+  `core/scripts/memory-gate.sh` into it, tiered by what each format actually supports: GitHub
+  Actions gets a new, dedicated `.github/workflows/harness-memory-gate.yml` written after explicit
+  consent (never overwriting an existing one); GitLab/Bitbucket/CircleCI — which each read exactly
+  one pipeline file — get a matching snippet and paste-location guidance instead of an automatic
+  edit to that file; an undetected provider gets an opt-in GitHub Actions starter offer.
+- New `/monorepo-harness-ci` entry point on all three adapters (`.claude/commands/`,
+  `.opencode/commands/`, and a Codex skill), following the exact thin-pointer pattern already used
+  by `/monorepo-harness-build` and the update-check commands.
+
+### Changed
+
+- `PORTABILITY.md` capability matrix gains a CI-integration row and a "semantic differences" note
+  explaining the GitHub-Actions-vs-others tiering (a CI-format constraint, not an agent difference).
+- `adapters/AGENTS.md` Hard Rule 6 now lists the CI integration trigger among harness-plumbing
+  commands.
+
+### Upgrade Notes
+
+- Purely additive: no existing script, hook, or artifact changes behavior. `/monorepo-harness-ci`
+  only ever writes a file on the GitHub Actions path, and only after explicit consent in the same
+  turn — running it is always safe to try.
+- Installs should copy the new `core/scripts/detect-ci-provider.sh`,
+  `core/skills/ci-integration/SKILL.md`, and each adapter's new `monorepo-harness-ci` command/skill
+  file (see the relevant `adapters/<agent>/INSTALL.md`).
+
 ## [0.7.0] - 2026-08-26
 
 ### Added
@@ -407,7 +439,8 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.8.0
 [0.7.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.7.0
 [0.6.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.6.0
 [0.5.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.5.0

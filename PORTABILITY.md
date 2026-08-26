@@ -36,6 +36,7 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 | Verifier subagent (produces the `4_verify.md` evidence) | `core/skills/agent-workflow/SKILL.md` Phase 4 | `.claude/agents/verifier.md` (isolated context, read-only) | — main session runs the same verification commands inline | — same as opencode | Universal: verification commands run in the main session per the skill's Phase 4 instructions — no capability lost, just no isolated context |
 | Update check / upgrade (`/monorepo-harness:update` / `/monorepo-harness-update`) | `.agents/monorepo-agents-harness/core/scripts/harness-update.sh` + `.agents/monorepo-agents-harness/core/skills/harness-update/SKILL.md` | `.claude/commands/monorepo-harness/update.md` → `/monorepo-harness:update` | `.opencode/commands/monorepo-harness-update.md` → `/monorepo-harness-update` | `.agents/skills/monorepo-harness-update/SKILL.md` → `/monorepo-harness-update` | run `.agents/monorepo-agents-harness/core/scripts/harness-update.sh check` directly in a terminal |
 | Root `AGENTS.md` reconciliation (install + upgrade) | `.agents/monorepo-agents-harness/core/skills/agents-md-merge/SKILL.md` | performed by the active agent — no adapter wiring needed | same | same | run the skill's `git merge-file` one-liners by hand |
+| CI provider detection + `memory-gate.sh` integration (`/monorepo-harness-ci`) | `core/scripts/detect-ci-provider.sh` + `core/skills/ci-integration/SKILL.md` | `.claude/commands/monorepo-harness-ci.md` → `/monorepo-harness-ci` | `.opencode/commands/monorepo-harness-ci.md` → `/monorepo-harness-ci` | `.agents/skills/monorepo-harness-ci/SKILL.md` → `/monorepo-harness-ci` | run `.agents/monorepo-agents-harness/core/scripts/detect-ci-provider.sh --provider` directly and follow `core/skills/ci-integration/SKILL.md` by hand |
 | Slash commands | — | `.claude/commands/**/*.md` (subdir = namespace) | `.opencode/commands/**/*.md` (flat filename or subdir = command ID) | `.agents/skills/**/*.md` auto-register as slash commands | n/a (agent-specific convenience) |
 
 ### Semantic differences you must not paper over
@@ -55,6 +56,10 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 - **Codex slash commands come from skills.** Codex does not support user-defined slash commands
   directly; skills under `.agents/skills/` auto-register and appear in the slash list. The update
   check therefore ships as the `/monorepo-harness-update` skill rather than a command file.
+- **CI integration is tiered by provider, not by agent.** GitHub Actions supports independent
+  workflow files, so `/monorepo-harness-ci` writes a new, dedicated one after consent. GitLab,
+  Bitbucket Pipelines, and CircleCI each read exactly one pipeline file, so the skill only shows the
+  matching snippet and where to paste it — it never edits those files itself, on any agent.
 - **No subagent primitive on opencode/codex.** Only claude-code has an isolated-context subagent
   mechanism (`.claude/agents/*.md`). The `verifier` subagent is a claude-code-only convenience, not
   a capability the other two agents lack outright: `agent-workflow` SKILL.md Phase 4's verification

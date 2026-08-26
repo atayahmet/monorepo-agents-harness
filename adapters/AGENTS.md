@@ -31,8 +31,8 @@ in the same change.
    - `../PORTABILITY.md` — capability matrix + semantic-difference notes;
    - `../INSTALL.md` — Phase 2 table (Agent / Adapter / Guide) if a new adapter ships.
 6. **Slash commands and subagents ship only for harness plumbing** (the update check, the plan/spec
-   build trigger, and the `verifier` subagent). Project-specific commands/subagents do not belong
-   here (see `../INSTALL.md` §7).
+   build trigger, the CI integration trigger, and the `verifier` subagent). Project-specific
+   commands/subagents do not belong here (see `../INSTALL.md` §7).
 7. **Shipped dependencies.** If an adapter ships a `package.json` (e.g., a plugin that needs
    `node_modules`), the adapter README install steps MUST include installing those dependencies
    (`npm install`, `pnpm install`, or equivalent) before copying files into the target repo. Never
