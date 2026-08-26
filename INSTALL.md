@@ -67,6 +67,7 @@ workspace).
 │   ├── root-AGENTS.md                            # TEMPLATE root instructions (placeholders)
 │   ├── skills/
 │   │   ├── agent-workflow/SKILL.md               # plan/spec/memory templates
+│   │   ├── agents-md-merge/SKILL.md              # root AGENTS.md reconciliation (install + upgrade)
 │   │   ├── harness-update/SKILL.md               # upgrade workflow instructions
 │   │   └── monorepo/SKILL.md                     # generic monorepo guidance
 │   ├── scripts/
@@ -109,10 +110,23 @@ Let `ROOT` = target repo root.
    `.agents/monorepo-agents-harness/`, adapters and scripts reference files directly there. Older
    installs (pre-0.4.1) used a root `monorepo-agents-harness/` bundle plus a symlink tree under
    `.agents/monorepo-agents-harness/`; if you are migrating, see `changelogs/version-0.4.1.md`.
-4. **Copy `core/root-AGENTS.md`** to `ROOT/AGENTS.md` (merge by hand if one exists — it is the
-   single source of truth every agent reads natively). On every upgrade, compare your project's
-   `AGENTS.md` against the fresh `core/root-AGENTS.md` and merge changes manually; the harness never
-   auto-merges this file to avoid overwriting your project-specific rules.
+4. **Install `ROOT/AGENTS.md`** — the single source of truth every agent reads natively.
+   - **No `AGENTS.md` at the repo root yet** → copy the template and stamp the provenance marker:
+     ```bash
+     { printf '<!-- monorepo-agents-harness: root-AGENTS.md v%s -->\n\n' \
+         "$(tr -d '[:space:]' < .agents/monorepo-agents-harness/core/VERSION)"
+       cat .agents/monorepo-agents-harness/core/root-AGENTS.md; } > AGENTS.md
+     ```
+   - **An `AGENTS.md` already exists** → do **not** overwrite it, and do **not** leave it unmerged.
+     Follow `core/skills/agents-md-merge/SKILL.md`. It keeps 100% of your existing content, weaves in
+     only the harness rules you are missing, resolves every conflict itself, then shows you the full
+     diff and asks **"Apply this merge to AGENTS.md?"** before writing anything. Declining is fine:
+     the proposal is left at `AGENTS.md.harness-proposed` and the install continues.
+
+   Either way the file ends up with a first-line provenance marker
+   (`<!-- monorepo-agents-harness: root-AGENTS.md vX.Y.Z -->`). That marker records the template
+   version your file was last reconciled with, so every future upgrade can perform a real three-way
+   merge instead of asking you to diff it by hand (§10).
 5. **Scaffold per-workspace state**:
    ```bash
    bash .agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh
@@ -177,6 +191,11 @@ Replace these tokens across the copied files before use:
 Hand-edit `ROOT/AGENTS.md` (copied from `core/root-AGENTS.md`) to fill `{{PROJECT_NAME}}`,
 `{{MONOREPO_FRAMEWORK}}`, and `{{PROJECT_GOTCHAS}}`.
 
+> When `core/skills/agents-md-merge/SKILL.md` writes `ROOT/AGENTS.md` (either mode from §4 step 4),
+> it already resolves `{{PROJECT_NAME}}` and `{{MONOREPO_FRAMEWORK}}` from your existing file and the
+> framework detector. `{{PROJECT_GOTCHAS}}` is always a human decision — fill it in or delete the
+> example item.
+
 ---
 
 ## 7. What is intentionally NOT in this bundle (and why)
@@ -225,6 +244,12 @@ if [ -d "$RUNTIME/changelogs" ]; then
   rm -rf "$RUNTIME/changelogs"
 fi
 echo "changelogs/ absent: OK"
+
+# f) root AGENTS.md is reconciled and clean
+grep -q '^<!-- monorepo-agents-harness: root-AGENTS\.md v' AGENTS.md \
+  && echo "AGENTS.md provenance marker OK" \
+  || echo "AGENTS.md has no provenance marker — run core/skills/agents-md-merge/SKILL.md"
+! grep -n '^<<<<<<< \|^>>>>>>> \|^||||||| ' AGENTS.md && echo "no conflict markers in AGENTS.md"
 ```
 
 **End-to-end check of the memory-gate** (the core enforcement, agent-free default mode).
@@ -300,10 +325,14 @@ git clone --depth 1 --branch v<latest> https://github.com/atayahmet/monorepo-age
 
 Then let your agent apply the upgrade by following the prompts in
 `.agents/.harness-update-tmp/changelogs/version-<latest>.md` (and any intermediate version prompts).
-The agent copies files, deletes obsolete files, runs commands, and presents manual follow-ups. As
-its final step the agent always removes the installed `.agents/monorepo-agents-harness/changelogs/`
-directory (see `core/skills/harness-update/SKILL.md` step 9) — it is never a prompt source, prompts
-are always read from the temporary clone. It **never touches**: root `AGENTS.md` (merge manually
-against the fresh `core/root-AGENTS.md` template), `.agents/` working state and task history, or
-adapter configs (re-apply merges per your adapter README — see the follow-ups the agent prints).
+The agent copies files, deletes obsolete files, runs commands, and presents manual follow-ups. As its
+final steps the agent reconciles your root `AGENTS.md` against the new `core/root-AGENTS.md`
+(`core/skills/harness-update/SKILL.md` step 9, backed by `core/skills/agents-md-merge/SKILL.md`) and
+removes the installed `.agents/monorepo-agents-harness/changelogs/` directory (step 10) — that
+directory is never a prompt source, prompts are always read from the temporary clone. The `AGENTS.md`
+reconciliation is a three-way merge against the template version recorded in your file's provenance
+marker (or an additive adoption merge if the file has no marker yet), presented as a clean diff and
+**written only after you approve it** — declining leaves the file untouched. The upgrade still
+**never touches**: `.agents/` working state and task history, or adapter configs (re-apply merges per
+your adapter README — see the follow-ups the agent prints).
 

@@ -49,7 +49,7 @@ bash core/scripts/scaffold-workspace-agents.sh
 
 ## Manual follow-ups for the user
 
-- Merge any new rows from the fresh `core/root-AGENTS.md` template into the repo-root `AGENTS.md`.
+- Re-apply the opencode config merge (`opencode.jsonc`) if it was changed upstream.
 
 ## Release summary
 
@@ -77,6 +77,16 @@ from the installed copy, so nothing is lost. **Do not** list a prompt's own
 installed bundle" going forward — it would just be deleted moments later by
 the final cleanup step. (Prompts released before 0.4.4 still list their own
 self-copy line; that is a historical artifact, left as-is.)
+
+### Root `AGENTS.md` reconciliation is automatic (0.5.0+)
+
+`core/skills/harness-update/SKILL.md` step 9 now reconciles the project's root
+`AGENTS.md` against the fresh `core/root-AGENTS.md` itself — a consent-gated
+merge via `core/skills/agents-md-merge/SKILL.md` — instead of leaving it to
+the user. **Do not** list "compare/merge your `AGENTS.md` against the fresh
+`core/root-AGENTS.md` template" as a manual follow-up in prompts released from
+0.5.0 onward; the update workflow performs it. (Prompts released before 0.5.0
+still carry that follow-up; historical artifact, left as-is.)
 
 ## How the agent selects prompts
 

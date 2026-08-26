@@ -24,6 +24,55 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.5.0] - 2026-08-26
+
+### Added
+
+- **`core/skills/agents-md-merge/SKILL.md`** — a shared, agent-executed workflow that reconciles a
+  project's root `AGENTS.md` with the harness template `core/root-AGENTS.md`. Two modes: an additive
+  **adoption merge** for files with no provenance marker (keeps 100% of existing content, weaves in
+  only the missing harness rules, surfaces genuine section-level conflicts instead of overwriting),
+  and a real **three-way merge** via `git merge-file --diff3` against the template version recorded
+  in the file's provenance marker. Both modes end with a fully resolved, conflict-marker-free
+  proposal, a unified diff, and an explicit `Apply this merge to AGENTS.md?` consent gate.
+- **Provenance marker on the installed `AGENTS.md`** —
+  `<!-- monorepo-agents-harness: root-AGENTS.md vX.Y.Z -->` as the file's first line, written
+  whenever the harness creates or merges the file. It records the template version the file was last
+  reconciled with, which becomes the three-way-merge base for the next upgrade. Invisible in
+  rendered Markdown; a file with no marker always takes the safe adoption-merge path.
+
+### Changed
+
+- **`INSTALL.md` §4 step 4 no longer says "merge by hand if one exists".** Install now branches: no
+  root `AGENTS.md` → copy the template and stamp the marker; an existing root `AGENTS.md` → run the
+  new `agents-md-merge` skill, which proposes an additive merge and asks for approval before writing
+  anything.
+- **`core/skills/harness-update/SKILL.md` gained step 9, "Reconcile the root `AGENTS.md`"** (old
+  steps 9 and 10 become 10 and 11). The upgrade now proposes an `AGENTS.md` merge with its own
+  consent gate, separate from the "Upgrade now?" gate. Step 4 detects the reconciliation mode, step 5
+  reports it, step 10 cleans up the merge temp dir, and step 11 reports a declined merge as a
+  follow-up. Step 9 explicitly **supersedes** the recurring "compare your `AGENTS.md` against the
+  fresh template and merge manually" follow-up carried by the 0.2.0–0.4.1 changelog prompts, which
+  are left unmodified as historical record.
+- `INSTALL.md` §10 no longer lists root `AGENTS.md` under what the upgrade "never touches"; it now
+  documents the consent-gated three-way merge. §8 Verification asserts the provenance marker exists
+  and that no conflict markers were left in `AGENTS.md`. §3's bundle tree lists the new skill.
+- `changelogs/README.md` documents that prompts from 0.5.0 onward should not restate the `AGENTS.md`
+  merge as a manual follow-up, since the update workflow now performs it itself.
+
+### Upgrade Notes
+
+- Follow `changelogs/version-0.5.0.md`. Key step: after copying the new files, run the new
+  `core/skills/agents-md-merge/SKILL.md` once, explicitly — because you started this upgrade under
+  the pre-0.5.0 workflow, its new step 9 does not fire on its own for this one upgrade.
+- Your first reconciliation runs in **adoption mode** (additive only) because no install created
+  before 0.5.0 has a provenance marker. Approving it stamps the marker; every later upgrade then
+  uses a real three-way merge.
+- Declining writes nothing: the proposal is left at `AGENTS.md.harness-proposed`, the marker is not
+  advanced, and the next upgrade re-offers the merge from the same base.
+- `core/root-AGENTS.md`'s content is unchanged in this release, so for an install already at 0.4.5
+  the merge should be a no-op beyond the marker line.
+
 ## [0.4.5] - 2026-08-26
 
 ### Changed
@@ -298,7 +347,11 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.5.0
+[0.4.5]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.4.5
+[0.4.4]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.4.4
+[0.4.3]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.4.3
 [0.4.2]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.4.2
 [0.4.1]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.4.1
 [0.4.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.4.0
