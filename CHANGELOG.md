@@ -24,6 +24,34 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.4.3] - 2026-08-26
+
+### Changed
+
+- **Renamed the harness-plumbing command/skill namespace from `/tah-*` to `/monorepo-harness-*`**
+  across all three adapters: `/tah-build` → `/monorepo-harness-build`, `/tah:update`
+  (claude-code) → `/monorepo-harness:update`, and `/tah-update` (opencode/Codex CLI) →
+  `/monorepo-harness-update`. Renamed the backing files accordingly:
+  `.claude/commands/tah-build.md` → `.claude/commands/monorepo-harness-build.md`,
+  `.claude/commands/tah/update.md` → `.claude/commands/monorepo-harness/update.md`,
+  `.opencode/commands/tah-build.md` → `.opencode/commands/monorepo-harness-build.md`,
+  `.opencode/commands/tah-update.md` → `.opencode/commands/monorepo-harness-update.md`,
+  `.agents/skills/tah-build/` → `.agents/skills/monorepo-harness-build/`, and
+  `.agents/skills/tah-update/` → `.agents/skills/monorepo-harness-update/`. Updated
+  `README.md`, `INSTALL.md`, `PORTABILITY.md`, every adapter `README.md`/`INSTALL.md`, and
+  `core/skills/agent-workflow/SKILL.md` / `core/skills/harness-update/SKILL.md` to match. The old
+  `tah-*` prefix was a leftover from the project's pre-0.4.0 name (`turborepo-agent-harness`);
+  this finishes aligning the command namespace with the current project name,
+  `monorepo-agents-harness`.
+
+### Upgrade Notes
+
+- Follow `changelogs/version-0.4.3.md` to migrate existing installs. Key steps:
+  - Delete the old `tah-*` command/skill files and copy the renamed `monorepo-harness-*` ones
+    from the new bundle (see the file list in `changelogs/version-0.4.3.md`).
+  - Start typing the new command names: `/monorepo-harness-build`, `/monorepo-harness:update`
+    (claude-code), `/monorepo-harness-update` (opencode/Codex CLI).
+
 ## [0.4.2] - 2026-08-25
 
 ### Changed

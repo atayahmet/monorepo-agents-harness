@@ -1,11 +1,11 @@
 ---
 name: harness-update
-description: Check whether the installed agent harness is up to date and, with user consent, upgrade it. Use when the user invokes /tah:update (Claude Code) or /tah-update (opencode/Codex CLI), or asks to check/update the harness, when a task touches .agents/monorepo-agents-harness/** and a version mismatch matters, or before starting work after a known harness release.
+description: Check whether the installed agent harness is up to date and, with user consent, upgrade it. Use when the user invokes /monorepo-harness:update (Claude Code) or /monorepo-harness-update (opencode/Codex CLI), or asks to check/update the harness, when a task touches .agents/monorepo-agents-harness/** and a version mismatch matters, or before starting work after a known harness release.
 ---
 
 # Harness Update Check
 
-Shared instructions backing every adapter's `/tah:update` (Claude Code) and `/tah-update` (opencode/Codex CLI) commands.
+Shared instructions backing every adapter's `/monorepo-harness:update` (Claude Code) and `/monorepo-harness-update` (opencode/Codex CLI) commands.
 
 The version engine is `.agents/monorepo-agents-harness/core/scripts/harness-update.sh` (git + coreutils only; exit 0 = current, 1 = update available, 2 = unknown/unreachable). The script only performs version checks; it does **not** execute upgrades.
 

@@ -12,7 +12,7 @@ Codex, and more.
   agents read them before work and record what they learned after.
 - **Enforced follow-through** — the memory-gate blocks the task from ending until `3_memory.md`
   exists (agent stop-hook where supported, git pre-commit / CI everywhere else).
-- **Updatable** — the bundle carries a version; a `/tah:update` command compares your install
+- **Updatable** — the bundle carries a version; a `/monorepo-harness:update` command compares your install
   against upstream and, with your consent, the active agent upgrades it in place by following the
   `changelogs/version-X.Y.Z.md` prompts.
 - **Agent portability** — an agent-neutral `core/` plus thin per-agent `adapters/`; switching or
@@ -68,9 +68,9 @@ ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hoo
 
 | Adapter       | Enforcement provided                                                                                                                                                               |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/tah-build` manual plan/spec trigger, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/tah:update` command  |
-| `opencode`    | Universal git/CI gate (hard), `/tah-update` command, `/tah-build` manual plan/spec trigger                                                        |
-| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/tah-update` and `/tah-build` skills |
+| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-build` manual plan/spec trigger, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness:update` command  |
+| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-update` command, `/monorepo-harness-build` manual plan/spec trigger                                                        |
+| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-update` and `/monorepo-harness-build` skills |
 | yours         | Follow the capability matrix in [PORTABILITY.md](PORTABILITY.md) — new adapters are the intended growth path                                                                       |
 
 ## Documentation map

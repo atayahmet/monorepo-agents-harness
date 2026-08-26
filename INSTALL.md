@@ -22,7 +22,7 @@ three artifacts in a dedicated directory, and the **memory-gate** enforces the l
 
 | Phase | Artifact | Trigger | Enforcement |
 |---|---|---|---|
-| Plan | `1_plan.md` | after plan approval (or `/tah-build` on any agent) | adapter hook reminds you to create the task dir + write `1_plan.md` / `2_spec.md` before the first Edit/Write |
+| Plan | `1_plan.md` | after plan approval (or `/monorepo-harness-build` on any agent) | adapter hook reminds you to create the task dir + write `1_plan.md` / `2_spec.md` before the first Edit/Write |
 | Spec | `2_spec.md` | before implementation | same reminder + `core/scripts/memory-gate.sh` at commit/CI |
 | Memory | `3_memory.md` | at task end | adapter stop-hook and/or `core/scripts/memory-gate.sh` **blocks** until today's task dir contains `3_memory.md` |
 
@@ -149,8 +149,8 @@ chmod +x .agents/monorepo-agents-harness/core/scripts/memory-gate.sh
 bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh
 ```
 
-Each adapter also ships a harness update command: `/tah:update` for claude-code,
-`/tah-update` for opencode, and `/tah-update` for Codex CLI — copy it during the
+Each adapter also ships a harness update command: `/monorepo-harness:update` for claude-code,
+`/monorepo-harness-update` for opencode, and `/monorepo-harness-update` for Codex CLI — copy it during the
 adapter install steps; all are thin pointers to the shared
 `core/skills/harness-update/SKILL.md` workflow (see §10).
 
@@ -180,7 +180,7 @@ Hand-edit `ROOT/AGENTS.md` (copied from `core/root-AGENTS.md`) to fill `{{PROJEC
 
 | Excluded | Reason |
 |---|---|
-| Agent-specific slash commands beyond the harness plumbing (`.claude/commands/*`, `.opencode/commands/*`, `.agents/skills/*`) | Project-specific workflows, not portable engine. The bundle ships two harness-plumbing command families — the update check (see §10) and the plan/spec build trigger `/tah-build` — because they are harness plumbing, not project logic. Author your own for the rest. |
+| Agent-specific slash commands beyond the harness plumbing (`.claude/commands/*`, `.opencode/commands/*`, `.agents/skills/*`) | Project-specific workflows, not portable engine. The bundle ships two harness-plumbing command families — the update check (see §10) and the plan/spec build trigger `/monorepo-harness-build` — because they are harness plumbing, not project logic. Author your own for the rest. |
 | `.claude/settings.local.json` | Local machine permissions — never portable. |
 | Per-module instruction files (e.g. `apps/api/src/modules/**/AGENTS.md`) | Project content, not harness. Add your own where useful. |
 | Populated `<workspace>/.agents/artifacts/task_*` dirs and their `index.md` rows | Task history is repo-specific; you start empty (the scaffold seeds each workspace with `index-template.md`). |
@@ -242,7 +242,7 @@ If the first run exits 1 and the second exits 0, the core is live. Adapter-speci
 ## 9. Using the harness day to day
 
 1. Enter plan mode for any non-trivial task; on plan approval the adapter's reminder fires. If the
-   reminder is missed or your agent has no automatic hook, type `/tah-build` to trigger the same
+   reminder is missed or your agent has no automatic hook, type `/monorepo-harness-build` to trigger the same
    plan/spec build step.
 2. Apply the **`agent-workflow`** skill templates; create
    `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/` and write `1_plan.md` + `2_spec.md`
@@ -276,8 +276,8 @@ bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh check       
 bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh check --json   # {"installed","latest","status","upstream"}
 ```
 
-Or ask your agent: `/tah:update` (claude-code) /
-`/tah-update` (opencode). The shared workflow lives in
+Or ask your agent: `/monorepo-harness:update` (claude-code) /
+`/monorepo-harness-update` (opencode). The shared workflow lives in
 `core/skills/harness-update/SKILL.md`: it reports the diff, asks for consent, then reads and applies
 the changelog prompts.
 

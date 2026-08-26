@@ -12,10 +12,10 @@ for the mandatory-parity rule and semantic differences.
 | Rules / instructions | root `AGENTS.md` | — (read natively by Codex) |
 | Plan/spec/memory + monorepo templates | `.agents/monorepo-agents-harness/core/skills/**/SKILL.md` | symlinked from `.agents/monorepo-agents-harness/core/skills/` into `.agents/skills/` (auto-registration) |
 | Plan/spec reminder (start of impl.) | — | `PostToolUse[update_plan]` hook (`systemMessage` reminder) |
-| Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.agents/skills/tah-build/SKILL.md` → `/tah-build` |
+| Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.agents/skills/monorepo-harness-build/SKILL.md` → `/monorepo-harness-build` |
 | Session-start reminder | — | `SessionStart` hook (`additionalContext` reminder) |
 | Memory-gate | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (soft reminder) |
-| Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.agents/skills/tah-update/SKILL.md` → `/tah-update` |
+| Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.agents/skills/monorepo-harness-update/SKILL.md` → `/monorepo-harness-update` |
 
 ## Prerequisites
 
@@ -51,14 +51,14 @@ Run from the target repo root. `BUNDLE=.agents/monorepo-agents-harness` below.
 
 4. **Skills.** Symlink the shared runtime skills into `.agents/skills/` so Codex
    auto-registers them — frontmatter (`name`, `description`) must stay intact. Copy
-   the adapter-specific skills (`tah-build`, `tah-update`) because they are not
+   the adapter-specific skills (`monorepo-harness-build`, `monorepo-harness-update`) because they are not
    shared across agents:
    ```bash
     mkdir -p .agents/skills
     ln -s "../monorepo-agents-harness/core/skills/agent-workflow" .agents/skills/agent-workflow
     ln -s "../monorepo-agents-harness/core/skills/monorepo"       .agents/skills/monorepo
-   cp -R "$BUNDLE/adapters/codex/.agents/skills/tah-update" .agents/skills/
-   cp -R "$BUNDLE/adapters/codex/.agents/skills/tah-build"  .agents/skills/
+   cp -R "$BUNDLE/adapters/codex/.agents/skills/monorepo-harness-update" .agents/skills/
+   cp -R "$BUNDLE/adapters/codex/.agents/skills/monorepo-harness-build"  .agents/skills/
    ```
 
 5. **Install the universal hard gate** (this is what makes the memory-gate real on Codex — the
@@ -84,8 +84,8 @@ jq . .codex/hooks.json >/dev/null && echo "hooks.json OK"
 # c) skills are discoverable (frontmatter intact)
 head -3 .agents/skills/agent-workflow/SKILL.md
 head -3 .agents/skills/monorepo/SKILL.md
-head -3 .agents/skills/tah-update/SKILL.md
-head -3 .agents/skills/tah-build/SKILL.md
+head -3 .agents/skills/monorepo-harness-update/SKILL.md
+head -3 .agents/skills/monorepo-harness-build/SKILL.md
 
 # d) update-check command resolves its engine
 bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh current
@@ -113,7 +113,7 @@ rm -rf apps/web/.agents/artifacts/task_${TODAY}_smoke_test
 
 If the first run exits 1 and the second exits 0, the hard gate is live.
 
-**Skill registration check:** start Codex and type `/`. You should see `/tah-update` and `/tah-build` in the slash
+**Skill registration check:** start Codex and type `/`. You should see `/monorepo-harness-update` and `/monorepo-harness-build` in the slash
 command list.
 
 ## Notes / semantic differences
@@ -127,8 +127,8 @@ command list.
   `PostToolUse[update_plan]` to inject the “create task dir + write 1_plan.md/2_spec.md” reminder.
 - **Update check is a skill, not a custom slash command.** Codex CLI does not support user-defined
   slash commands directly, but skills appear in the slash list. The update check ships as
-  `.agents/skills/tah-update/SKILL.md`, surfaced as `/tah-update`.
+  `.agents/skills/monorepo-harness-update/SKILL.md`, surfaced as `/monorepo-harness-update`.
 - **Parity checklist:** every harness capability has a live Codex counterpart — instructions ✔
   (native), templates ✔ (skills), plan reminder ✔ (`PostToolUse[update_plan]` + `SessionStart`),
-  manual plan/spec build trigger ✔ (`/tah-build` skill), memory-gate ✔ (`Stop` soft reminder +
-  git/CI hard gate), update check ✔ (`/tah-update` skill).
+  manual plan/spec build trigger ✔ (`/monorepo-harness-build` skill), memory-gate ✔ (`Stop` soft reminder +
+  git/CI hard gate), update check ✔ (`/monorepo-harness-update` skill).

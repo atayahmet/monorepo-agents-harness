@@ -1,6 +1,6 @@
 ---
 name: agent-workflow
-description: 3-phase agent workflow — opens a dedicated task directory per task; writes 1_plan.md and 2_spec.md on plan approval, and 3_memory.md on task completion, under <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ where <workspace> is the target app or package (api, web, example-pkg, ...). Triggered automatically when exiting plan mode, or manually via /tah-build, before implementation starts; also used when the task ends.
+description: 3-phase agent workflow — opens a dedicated task directory per task; writes 1_plan.md and 2_spec.md on plan approval, and 3_memory.md on task completion, under <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ where <workspace> is the target app or package (api, web, example-pkg, ...). Triggered automatically when exiting plan mode, or manually via /monorepo-harness-build, before implementation starts; also used when the task ends.
 ---
 
 # Agent Workflow — Per-Task Plan / Spec / Memory Artifacts
@@ -52,9 +52,9 @@ The memory-gate scans `apps/*/.agents/artifacts/` and `packages/*/.agents/artifa
 
 **Important**: All three files for one task live in the **same directory**. The numeric prefix (`1_`, `2_`, `3_`) indicates phase order.
 
-## Phase 1 — `1_plan.md` (after plan approval or `/tah-build`)
+## Phase 1 — `1_plan.md` (after plan approval or `/monorepo-harness-build`)
 
-When plan mode is approved (e.g., `ExitPlanMode` is invoked on Claude Code, or the user runs `/tah-build` on any agent), **before the first implementation tool call**, create the directory and write `1_plan.md`.
+When plan mode is approved (e.g., `ExitPlanMode` is invoked on Claude Code, or the user runs `/monorepo-harness-build` on any agent), **before the first implementation tool call**, create the directory and write `1_plan.md`.
 
 ```markdown
 ---

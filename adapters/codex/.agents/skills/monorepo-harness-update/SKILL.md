@@ -1,6 +1,6 @@
 ---
-name: tah-update
-description: Compare the installed agent-harness version against upstream and, with consent, upgrade it. Use when the user types /tah-update or asks to check/update the harness.
+name: monorepo-harness-update
+description: Compare the installed agent-harness version against upstream and, with consent, upgrade it. Use when the user types /monorepo-harness-update or asks to check/update the harness.
 ---
 
 Follow the shared instructions in

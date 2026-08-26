@@ -1,6 +1,6 @@
 ---
-name: tah-build
-description: Manually trigger the plan/spec build for the current task. Use when the user types /tah-build or asks to create the plan/spec artifacts for the current task.
+name: monorepo-harness-build
+description: Manually trigger the plan/spec build for the current task. Use when the user types /monorepo-harness-build or asks to create the plan/spec artifacts for the current task.
 ---
 
 Follow the shared instructions in

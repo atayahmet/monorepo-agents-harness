@@ -11,9 +11,9 @@ registration. Read `../../INSTALL.md` first (core must be installed before any a
 | Rules / instructions | `AGENTS.md` (native to Claude Code) | root `CLAUDE.md` = thin `@AGENTS.md` pointer |
 | Plan/spec/memory + monorepo templates | `core/skills/**/SKILL.md` | symlinked from `.agents/monorepo-agents-harness/core/skills/` into `.claude/skills/` (auto-registration) |
 | Plan/spec reminder (plan-mode exit) | — | `PostToolUse[ExitPlanMode]` hook (inline reminder) |
-| Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.claude/commands/tah-build.md` → `/tah-build` |
+| Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.claude/commands/monorepo-harness-build.md` → `/monorepo-harness-build` |
 | Memory-gate | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (**hard block**) |
-| Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.claude/commands/tah/update.md` → `/tah:update` |
+| Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.claude/commands/monorepo-harness/update.md` → `/monorepo-harness:update` |
 
 ## Prerequisites
 
@@ -60,16 +60,16 @@ Run from the target repo root. `BUNDLE=.agents/monorepo-agents-harness` below.
 4. **Root pointer.** Copy `adapters/claude-code/CLAUDE.md` to the repo root (merge by hand if
    you already have one — keep it a thin `@AGENTS.md` pointer).
 
-5. **Update-check command.** Copy the update-check command (registers as `/tah:update`):
+5. **Update-check command.** Copy the update-check command (registers as `/monorepo-harness:update`):
    ```bash
-   mkdir -p .claude/commands/tah
-   cp "$BUNDLE/adapters/claude-code/.claude/commands/tah/update.md" \
-      .claude/commands/tah/
+   mkdir -p .claude/commands/monorepo-harness
+   cp "$BUNDLE/adapters/claude-code/.claude/commands/monorepo-harness/update.md" \
+      .claude/commands/monorepo-harness/
    ```
 
-6. **Manual plan/spec build command.** Copy the build trigger command (registers as `/tah-build`):
+6. **Manual plan/spec build command.** Copy the build trigger command (registers as `/monorepo-harness-build`):
    ```bash
-   cp "$BUNDLE/adapters/claude-code/.claude/commands/tah-build.md" \
+   cp "$BUNDLE/adapters/claude-code/.claude/commands/monorepo-harness-build.md" \
       .claude/commands/
    ```
 
@@ -90,7 +90,7 @@ head -3 .claude/skills/agent-workflow/SKILL.md
 head -3 .claude/skills/monorepo/SKILL.md
 
 # c) commands resolve their engines
-ls .claude/commands/tah-build.md .claude/commands/tah/update.md
+ls .claude/commands/monorepo-harness-build.md .claude/commands/monorepo-harness/update.md
 bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh current
 ```
 

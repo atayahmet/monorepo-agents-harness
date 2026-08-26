@@ -11,9 +11,9 @@ config. Read `../../INSTALL.md` first (core must be installed before any adapter
 |---|---|---|
 | Rules / instructions | `AGENTS.md` (native to opencode) | — (no extra wiring) |
 | Plan/spec/memory + monorepo templates | `.agents/monorepo-agents-harness/skills/**/SKILL.md` | referenced via `opencode.jsonc` `instructions` |
-| Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.opencode/commands/tah-build.md` → `/tah-build` |
+| Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `.opencode/commands/monorepo-harness-build.md` → `/monorepo-harness-build` |
 | Memory-gate | `core/scripts/memory-gate.sh` | core script at git/CI (hard) |
-| Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.opencode/commands/tah-update.md` → `/tah-update` |
+| Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `.opencode/commands/monorepo-harness-update.md` → `/monorepo-harness-update` |
 
 ## Prerequisites
 
@@ -36,8 +36,8 @@ config. Read `../../INSTALL.md` first (core must be installed before any adapter
 3. **Commands.** Copy the harness commands into place:
    ```bash
    mkdir -p .opencode/commands
-   cp .agents/monorepo-agents-harness/adapters/opencode/.opencode/commands/tah-update.md \
-      .agents/monorepo-agents-harness/adapters/opencode/.opencode/commands/tah-build.md \
+   cp .agents/monorepo-agents-harness/adapters/opencode/.opencode/commands/monorepo-harness-update.md \
+      .agents/monorepo-agents-harness/adapters/opencode/.opencode/commands/monorepo-harness-build.md \
       .opencode/commands/
    ```
 
@@ -61,7 +61,7 @@ test -x .agents/monorepo-agents-harness/core/scripts/harness-update.sh \
 # the hard gate blocks a task dir missing 3_memory.md, passes once present
 bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh; echo "exit=$?"
 
-# commands register: start opencode, type `/tah-update` and `/tah-build`
+# commands register: start opencode, type `/monorepo-harness-update` and `/monorepo-harness-build`
 ```
 
 ## Notes / semantic differences
