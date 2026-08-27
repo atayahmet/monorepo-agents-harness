@@ -24,6 +24,36 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.13.0] - 2026-08-27
+
+### Added
+
+- **`core/scripts/cleanup-harness-trash.sh`** — the user's own explicit, standalone command to
+  purge `.agents/.harness-trash/` (`--list` to inspect first). Never invoked automatically by the
+  install/update flow — it runs only on the user's own direct invocation, under their own
+  permission context.
+
+### Changed
+
+- **`core/skills/harness-update/SKILL.md` and `INSTALL.md` no longer call `rm -rf`.** Some
+  environments run the agent under a permission policy that blocks `rm -rf` outright, which stalls
+  the wholesale `core`/`adapters` sync (step 7) and cleanup (step 10) with no way through — the
+  identical command gets denied on every retry. Every place that previously deleted a directory
+  before replacing it now moves the old copy into a per-run `.agents/.harness-trash/<timestamp>_<pid>/`
+  first (`mv`, never overwriting anything, so it stays unambiguously non-destructive), then copies
+  fresh. `changelogs/` self-heal in `INSTALL.md` §8 gets the same treatment. Trash accumulates
+  across runs until the user runs `cleanup-harness-trash.sh` themselves — nothing purges it
+  automatically.
+
+### Upgrade Notes
+
+- No artifact-layout or workflow-shape change. If you're already on `≥0.11.0`, this update itself
+  applies via the now-installed `mv`-based step 7 — no `Files to copy` needed for `core/`/`adapters/`.
+  One known residual gap: anyone still on a pre-`0.11.0` install jumping straight through the
+  already-tagged `0.11.0`/`0.11.1` prompts will still hit their historical (unchangeable, already
+  published) `rm -rf` text for that one transitional step — not fixable retroactively, same
+  constraint as every prior tagged release.
+
 ## [0.12.0] - 2026-08-27
 
 ### Added
@@ -598,7 +628,8 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.13.0
 [0.12.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.12.0
 [0.11.1]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.11.1
 [0.11.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.11.0

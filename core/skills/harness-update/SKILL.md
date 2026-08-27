@@ -83,12 +83,19 @@ Since 0.5.0 the upgrade also reconciles the project's root `AGENTS.md` against t
    approval gate in step 9.
 
 7. **On consent, sync the bundle**:
+    - **Compute a per-run trash dir once** and reuse it through step 10 — this update never calls
+      `rm -rf` on anything it's replacing; old copies are moved aside instead, so the flow keeps
+      working even under a permission policy that blocks destructive commands outright:
+      ```bash
+      TRASH="$(git rev-parse --show-toplevel)/.agents/.harness-trash/$(date +%Y%m%d_%H%M%S)_$$"
+      mkdir -p "$TRASH"
+      ```
     - **Wholesale sync of `core/` and `adapters/`** (this is a full replace, not an itemized
       copy — see the skill intro for why):
       ```bash
-      rm -rf .agents/monorepo-agents-harness/core
+      mv .agents/monorepo-agents-harness/core "$TRASH/core"
       cp -R .agents/.harness-update-v<latest>/core .agents/monorepo-agents-harness/core
-      rm -rf .agents/monorepo-agents-harness/adapters
+      mv .agents/monorepo-agents-harness/adapters "$TRASH/adapters"
       cp -R .agents/.harness-update-v<latest>/adapters .agents/monorepo-agents-harness/adapters
       ```
     - **Verify** the sync deterministically (do not skip — this is the safety net if a copy is
@@ -164,16 +171,18 @@ Since 0.5.0 the upgrade also reconciles the project's root `AGENTS.md` against t
     - If a re-run still reports the same gap, **stop** — do not proceed to step 10 or report the
       upgrade complete.
 
-10. **Clean up**:
+10. **Clean up** — move aside, using the same `$TRASH` computed in step 7, never `rm -rf`:
     ```bash
-    rm -rf .agents/.harness-update-v<latest> .agents/.harness-agents-md-merge \
-           .agents/monorepo-agents-harness/changelogs
+    [ -e .agents/.harness-update-v<latest> ] && mv .agents/.harness-update-v<latest> "$TRASH/harness-update-clone"
+    [ -e .agents/.harness-agents-md-merge ] && mv .agents/.harness-agents-md-merge "$TRASH/agents-md-merge-scratch"
+    [ -e .agents/monorepo-agents-harness/changelogs ] && mv .agents/monorepo-agents-harness/changelogs "$TRASH/changelogs"
     ```
-    Always remove the installed `changelogs/` directory too, unconditionally — it is never read from
-    the installed copy (prompts always come from a fresh temporary clone, per step 2), so leaving it
-    around after every install/update is pure accumulated clutter. Confirm
+    Always move the installed `changelogs/` directory out too, unconditionally — it is never read
+    from the installed copy (prompts always come from a fresh temporary clone, per step 2), so
+    leaving it around after every install/update is pure accumulated clutter. Confirm
     `.agents/monorepo-agents-harness/changelogs/` no longer exists before continuing to step 11; if it
-    still exists, delete it again — do not report the upgrade complete otherwise.
+    still exists, move it again — do not report the upgrade complete otherwise. Actually purging
+    `$TRASH` is the user's own call — see step 11.
 
 11. **Present manual follow-ups** and recommend a commit:
     ```
@@ -183,6 +192,10 @@ Since 0.5.0 the upgrade also reconciles the project's root `AGENTS.md` against t
     and confirm step 9.5's audit reported clean.
     If the `AGENTS.md` merge from step 9 was declined, list its proposal path and review command
     (`git diff --no-index AGENTS.md AGENTS.md.harness-proposed`) as the first follow-up.
+    Always mention: old copies from this update were moved (not deleted) to `.agents/.harness-trash/`;
+    purging it is optional and entirely the user's call —
+    `bash .agents/monorepo-agents-harness/core/scripts/cleanup-harness-trash.sh` (add `--list` to
+    inspect first). Trash accumulates across runs until the user runs this themselves.
 
 ## Edge cases
 

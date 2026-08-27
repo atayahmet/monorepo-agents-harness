@@ -80,6 +80,7 @@ workspace).
 │   │   ├── memory-gate.sh                        # HARD gate
 │   │   ├── harness-update.sh                     # version engine
 │   │   ├── audit-install.sh                      # post-install/post-update reliability check
+│   │   ├── cleanup-harness-trash.sh              # purges .agents/.harness-trash (your own call)
 │   │   ├── scaffold-workspace-agents.sh          # workspace seeding
 │   │   ├── detect-monorepo-framework.sh          # framework detector
 │   │   └── detect-ci-provider.sh                 # CI provider detector
@@ -100,14 +101,21 @@ workspace).
 Let `ROOT` = target repo root.
 
 1. **Copy the bundle** into `.agents/monorepo-agents-harness/` under the target repo root. This is
-   the only installed harness location; nothing stays at the repo root:
+   the only installed harness location; nothing stays at the repo root. Move `changelogs/` aside
+   rather than deleting it directly — same reasoning as the update flow (`core/skills/harness-update/SKILL.md`
+   step 7): this never calls `rm -rf`, so it keeps working even under a permission policy that
+   blocks destructive commands outright:
    ```bash
    mkdir -p .agents
-   cp -R <path-to-bundle>/. .agents/monorepo-agents-harness/ && \
-     rm -rf .agents/monorepo-agents-harness/changelogs
+   cp -R <path-to-bundle>/. .agents/monorepo-agents-harness/
+   TRASH=".agents/.harness-trash/$(date +%Y%m%d_%H%M%S)_$$"
+   mkdir -p "$TRASH"
+   mv .agents/monorepo-agents-harness/changelogs "$TRASH/changelogs"
    ```
    `changelogs/` only carries upgrade prompts, which are always read from a temporary clone at
-   update time (§10) — never from the installed copy — so it is removed immediately after install.
+   update time (§10) — never from the installed copy — so it is moved out immediately after
+   install. Purging `.agents/.harness-trash/` is optional and entirely your own call:
+   `bash .agents/monorepo-agents-harness/core/scripts/cleanup-harness-trash.sh`.
 2. **Detect the monorepo framework**. The detector reads repo markers (`turbo.json`, `nx.json`,
    `lerna.json`, `pnpm-workspace.yaml`, `package.json` `workspaces`) and prints both the framework
    name and the workspace directories:
@@ -264,8 +272,10 @@ ls -l "$RUNTIME"/core/scripts/ "$RUNTIME"/core/skills/
 # e) changelogs/ must not exist in the installed copy — self-heal if it does
 # (it is never a prompt source; prompts are always read from a temporary clone at update time)
 if [ -d "$RUNTIME/changelogs" ]; then
-  echo "changelogs/ should have been removed during install — removing now"
-  rm -rf "$RUNTIME/changelogs"
+  echo "changelogs/ should have been moved out during install — moving now"
+  TRASH=".agents/.harness-trash/$(date +%Y%m%d_%H%M%S)_$$"
+  mkdir -p "$TRASH"
+  mv "$RUNTIME/changelogs" "$TRASH/changelogs"
 fi
 echo "changelogs/ absent: OK"
 
