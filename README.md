@@ -344,9 +344,7 @@ only the harness's own machinery gets newer.
 
 ## Quickstart
 
-From your monorepo root:
-
-Two commands. Both are idempotent, and neither ever deletes anything.
+Two commands, from your monorepo root. Both are idempotent, and neither ever deletes anything.
 
 ```bash
 # 1. core (agent-neutral — identical for everyone)
@@ -378,6 +376,43 @@ another agent: [PORTABILITY.md](PORTABILITY.md).
 
 Then, as needed: `/monorepo-harness-ci` to wire CI (Scenario 3), `/monorepo-harness-intent` to open
 the intent inbox (Scenario 1), `/monorepo-harness-review` before merging a PR (Scenario 4).
+
+### Or hand it to your agent
+
+Paste this into Claude Code, opencode, Codex CLI — any agent — from your monorepo root:
+
+```text
+Install the monorepo-agents-harness into this repository.
+
+1. Clone it and run its own installer — do NOT copy any files by hand, and do not
+   follow install prose step by step. The scripts are the install:
+
+     git clone --depth 1 https://github.com/atayahmet/monorepo-agents-harness \
+       .agents/.harness-install
+     bash .agents/.harness-install/core/scripts/install-harness.sh
+
+2. Then install the adapter for the agent you are:
+
+     bash .agents/monorepo-agents-harness/core/scripts/install-adapter.sh <claude-code|codex|opencode>
+
+3. Then verify and show me the result:
+
+     bash .agents/monorepo-agents-harness/core/scripts/audit-install.sh
+
+Rules while you do this:
+- Never overwrite a config file I already have. If a script writes a
+  <file>.harness-proposed, leave the original alone and show me the diff.
+- If I already have a root AGENTS.md, do not touch it. Report that the merge skill
+  (core/skills/agents-md-merge/SKILL.md) needs to run, and ask me before running it.
+- If any script exits non-zero, stop and show me its output verbatim. Do not improvise
+  a fix or hand-copy the missing files.
+- Report the "Needs you:" list from both scripts, and the audit result, before doing
+  anything else. Do not commit without asking me.
+```
+
+The prompt names no version on purpose — it always installs the current one. Whatever it installs
+can update itself later with `/monorepo-harness:update` (claude-code) or `/monorepo-harness-update`
+(opencode, Codex CLI).
 
 ## Adapters
 
