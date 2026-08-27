@@ -79,6 +79,7 @@ workspace).
 │   ├── scripts/
 │   │   ├── memory-gate.sh                        # HARD gate
 │   │   ├── harness-update.sh                     # version engine
+│   │   ├── audit-install.sh                      # post-install/post-update reliability check
 │   │   ├── scaffold-workspace-agents.sh          # workspace seeding
 │   │   ├── detect-monorepo-framework.sh          # framework detector
 │   │   └── detect-ci-provider.sh                 # CI provider detector
@@ -180,6 +181,18 @@ Each adapter also ships a harness update command: `/monorepo-harness:update` for
 `/monorepo-harness-update` for opencode, and `/monorepo-harness-update` for Codex CLI — copy it during the
 adapter install steps; all are thin pointers to the shared
 `core/skills/harness-update/SKILL.md` workflow (see §10).
+
+**Once Phase 1 and Phase 2 are both done**, confirm nothing was missed — this catches exactly the
+kind of gap a hand-followed install can silently leave behind (a skipped adapter file, a stale
+copy):
+
+```bash
+bash .agents/monorepo-agents-harness/core/scripts/audit-install.sh --against <path-to-bundle>
+```
+
+using the same `<path-to-bundle>` from §4 step 1. Reports every gap by exact path and exits
+non-zero if anything's missing or stale; exit 0 means the installed project fully matches the
+bundle you copied from. See `core/scripts/audit-install.sh`'s own header for what it checks.
 
 ---
 

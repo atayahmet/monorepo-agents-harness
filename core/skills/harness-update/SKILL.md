@@ -143,6 +143,27 @@ Since 0.5.0 the upgrade also reconciles the project's root `AGENTS.md` against t
      pre-0.5.0 changelog prompts (0.2.0, 0.2.2, 0.3.0, 0.4.0, 0.4.1). Collapse those into this one
      reconciliation and do not repeat them in the step 11 follow-up list.
 
+9.5. **Audit before declaring success.** Steps 7, 7.5, and 9 are all agent-executed — do not trust
+    that any of them completed just because no error surfaced. Run this *before* step 10 deletes the
+    temporary clone it needs:
+    ```bash
+    bash .agents/monorepo-agents-harness/core/scripts/audit-install.sh \
+      --against .agents/.harness-update-v<latest>
+    ```
+    This independently compares the consumer project against the temporary clone: the bundle sync
+    (delegates to `verify-copy`), every installed adapter's entry-point files (missing required
+    ones, or present-but-stale ones), root `AGENTS.md`'s provenance freshness, and every workspace's
+    scaffold seeds. Running it here (after step 9, not right after step 7.5) means it also confirms
+    this update's own `AGENTS.md` reconciliation actually happened — not just pre-existing staleness.
+    - **Bundle or entry-point gap**: fix with a plain re-`cp` from the path the audit printed, then
+      re-run the audit once.
+    - **`AGENTS.md` gap**: do **not** re-copy the file directly — that would destroy the user's
+      customizations. Re-run step 9 (`agents-md-merge`) instead; if it was already declined on
+      purpose, the `.harness-proposed` sibling makes this a non-issue in the first place.
+    - **Workspace scaffold gap**: re-run `core/scripts/scaffold-workspace-agents.sh` (idempotent).
+    - If a re-run still reports the same gap, **stop** — do not proceed to step 10 or report the
+      upgrade complete.
+
 10. **Clean up**:
     ```bash
     rm -rf .agents/.harness-update-v<latest> .agents/.harness-agents-md-merge \
@@ -158,7 +179,8 @@ Since 0.5.0 the upgrade also reconciles the project's root `AGENTS.md` against t
     ```
     chore(harness): upgrade to v<latest>
     ```
-    Summarize what step 7.5 re-installed per adapter (new files added, none if already current).
+    Summarize what step 7.5 re-installed per adapter (new files added, none if already current),
+    and confirm step 9.5's audit reported clean.
     If the `AGENTS.md` merge from step 9 was declined, list its proposal path and review command
     (`git diff --no-index AGENTS.md AGENTS.md.harness-proposed`) as the first follow-up.
 
@@ -170,7 +192,11 @@ Since 0.5.0 the upgrade also reconciles the project's root `AGENTS.md` against t
   the command printed, and do not proceed to step 7.5 or update the version file (step 8).
 - **No adapter detected in step 4** (`.claude/`, `.opencode/`, and `.agents/skills/` all absent):
   skip step 7.5 entirely — nothing to re-install yet; the user has not run Phase 2 (`INSTALL.md`
-  §5) for any agent.
+  §5) for any agent. `audit-install.sh` (step 9.5) naturally skips the same adapters — it detects
+  them the identical way.
+- **`audit-install.sh` reports a gap it can't self-explain** (rare — e.g. a genuinely new category
+  of drift the script doesn't check for yet): do not guess a fix; report the exact output to the
+  user and ask how to proceed, same discipline as an ambiguous changelog prompt below.
 
 - **Pre-versioning install** (no `.agents/monorepo-agents-harness/VERSION` and no legacy `.agents/monorepo-agents-harness/core/VERSION`, exit status outdated with empty installed): treat as "very old install" — recommend following INSTALL.md §4 afresh instead of upgrading.
 - **Installed newer than upstream** (dev build): report and stop; offer to downgrade to the published release only on explicit user request.

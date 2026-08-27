@@ -24,6 +24,32 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.12.0] - 2026-08-27
+
+### Added
+
+- **`core/scripts/audit-install.sh`** — post-install/post-update reliability check. Compares the
+  consumer project against the bundle source it was just built from (a fresh clone at update time,
+  or the original install source): the `core`/`adapters` bundle sync (delegates to `verify-copy`),
+  every installed adapter's entry-point files (missing required ones, or present-but-stale ones —
+  a fixed short denylist excludes merged/templated config files), root `AGENTS.md`'s provenance
+  freshness (skips a legitimately declined-and-tracked merge), and every workspace's scaffold
+  seeds. `--json` mode included, matching `harness-update.sh check --json`'s shape. Read-only,
+  git+coreutils only.
+- New step **9.5** in `core/skills/harness-update/SKILL.md` — runs the audit after step 9's
+  `AGENTS.md` reconciliation (so it also confirms *this* update's own reconciliation succeeded, not
+  just pre-existing staleness) and before step 10 deletes the temporary clone it needs. Refuses to
+  let the update report success while a gap remains; each gap type has its own correct fix (re-`cp`
+  for bundle/entry-point files, re-running `agents-md-merge` for `AGENTS.md`, re-running
+  `scaffold-workspace-agents.sh` for workspace seeds — never a blind overwrite).
+- `INSTALL.md` §5 (Phase 2) now runs the same audit as the final confirmation step once both
+  install phases are done.
+
+### Upgrade Notes
+
+- No artifact-layout or workflow-shape change. Purely additive verification — nothing before this
+  release is touched or reinterpreted.
+
 ## [0.11.1] - 2026-08-27
 
 ### Changed
@@ -572,7 +598,8 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.12.0
 [0.11.1]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.11.1
 [0.11.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.11.0
 [0.10.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.10.0
