@@ -24,6 +24,25 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.11.1] - 2026-08-27
+
+### Changed
+
+- **Repair release for an incomplete 0.11.0 upgrade.** `changelogs/version-0.11.0.md` — the
+  transitional prompt still interpreted by the pre-0.11.0 update workflow — asked the agent to
+  translate a "Files to copy" prose entry into an actual `rm -rf`+`cp -R` of `core/`/`adapters/`.
+  Confirmed in practice: at least one real upgrade through that prompt applied it incompletely,
+  leaving `core/root-REVIEW.md` missing from the installed bundle. `changelogs/version-0.11.1.md`
+  replaces that prose entry with a self-locating, fully deterministic `Commands to run` bash block
+  (finds its own temp clone directory, no version number for the agent to fill in) — nothing left
+  to interpretation. Idempotent: safe to run even if your 0.11.0 install was actually complete.
+
+### Upgrade Notes
+
+- If you upgraded straight to 0.11.0, run `/monorepo-harness:update` once more (or apply
+  `changelogs/version-0.11.1.md` directly) to repair any files that prompt's itemized copy step may
+  have missed.
+
 ## [0.11.0] - 2026-08-26
 
 ### Added
@@ -553,7 +572,8 @@ Release procedure (harness maintainers):
   state (`.agents/{session-log,lessons,todo}.md`), memory-gate enforcement, claude-code and opencode
   adapters, Turborepo guidance skill.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.11.1
 [0.11.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.11.0
 [0.10.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.10.0
 [0.9.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.9.0
