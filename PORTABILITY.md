@@ -88,10 +88,13 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
    one; otherwise install the git/CI gate. The script is fail-open and dependency-light (`git` +
    coreutils; `--json` output mode for agents needing structured hook output). Ship the update-check
    command too: a thin pointer to `core/skills/harness-update/SKILL.md`.
-5. **Package it** as `adapters/<your-agent>/` with an `INSTALL.md` (the "what maps to what" table,
-   prerequisites, install steps, verification, and semantic-difference notes) and a `README.md`
-   (user guide: commands, workflow, notes). Open a PR — new adapters are the intended growth path
-   of this bundle.
+5. **Package it** as `adapters/<your-agent>/` with a `manifest.txt` — one `copy`/`link`/`merge`/`tmpl`
+   row per file the adapter installs, which is what `core/scripts/install-adapter.sh` executes and
+   `core/scripts/audit-install.sh` verifies. Never describe a copy step in prose (`adapters/AGENTS.md`
+   rule 4). Add the agent to the `for agent in ...` loop in `audit-install.sh`, then write an
+   `INSTALL.md` (≤100 lines: prerequisites, the one install command, the "what maps to what" table,
+   verification, semantic-difference notes) and a `README.md` (user guide: commands, workflow,
+   notes). Open a PR — new adapters are the intended growth path of this bundle.
 
 ## The universal hard gate (every agent, or none)
 

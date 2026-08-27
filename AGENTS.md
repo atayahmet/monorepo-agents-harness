@@ -12,9 +12,11 @@ change to a reusable template, not to a single application.
 
 2. **Version consistency is mandatory.** When changing the harness, update all of the following
    together:
-   - `core/VERSION`
+   - `VERSION` (repo root; SemVer, prereleases allowed — `0.1.0-rc.0` ranks below `0.1.0`)
    - `CHANGELOG.md`
-   - `changelogs/version-X.Y.Z.md` (the upgrade prompt for that version)
+   - `changelogs/version-X.Y.Z.md` — **only** if the release needs commands run or manual
+     follow-ups. A new file in the bundle or an adapter needs a manifest row, not a prompt
+     (`changelogs/README.md`).
    - Any docs that mention the current version.
 
 3. **`core/root-AGENTS.md` is the installable template.** It is copied to the consuming project's
@@ -40,7 +42,17 @@ change to a reusable template, not to a single application.
 6. **Always run the narrowest workspace-scoped verification command first.** Use
    `pnpm --filter <workspace>` or `turbo run <task> --filter=<workspace>` before widening scope.
 
-7. **Commits are mandatory at the end of any file-changing task** unless the user explicitly opts out.
+7. **Install/update mechanics live in scripts driven by manifests — never in prose.** Every file
+   that reaches a consumer project is a row in `core/install-manifest.txt` (the bundle) or
+   `adapters/<agent>/manifest.txt` (per agent), executed by `core/scripts/install-harness.sh` /
+   `core/scripts/install-adapter.sh` and verified by `core/scripts/audit-install.sh`. Adding a copy,
+   symlink or stamp step means adding a manifest row — never an instruction for an agent to follow.
+   Install guides only invoke a script and describe the decisions only a human can make, and
+   **no install guide may exceed 100 lines** (`INSTALL.md` and each `adapters/*/INSTALL.md`).
+   Rationale: every "a file never reached the consumer project" bug in this repo's history came from
+   a copy rule that existed only as an instruction.
+
+8. **Commits are mandatory at the end of any file-changing task** unless the user explicitly opts out.
 
 ## Before You Start — Mandatory Checklist
 
@@ -108,6 +120,8 @@ This repo has a Turborepo-shaped layout but exists to ship the harness template.
 | Plan/spec/memory workflow | `core/skills/agent-workflow/SKILL.md` |
 | Monorepo guidance | `core/skills/monorepo/SKILL.md` |
 | Portability / adapter rules | `adapters/AGENTS.md` |
+| What gets installed (bundle) | `core/install-manifest.txt` |
+| What gets installed (per agent) | `adapters/<agent>/manifest.txt` |
 
 ## Additional Context Locations
 

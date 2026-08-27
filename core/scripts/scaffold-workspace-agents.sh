@@ -28,7 +28,7 @@ BUNDLE_DIR="${BUNDLE_DIR:-$RUNTIME_DIR}"
 DETECT_SCRIPT="${DETECT_SCRIPT:-$RUNTIME_DIR/core/scripts/detect-monorepo-framework.sh}"
 [ ! -x "$DETECT_SCRIPT" ] && DETECT_SCRIPT="$BUNDLE_DIR/core/scripts/detect-monorepo-framework.sh"
 
-# The bundle itself lives under .agents/monorepo-agents-harness/ (0.4.1+).
+# The bundle itself lives under .agents/monorepo-agents-harness/.
 SEED="${SEED:-$RUNTIME_DIR/core/workspace-agents-template}"
 if [ ! -d "$SEED" ]; then
   SEED="$BUNDLE_DIR/core/workspace-agents-template"

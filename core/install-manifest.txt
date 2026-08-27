@@ -1,0 +1,27 @@
+# install-manifest.txt — the exact whitelist of what gets installed into
+# <repo-root>/.agents/monorepo-agents-harness/.
+#
+# One source-relative path per line (file or directory). Anything NOT listed here is never
+# installed. Read by core/scripts/install-harness.sh (executes it) and
+# core/scripts/audit-install.sh (verifies against it) — they must never keep separate lists.
+#
+# Blank lines and lines starting with # are ignored.
+#
+# Deliberately absent, do not add:
+#   AGENTS.md, adapters/AGENTS.md   guidelines for developing THIS template repo — meaningless in
+#                                   a consumer project (the consumer's own root AGENTS.md is
+#                                   generated from core/root-AGENTS.md instead)
+#   changelogs/                     upgrade prompts are always read from a fresh temporary clone,
+#                                   never from the installed copy
+#   .gitignore, .github/            this repo's own tooling
+
+core
+adapters/claude-code
+adapters/codex
+adapters/opencode
+VERSION
+README.md
+INSTALL.md
+PORTABILITY.md
+CHANGELOG.md
+LICENSE

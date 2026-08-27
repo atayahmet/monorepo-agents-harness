@@ -1,13 +1,13 @@
 <!--
-  TEMPLATE — root AGENTS.md for a monorepo project using the agent harness.
-  This is the SINGLE SOURCE OF TRUTH for agent instructions — every agent reads it natively
-  (Claude Code, opencode, Cursor, Codex, ...). Claude Code users additionally get a thin root
-  CLAUDE.md that just imports this file (see adapters/claude-code/).
-  Resolve the placeholders before use:
-    {{PROJECT_NAME}}    -> your monorepo name
-    {{PROJECT_GOTCHAS}} -> project-specific rules (architecture/layering/etc.); delete if none
-  The "Reference Map" was intentionally trimmed to files this template actually ships. Add rows
-  only for `.agents/rules/*.md` you create — never reference a rule file that does not exist.
+  Root AGENTS.md — the SINGLE SOURCE OF TRUTH for agent instructions in this repo. Every agent
+  reads it natively (Claude Code, opencode, Cursor, Codex, ...); Claude Code users additionally
+  get a thin root CLAUDE.md that just imports this file.
+  Installed by core/scripts/install-harness.sh, which fills in the project name and monorepo
+  framework. The provenance marker on line 1 records which template version this file was last
+  reconciled against, so future upgrades can three-way merge instead of asking you to diff by
+  hand (core/skills/agents-md-merge/SKILL.md).
+  The {{PROJECT_GOTCHAS}} region below is yours — the harness never overwrites it.
+  Add "Reference Map" rows only for `.agents/rules/*.md` files you actually create.
 -->
 
 # {{PROJECT_NAME}} — Agent Guidelines

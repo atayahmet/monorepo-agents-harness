@@ -1,0 +1,21 @@
+# opencode adapter install manifest.
+#
+# Executed by core/scripts/install-adapter.sh, verified by core/scripts/audit-install.sh.
+# Adding a file to this adapter means adding a row here — never a prose step in INSTALL.md.
+#
+# Format: <verb> <project-path> [bundle-path]      (# comments and blank lines ignored)
+#   copy  <p>        adapters/opencode/<p> -> <root>/<p>, overwriting (idempotent, audited)
+#   link  <p> <b>    <root>/<p> -> symlink into .agents/monorepo-agents-harness/<b> (audited)
+#   merge <p>        absent -> copy; present -> write <p>.harness-proposed, never touch the original
+#   tmpl  <p>        like merge, with {{PROJECT_NAME}}/{{MONOREPO_FRAMEWORK}} resolved first
+#
+# No skill symlinks here: opencode reads the shared SKILL.md files through the `instructions`
+# entries in opencode.jsonc instead (see adapters/opencode/README.md).
+
+copy  .opencode/commands/monorepo-harness-build.md
+copy  .opencode/commands/monorepo-harness-update.md
+copy  .opencode/commands/monorepo-harness-ci.md
+copy  .opencode/commands/monorepo-harness-review.md
+copy  .opencode/commands/monorepo-harness-intent.md
+
+merge opencode.jsonc

@@ -1,6 +1,6 @@
 ---
 name: agents-md-merge
-description: Reconcile a project's root AGENTS.md with the harness template core/root-AGENTS.md — a three-way merge when the file carries the harness provenance marker, an additive adoption merge when it does not — then present a clean unified diff and require explicit user approval before writing anything. Use during harness install (INSTALL.md §4 step 4), during every harness upgrade (core/skills/harness-update/SKILL.md step 9), or when the user asks to sync/merge AGENTS.md against the harness template.
+description: Reconcile a project's root AGENTS.md with the harness template core/root-AGENTS.md — a three-way merge when the file carries the harness provenance marker, an additive adoption merge when it does not — then present a clean unified diff and require explicit user approval before writing anything. Use when a harness install reports that AGENTS.md already existed (INSTALL.md §4), during every harness upgrade (core/skills/harness-update/SKILL.md step 9), or when the user asks to sync/merge AGENTS.md against the harness template.
 ---
 
 # AGENTS.md Reconciliation
@@ -50,8 +50,12 @@ directory during an upgrade (`.agents/.harness-update-v<latest>`), or the freshl
 
 ```bash
 MERGE=.agents/.harness-agents-md-merge
-TARGET_VER="$(tr -d '[:space:]' < "$NEW/core/VERSION")"
+TARGET_VER="$(tr -d '[:space:]' < "$NEW/VERSION")"
 mkdir -p "$MERGE"
+
+# Shared install helpers — every placeholder substitution below MUST go through these, so a merge
+# always diffs against exactly what core/scripts/install-harness.sh would have written.
+. .agents/monorepo-agents-harness/core/scripts/harness-common.sh
 
 BASE_VER="$(sed -n 's|^<!-- monorepo-agents-harness: root-AGENTS\.md v\([0-9][0-9.]*\) -->.*|\1|p' \
   AGENTS.md 2>/dev/null | head -n1)"
@@ -62,7 +66,7 @@ Pick the mode:
 | Condition | Mode |
 |---|---|
 | no root `AGENTS.md` | **A — verbatim install** |
-| `AGENTS.md` exists, `BASE_VER` is empty (no marker — every pre-0.5.0 install, including hand-authored files) | **B — adoption merge**. Never guess a base version for an unmarked file. |
+| `AGENTS.md` exists, `BASE_VER` is empty (no marker — a hand-authored file, or one the harness never wrote) | **B — adoption merge**. Never guess a base version for an unmarked file. |
 | `AGENTS.md` exists, `BASE_VER` set, `v$BASE_VER` fetchable from upstream | **C — three-way merge** |
 | `AGENTS.md` exists, `BASE_VER` set, but `v$BASE_VER` cannot be fetched (offline, tag missing) | fall back to **Mode B**, and say so in the plan |
 | after normalization (Step 2), `OURS` is already identical to `THEIRS` | **D — stamp only** (propose a one-line marker refresh, still ask) |
@@ -70,13 +74,16 @@ Pick the mode:
 ### Step 1 — Mode A (verbatim install)
 
 ```bash
+NAME="$(harness_project_name "$(pwd)")"
+FW="$(harness_framework .agents/monorepo-agents-harness/core/scripts/detect-monorepo-framework.sh)"
 { printf '<!-- monorepo-agents-harness: root-AGENTS.md v%s -->\n\n' "$TARGET_VER"
-  cat "$NEW/core/root-AGENTS.md"; } > AGENTS.md
+  harness_resolve_placeholders "$NEW/core/root-AGENTS.md" "$NAME" "$FW"; } > AGENTS.md
 ```
 
-During a fresh install this needs no separate consent (there is nothing to lose). During an upgrade
-this case is surprising — a root `AGENTS.md` appearing where none existed — so report it and ask
-first.
+This is byte-for-byte what `core/scripts/install-harness.sh` writes, so a fresh install never
+reaches Mode A — the installer already did it. Mode A is for an *upgrade* that finds no root
+`AGENTS.md` at all, which is surprising (a file that should exist is gone), so report it and ask
+first rather than writing silently.
 
 ### Step 2 — Prepare merge inputs (Modes B, C, D)
 
@@ -90,8 +97,7 @@ FW="$(bash .agents/monorepo-agents-harness/core/scripts/detect-monorepo-framewor
 
 # THEIRS — placeholder-normalized so an upstream edit near a placeholder can't inject a raw
 # {{...}} token into a live project file
-sed -e "s|{{PROJECT_NAME}}|${NAME}|g" -e "s|{{MONOREPO_FRAMEWORK}}|${FW}|g" \
-  "$NEW/core/root-AGENTS.md" > "$MERGE/theirs.md"
+harness_resolve_placeholders "$NEW/core/root-AGENTS.md" "$NAME" "$FW" > "$MERGE/theirs.md"
 ```
 
 Do **not** substitute `{{PROJECT_GOTCHAS}}` — it marks a project-owned region, not a value to fill.
@@ -104,8 +110,7 @@ If `NAME` comes back empty (the project retitled its H1 away from the expected p
 git clone --depth 1 --branch "v$BASE_VER" \
   "${HARNESS_UPSTREAM:-https://github.com/atayahmet/monorepo-agents-harness}" "$MERGE/base-clone"
 
-sed -e "s|{{PROJECT_NAME}}|${NAME}|g" -e "s|{{MONOREPO_FRAMEWORK}}|${FW}|g" \
-  "$MERGE/base-clone/core/root-AGENTS.md" > "$MERGE/base.md"
+harness_resolve_placeholders "$MERGE/base-clone/core/root-AGENTS.md" "$NAME" "$FW" > "$MERGE/base.md"
 
 git merge-file -p --diff3 \
   -L "your AGENTS.md" -L "harness template v$BASE_VER" -L "harness template v$TARGET_VER" \
@@ -114,9 +119,9 @@ echo "conflicts=$?"
 ```
 
 - Always pull `BASE` and `THEIRS` from a pristine tag clone or the freshly downloaded bundle —
-  **never** from `.agents/monorepo-agents-harness/core/root-AGENTS.md`. That installed copy has
-  already had its placeholders substituted at install time (`INSTALL.md` §6) and is not a valid
-  merge input.
+  **never** from `.agents/monorepo-agents-harness/core/root-AGENTS.md` during an upgrade. The
+  installer leaves that copy a pristine template (it substitutes into the *generated* `AGENTS.md`
+  only), but it is the *old* template — not the one you are upgrading to.
 - `git merge-file` requires no repo/tracking on its inputs — it operates on three arbitrary files.
   Its exit status is the conflict count, not a pass/fail signal; capture it, don't treat non-zero as
   failure.
@@ -211,7 +216,7 @@ untracked files too.)
 Present, in this order:
 
 1. One line of context: mode, base version, target version — e.g. "Three-way merge of your
-   AGENTS.md against the harness template, base v0.4.5 → v0.5.0."
+   AGENTS.md against the harness template, base v0.1.0-rc.0 → v0.1.0."
 2. A grouped semantic change list, not a raw diff dump: `Added: N harness rules` (named),
    `Updated: M harness rules` (named, with what changed), `Preserved: all project content — K
    project-only sections untouched`, `Resolved: C conflicts`.
@@ -256,8 +261,8 @@ re-offer the same merge from the same base. A decline never blocks or fails the 
 rm -rf .agents/.harness-agents-md-merge
 ```
 
-Unconditional, regardless of which mode ran or whether the user approved — the same lesson as the
-0.4.5 changelogs-cleanup fix: one command, not a fire-and-forget step that can be half-run.
+Unconditional, regardless of which mode ran or whether the user approved — one command the user can
+run, not a fire-and-forget step that can be half-run.
 
 ## Edge cases
 

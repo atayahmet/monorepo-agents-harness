@@ -1,0 +1,23 @@
+# claude-code adapter install manifest.
+#
+# Executed by core/scripts/install-adapter.sh, verified by core/scripts/audit-install.sh.
+# Adding a file to this adapter means adding a row here — never a prose step in INSTALL.md.
+#
+# Format: <verb> <project-path> [bundle-path]      (# comments and blank lines ignored)
+#   copy  <p>        adapters/claude-code/<p> -> <root>/<p>, overwriting (idempotent, audited)
+#   link  <p> <b>    <root>/<p> -> symlink into .agents/monorepo-agents-harness/<b> (audited)
+#   merge <p>        absent -> copy; present -> write <p>.harness-proposed, never touch the original
+#   tmpl  <p>        like merge, with {{PROJECT_NAME}}/{{MONOREPO_FRAMEWORK}} resolved first
+
+link  .claude/skills/agent-workflow  core/skills/agent-workflow
+link  .claude/skills/monorepo        core/skills/monorepo
+
+copy  .claude/commands/monorepo-harness-build.md
+copy  .claude/commands/monorepo-harness/update.md
+copy  .claude/commands/monorepo-harness-ci.md
+copy  .claude/commands/monorepo-harness-review.md
+copy  .claude/commands/monorepo-harness-intent.md
+copy  .claude/agents/verifier.md
+
+merge .claude/settings.json
+tmpl  CLAUDE.md

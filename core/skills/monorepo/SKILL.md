@@ -9,7 +9,7 @@ description: |
   runs changed/affected packages, debugs cache, shares code between apps, or works with
   apps/packages/libs directories.
 metadata:
-  version: 0.4.0
+  version: 0.1.0-rc.0
 ---
 
 # Monorepo Skill

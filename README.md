@@ -15,11 +15,14 @@ Claude Code, opencode, Cursor, Codex, and more.
 - **Enforced follow-through (Feedback Loop)** — the memory-gate blocks the task from ending until
   `3_memory.md` exists, and until `4_verify.md` exists whenever the spec's Test/verification plan
   is not `N/A` (agent stop-hook where supported, git pre-commit / CI everywhere else).
+- **Deterministic install and update** — what lands in your repo is data (`core/install-manifest.txt`,
+  `adapters/<agent>/manifest.txt`), executed by scripts and verified against those same manifests.
+  Nothing depends on an agent correctly following a prose checklist, and an update runs the very
+  same installers a fresh install does, so the two can never disagree about what "complete" means.
 - **Updatable, reliably** — the bundle carries a version; a `/monorepo-harness:update` command
-  compares your install against upstream and, with your consent, syncs `core/` and `adapters/`
-  **wholesale** from the upstream tag (verified deterministically, not an itemized file list that
-  can silently omit something) and **self-heals already-installed adapters** — newly added
-  commands/skills reach your project automatically, without a manual copy step.
+  compares your install against upstream and, with your consent, re-runs the new release's own
+  installer and **self-heals already-installed adapters** — newly added commands/skills reach your
+  project automatically, without a manual copy step and without touching your config files.
 - **Agent portability** — an agent-neutral `core/` plus thin per-agent `adapters/`; switching or
   mixing agents never loses a capability (mandatory-parity rule).
 - **CI integration** — `/monorepo-harness-ci` detects your project's CI provider and wires
@@ -322,15 +325,16 @@ Months later, upstream ships a new release. Someone runs `/monorepo-harness:upda
 (`core/skills/harness-update/SKILL.md`). It checks the installed version against upstream, reports
 what changed, and asks **"Upgrade now?"**. On consent:
 
-- `core/` and `adapters/` are synced **wholesale** from the fresh tag — not from a hand-maintained
-  per-release file list, which is what used to let a new skill or command silently never reach an
-  installed project. The sync is verified deterministically (`harness-update.sh verify-copy`); an
-  incomplete sync is reported, not silently accepted.
-- Because this project already has the `claude-code` adapter installed, the update **automatically
-  re-applies that adapter's own `INSTALL.md` copy steps** against the fresh bundle — any new
-  harness-plumbing command added upstream since the last update (say, a future
-  `/monorepo-harness-<something>`) shows up in `.claude/commands/` without anyone copying it by
-  hand. Only the non-idempotent hook/config-merge step is excluded from that automatic re-apply.
+- The bundle is synced by **the new release's own installer** —
+  `install-harness.sh --sync-only`, driven by `core/install-manifest.txt`, the very same code path a
+  fresh install uses. No hand-maintained per-release file list (which is what used to let a new
+  skill or command silently never reach an installed project) and no hand-copying by the agent.
+  Every row is verified; an incomplete sync is reported, not silently accepted.
+- Because this project already has the `claude-code` adapter installed, the update runs
+  **`install-adapter.sh claude-code --refresh`** against the fresh bundle — any new harness-plumbing
+  command added upstream since the last update (say, a future `/monorepo-harness-<something>`) shows
+  up in `.claude/commands/` without anyone copying it by hand. `--refresh` deliberately skips the
+  config rows, so your `.claude/settings.json` is never rewritten or double-appended.
 - Root `AGENTS.md` is reconciled against the new `core/root-AGENTS.md` template via a three-way
   merge, shown as a diff, and written only after a separate explicit approval.
 - `.agents/` working state — every intent, every task's plan/spec/memory/verify — is never touched.
@@ -342,23 +346,35 @@ only the harness's own machinery gets newer.
 
 From your monorepo root:
 
-1. **Copy this bundle** into `.agents/monorepo-agents-harness/` under your repo root.
-2. **Install the core** (agent-neutral — same for everyone): copy `core/root-AGENTS.md` to
-   `AGENTS.md` (or merge it into your existing `AGENTS.md` with your approval — see
-   `core/skills/agents-md-merge/SKILL.md`), seed the docs governance tree, scaffold per-workspace
-   `.agents/` dirs, resolve placeholders.
-   → Step-by-step: **[INSTALL.md](INSTALL.md)** (Phase 1)
-3. **Install your agent's adapter**:
-   - Claude Code → [adapters/claude-code/INSTALL.md](adapters/claude-code/INSTALL.md)
-   - opencode → [adapters/opencode/INSTALL.md](adapters/opencode/INSTALL.md)
-   - Codex CLI → [adapters/codex/INSTALL.md](adapters/codex/INSTALL.md)
-   - Another agent → author one: [PORTABILITY.md](PORTABILITY.md)
-
-Whichever adapter you pick, wire the universal hard gate (works even with no agent at all):
+Two commands. Both are idempotent, and neither ever deletes anything.
 
 ```bash
-ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit
+# 1. core (agent-neutral — identical for everyone)
+git clone --depth 1 https://github.com/atayahmet/monorepo-agents-harness .agents/.harness-install
+bash .agents/.harness-install/core/scripts/install-harness.sh
+
+# 2. your agent's adapter — run once per agent you use
+bash .agents/monorepo-agents-harness/core/scripts/install-adapter.sh claude-code   # or codex, opencode
+
+# 3. confirm nothing was missed
+bash .agents/monorepo-agents-harness/core/scripts/audit-install.sh
 ```
+
+Step 1 installs the bundle, writes your root `AGENTS.md` (or leaves an existing one alone and tells
+you to run the merge skill), scaffolds per-workspace `.agents/` state, and wires the universal hard
+gate as `.git/hooks/pre-commit`. Step 2 installs your agent's hooks, commands and skills without
+ever overwriting a config file you already have. Both print a short `Needs you:` list covering the
+only decisions a script can't make.
+
+There is no prose checklist to follow: what gets installed is data —
+[`core/install-manifest.txt`](core/install-manifest.txt) and
+[`adapters/<agent>/manifest.txt`](adapters/claude-code/manifest.txt) — and those same manifests are
+what `audit-install.sh` verifies against, so a partial install cannot pass as a complete one.
+
+Details, flags and the three human follow-ups: **[INSTALL.md](INSTALL.md)** ·
+per-agent notes: [claude-code](adapters/claude-code/INSTALL.md) ·
+[opencode](adapters/opencode/INSTALL.md) · [codex](adapters/codex/INSTALL.md) ·
+another agent: [PORTABILITY.md](PORTABILITY.md).
 
 Then, as needed: `/monorepo-harness-ci` to wire CI (Scenario 3), `/monorepo-harness-intent` to open
 the intent inbox (Scenario 1), `/monorepo-harness-review` before merging a PR (Scenario 4).
@@ -376,12 +392,14 @@ the intent inbox (Scenario 1), `/monorepo-harness-review` before merging a PR (S
 
 | File                                                                       | What it covers                                                                             |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| [INSTALL.md](INSTALL.md)                                                   | Full install: core phase, adapter phase, placeholders, verification                        |
+| [INSTALL.md](INSTALL.md)                                                   | Install: the two script commands, the human-only follow-ups, verification                   |
+| [core/install-manifest.txt](core/install-manifest.txt)                     | The whitelist of what an install puts in `.agents/monorepo-agents-harness/`                 |
+| [adapters/claude-code/manifest.txt](adapters/claude-code/manifest.txt)     | Per-adapter install rules (one per agent) — executed by `install-adapter.sh`, audited by `audit-install.sh` |
 | [PORTABILITY.md](PORTABILITY.md)                                           | Cross-agent capability matrix; how to author a new adapter                                 |
 | [core/root-AGENTS.md](core/root-AGENTS.md)                                 | Template root instructions — the single source of truth copied into target repos as `AGENTS.md` |
 | [core/skills/agent-workflow/SKILL.md](core/skills/agent-workflow/SKILL.md) | Plan/spec/memory/verify file templates (Scenarios 1–2)                                     |
 | [core/skills/agents-md-merge/SKILL.md](core/skills/agents-md-merge/SKILL.md) | Reconciles a project's root `AGENTS.md` with the harness template on install/upgrade       |
-| [core/skills/harness-update/SKILL.md](core/skills/harness-update/SKILL.md) | Update-check / upgrade workflow, wholesale bundle sync + self-healing adapter re-install (Scenario 5) |
+| [core/skills/harness-update/SKILL.md](core/skills/harness-update/SKILL.md) | Update-check / upgrade workflow — re-runs the installers, self-heals adapters (Scenario 5) |
 | [core/skills/monorepo/SKILL.md](core/skills/monorepo/SKILL.md)             | Monorepo guidance (framework-agnostic + Turborepo/Nx/Lerna/workspaces)                     |
 | [core/skills/ci-integration/SKILL.md](core/skills/ci-integration/SKILL.md) | Detects the target project's CI provider and wires `memory-gate.sh` into it (Scenario 3)   |
 | [core/skills/pr-review/SKILL.md](core/skills/pr-review/SKILL.md)           | Reviews a diff against `REVIEW.md` policy and a task's plan/spec/verify artifacts (Scenario 4) |

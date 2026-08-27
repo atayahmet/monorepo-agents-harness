@@ -1,440 +1,98 @@
 # Agent Harness — Install Guide
 
-A portable **plan → spec → memory** agent harness for **any coding agent** (Claude Code, opencode,
-Cursor, Codex, …), packaged so you can install it into **any JavaScript/TypeScript monorepo project**. This directory
-(`.agents/monorepo-agents-harness/`) contains ready-to-copy files; this guide tells you exactly where each
-one goes and what to edit.
+Two commands install the harness into any JavaScript/TypeScript monorepo. Every file-level step is
+executed by a script driven by a manifest — `core/install-manifest.txt` for the bundle,
+`adapters/<agent>/manifest.txt` for each agent — so nothing depends on an agent (or a human)
+correctly interpreting prose. What the harness *is* and how it feels day to day: [`README.md`](README.md).
 
-> **Audience:** an agent (or engineer) installing the harness into a target repo. Read this whole
-> file first, then execute the install phases top to bottom.
+## 1. Prerequisites
 
-> **Architecture:** the bundle is split into an agent-neutral **`core/`** (rules, templates,
-> scripts, docs governance) and per-agent **`adapters/`** (the thin enforcement wiring each agent
-> needs). Phase 1 installs the core — identical for every agent. Phase 2 installs the adapter(s)
-> for the agent(s) you actually use.
+- A JS/TS monorepo (Turborepo, Nx, Lerna, npm/yarn/pnpm workspaces) with an `apps/*` layout
+  (optionally `packages/*` or `libs/*`).
+- `git`, `bash`, coreutils, and symlink support (adapters register shared skills by symlink).
+- `jq` only if your agent's hooks need it — claude-code and codex do.
 
----
+## 2. Phase 1 — core (identical for every agent)
 
-## 1. What this harness is (and how it enforces itself)
-
-The harness makes plan-mode work **auditable and self-documenting**. Every non-trivial task produces
-artifacts in a dedicated directory, and the **memory-gate** enforces the loop:
-
-| Phase | Artifact | Trigger | Enforcement |
-|---|---|---|---|
-| Plan | `1_plan.md` | after plan approval (or `/monorepo-harness-build` on any agent) | adapter hook reminds you to create the task dir + write `1_plan.md` / `2_spec.md` before the first Edit/Write |
-| Spec | `2_spec.md` | before implementation | same reminder + `core/scripts/memory-gate.sh` at commit/CI |
-| Memory | `3_memory.md` | at task end | adapter stop-hook and/or `core/scripts/memory-gate.sh` **blocks** until today's task dir contains `3_memory.md` |
-| Verify | `4_verify.md` | at task end, whenever `2_spec.md`'s Test/verification plan is not `N/A` | same gate as Memory — **blocks** until `4_verify.md` exists (Feedback Loop enforcement) |
-
-Artifacts live under the target workspace itself:
-
-```
-<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/
-    1_plan.md
-    2_spec.md
-    3_memory.md
-    4_verify.md
-```
-
-plus a mandatory searchable index at `<workspace>/.agents/artifacts/index.md`.
-
-`<workspace>` = the app (`apps/<name>`) or package (`packages/<name>`) the task primarily targets.
-The skill `core/skills/agent-workflow/` supplies the file templates. Indexing rules live in
-`core/governance/artifacts/AGENTS.md` (bundle reference — also seeded as a pointer into each
-workspace).
-
----
-
-## 2. Prerequisites
-
-- A **JavaScript/TypeScript monorepo** (Turborepo, Nx, Lerna, npm/yarn/pnpm workspaces) using an `apps/*` layout (optionally `packages/*` or `libs/*`).
-- `git` (scripts locate the repo root via `git rev-parse --show-toplevel`; the update-check also
-  uses it to reach the upstream repo).
-- Your agent of choice — see Phase 2 for per-agent prerequisites.
-
----
-
-## 3. Bundle contents
-
-```
-.agents/monorepo-agents-harness/                  # installed harness (bundle + runtime, 0.4.1+)
-├── VERSION                                       # installed harness version
-├── INSTALL.md                                    # this guide (core + adapter phases)
-├── PORTABILITY.md                                # capability matrix + authoring new adapters
-├── CHANGELOG.md                                  # release history
-├── changelogs/                                   # per-version upgrade prompts
-├── core/                                         # ★ agent-neutral — identical for every agent
-│   ├── VERSION
-│   ├── root-AGENTS.md                            # TEMPLATE root instructions (placeholders)
-│   ├── root-REVIEW.md                            # TEMPLATE review policy (optional, placeholders)
-│   ├── skills/
-│   │   ├── agent-workflow/SKILL.md               # plan/spec/memory/verify templates
-│   │   ├── agents-md-merge/SKILL.md              # root AGENTS.md reconciliation (install + upgrade)
-│   │   ├── harness-update/SKILL.md               # upgrade workflow instructions
-│   │   ├── monorepo/SKILL.md                     # generic monorepo guidance
-│   │   ├── ci-integration/SKILL.md               # CI provider detection + memory-gate wiring
-│   │   ├── pr-review/SKILL.md                    # diff review against REVIEW.md + task artifacts
-│   │   └── intent-workflow/SKILL.md              # intent capture + approve/reject review
-│   ├── scripts/
-│   │   ├── memory-gate.sh                        # HARD gate
-│   │   ├── harness-update.sh                     # version engine
-│   │   ├── audit-install.sh                      # post-install/post-update reliability check
-│   │   ├── cleanup-harness-trash.sh              # purges .agents/.harness-trash (your own call)
-│   │   ├── scaffold-workspace-agents.sh          # workspace seeding
-│   │   ├── detect-monorepo-framework.sh          # framework detector
-│   │   └── detect-ci-provider.sh                 # CI provider detector
-│   ├── workspace-agents-template/                # PER-WORKSPACE working-state seed
-│   └── governance/
-│       ├── artifacts/                            # indexing rules + seeds
-│       └── intents/                              # intent format + status-lifecycle rules + seeds
-└── adapters/                                     # ★ per-agent enforcement wiring
-    ├── claude-code/
-    ├── codex/
-    └── opencode/
-```
-
----
-
-## 4. Phase 1 — Core install (agent-neutral)
-
-Let `ROOT` = target repo root.
-
-1. **Copy the bundle** into `.agents/monorepo-agents-harness/` under the target repo root. This is
-   the only installed harness location; nothing stays at the repo root. Move `changelogs/` aside
-   rather than deleting it directly — same reasoning as the update flow (`core/skills/harness-update/SKILL.md`
-   step 7): this never calls `rm -rf`, so it keeps working even under a permission policy that
-   blocks destructive commands outright:
-   ```bash
-   mkdir -p .agents
-   cp -R <path-to-bundle>/. .agents/monorepo-agents-harness/
-   TRASH=".agents/.harness-trash/$(date +%Y%m%d_%H%M%S)_$$"
-   mkdir -p "$TRASH"
-   mv .agents/monorepo-agents-harness/changelogs "$TRASH/changelogs"
-   ```
-   `changelogs/` only carries upgrade prompts, which are always read from a temporary clone at
-   update time (§10) — never from the installed copy — so it is moved out immediately after
-   install. Purging `.agents/.harness-trash/` is optional and entirely your own call:
-   `bash .agents/monorepo-agents-harness/core/scripts/cleanup-harness-trash.sh`.
-2. **Detect the monorepo framework**. The detector reads repo markers (`turbo.json`, `nx.json`,
-   `lerna.json`, `pnpm-workspace.yaml`, `package.json` `workspaces`) and prints both the framework
-   name and the workspace directories:
-   ```bash
-   bash .agents/monorepo-agents-harness/core/scripts/detect-monorepo-framework.sh
-   ```
-   Record the framework name (e.g. `turborepo`, `nx`, `pnpm`) — you will fill `{{MONOREPO_FRAMEWORK}}`
-   in `AGENTS.md` later.
-3. **No separate runtime directory is needed.** Because the bundle itself lives under
-   `.agents/monorepo-agents-harness/`, adapters and scripts reference files directly there. Older
-   installs (pre-0.4.1) used a root `monorepo-agents-harness/` bundle plus a symlink tree under
-   `.agents/monorepo-agents-harness/`; if you are migrating, see `changelogs/version-0.4.1.md`.
-4. **Install `ROOT/AGENTS.md`** — the single source of truth every agent reads natively.
-   - **No `AGENTS.md` at the repo root yet** → copy the template and stamp the provenance marker:
-     ```bash
-     { printf '<!-- monorepo-agents-harness: root-AGENTS.md v%s -->\n\n' \
-         "$(tr -d '[:space:]' < .agents/monorepo-agents-harness/core/VERSION)"
-       cat .agents/monorepo-agents-harness/core/root-AGENTS.md; } > AGENTS.md
-     ```
-   - **An `AGENTS.md` already exists** → do **not** overwrite it, and do **not** leave it unmerged.
-     Follow `core/skills/agents-md-merge/SKILL.md`. It keeps 100% of your existing content, weaves in
-     only the harness rules you are missing, resolves every conflict itself, then shows you the full
-     diff and asks **"Apply this merge to AGENTS.md?"** before writing anything. Declining is fine:
-     the proposal is left at `AGENTS.md.harness-proposed` and the install continues.
-
-   Either way the file ends up with a first-line provenance marker
-   (`<!-- monorepo-agents-harness: root-AGENTS.md vX.Y.Z -->`). That marker records the template
-   version your file was last reconciled with, so every future upgrade can perform a real three-way
-   merge instead of asking you to diff it by hand (§10).
-5. **Scaffold per-workspace state**:
-   ```bash
-   bash .agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh
-   ```
-   For every app and package it creates `.agents/{session-log,lessons,todo}.md`, the task tree
-   `.agents/artifacts/{index.md,AGENTS.md}` (empty searchable index + rules pointer), and the intent
-   inbox `.agents/intents/AGENTS.md` (rules pointer — see §13). The agent reads these *before* each
-   task and writes its `todo.md` there (see `AGENTS.md` "Before You Start"). Re-run after adding any
-   workspace.
-6. **Resolve placeholders** (§6).
-7. **Verify** (§8), then **commit** the core install as its own change.
-
-## 5. Phase 2 — Adapter install (pick your agent(s))
-
-Every adapter assumes Phase 1 is done. Install **one adapter per agent you use** — the
-mandatory-parity rule (`PORTABILITY.md`) requires every harness capability to have a live
-counterpart for each agent.
-
-| Agent | Adapter | Guide |
-|---|---|---|
-| Claude Code | `adapters/claude-code/` | `adapters/claude-code/INSTALL.md` |
-| opencode | `adapters/opencode/` | `adapters/opencode/INSTALL.md` |
-| Codex CLI | `adapters/codex/` | `adapters/codex/INSTALL.md` |
-| anything else | author your own | `PORTABILITY.md` — capability matrix + fallback rows |
-
-Before copying files from an adapter, check whether it ships a `package.json`; if it does, install
-its dependencies first with `npm install` (or `pnpm install` / `yarn install`) in the adapter
-directory.
-
-Regardless of adapter, the **universal hard gate** can (and for agents that cannot block their own
-stop, MUST) be wired without any agent support:
+From your repo root:
 
 ```bash
-# as a git pre-commit hook
-ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh .git/hooks/pre-commit
-chmod +x .agents/monorepo-agents-harness/core/scripts/memory-gate.sh
-# …or as a CI step
-bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh
+git clone --depth 1 https://github.com/atayahmet/monorepo-agents-harness .agents/.harness-install
+bash .agents/.harness-install/core/scripts/install-harness.sh
 ```
 
-Each adapter also ships a harness update command: `/monorepo-harness:update` for claude-code,
-`/monorepo-harness-update` for opencode, and `/monorepo-harness-update` for Codex CLI — copy it during the
-adapter install steps; all are thin pointers to the shared
-`core/skills/harness-update/SKILL.md` workflow (see §10).
+That copies every `core/install-manifest.txt` row into `.agents/monorepo-agents-harness/`, verifies
+each one landed, writes your root `AGENTS.md` (with the provenance marker, project name and
+monorepo framework filled in) unless you already have one, scaffolds `.agents/` state for every
+workspace, wires `memory-gate.sh` as `.git/hooks/pre-commit` if that slot is free, and moves the
+clone away when it's done.
 
-**Once Phase 1 and Phase 2 are both done**, confirm nothing was missed — this catches exactly the
-kind of gap a hand-followed install can silently leave behind (a skipped adapter file, a stale
-copy):
+Useful flags: `--project-name <name>`, `--no-git-hook`, `--from <dir>` (install from a bundle you
+already have on disk instead of cloning), `--sync-only` (bundle files only — the mode updates use).
+
+Re-running it is safe. **Nothing is ever deleted**: anything replaced is moved to
+`.agents/.harness-trash/<timestamp>_<pid>/`, and purging that is your own call —
+`bash .agents/monorepo-agents-harness/core/scripts/cleanup-harness-trash.sh` (`--list` to look first).
+
+## 3. Phase 2 — your agent's adapter
+
+Once per agent you actually use:
 
 ```bash
-bash .agents/monorepo-agents-harness/core/scripts/audit-install.sh --against <path-to-bundle>
+bash .agents/monorepo-agents-harness/core/scripts/install-adapter.sh claude-code   # or codex, opencode
 ```
 
-using the same `<path-to-bundle>` from §4 step 1. Reports every gap by exact path and exits
-non-zero if anything's missing or stale; exit 0 means the installed project fully matches the
-bundle you copied from. See `core/scripts/audit-install.sh`'s own header for what it checks.
-
----
-
-## 6. Parameterization (resolve every placeholder)
-
-Replace these tokens across the copied files before use:
-
-| Placeholder | Meaning | Default | Appears in |
-|---|---|---|---|
-| `{{PROJECT_NAME}}` | Your monorepo's display name | — | `core/root-AGENTS.md`, `adapters/claude-code/CLAUDE.md` |
-| `{{MONOREPO_FRAMEWORK}}` | Detected monorepo framework (`turborepo`, `nx`, `lerna`, `pnpm`, `yarn`, `npm`) | — | `core/root-AGENTS.md` |
-| `{{PROJECT_GOTCHAS}}` | Project-specific rules (layering, boundaries, conventions); delete the example if none | — | `core/root-AGENTS.md` |
-| `{{PROJECT_REVIEW_POLICY}}` | Project-specific review rules (extra passes, thresholds, exclusions); delete the section if none | — | `core/root-REVIEW.md` (optional, see §12) |
-
-> The plan/spec/memory/verify artifact location is a fixed convention —
-> `<workspace>/.agents/artifacts/` for every app and package — and the memory-gate discovers
-> workspaces automatically. The harness-update script embeds one upstream URL (see §10) overridable
-> via the `HARNESS_UPSTREAM` env var.
-
-Hand-edit `ROOT/AGENTS.md` (copied from `core/root-AGENTS.md`) to fill `{{PROJECT_NAME}}`,
-`{{MONOREPO_FRAMEWORK}}`, and `{{PROJECT_GOTCHAS}}`.
-
-> When `core/skills/agents-md-merge/SKILL.md` writes `ROOT/AGENTS.md` (either mode from §4 step 4),
-> it already resolves `{{PROJECT_NAME}}` and `{{MONOREPO_FRAMEWORK}}` from your existing file and the
-> framework detector. `{{PROJECT_GOTCHAS}}` is always a human decision — fill it in or delete the
-> example item.
-
----
-
-## 7. What is intentionally NOT in this bundle (and why)
-
-| Excluded | Reason |
+| Agent | Adapter notes |
 |---|---|
-| Agent-specific slash commands beyond the harness plumbing (`.claude/commands/*`, `.opencode/commands/*`, `.agents/skills/*`) | Project-specific workflows, not portable engine. The bundle ships two harness-plumbing command families — the update check (see §10) and the plan/spec build trigger `/monorepo-harness-build` — because they are harness plumbing, not project logic. Author your own for the rest. |
-| `.claude/settings.local.json` | Local machine permissions — never portable. |
-| Per-module instruction files (e.g. `apps/api/src/modules/**/AGENTS.md`) | Project content, not harness. Add your own where useful. |
-| Populated `<workspace>/.agents/artifacts/task_*` dirs and their `index.md` rows | Task history is repo-specific; you start empty (the scaffold seeds each workspace with `index-template.md`). |
-| `.agents/rules/*.md` | The source repo referenced these but did not ship them; the template deliberately references **no** rule file. Add your own and list them in `AGENTS.md`'s Reference Map (in the `core/root-AGENTS.md` template). |
+| Claude Code | [`adapters/claude-code/INSTALL.md`](adapters/claude-code/INSTALL.md) |
+| opencode | [`adapters/opencode/INSTALL.md`](adapters/opencode/INSTALL.md) |
+| Codex CLI | [`adapters/codex/INSTALL.md`](adapters/codex/INSTALL.md) |
+| anything else | author one: [`PORTABILITY.md`](PORTABILITY.md) |
 
----
+An existing config file is **never** modified. If you already have `.claude/settings.json`,
+`.codex/hooks.json`, `opencode.jsonc`, `.codex/config.toml` or a root `CLAUDE.md`, the adapter's
+version is written beside it as `<file>.harness-proposed` and reported, for you to merge
+deliberately.
 
-## 8. Verification (core)
+## 4. What still needs a human
 
-Run these from the target repo root after Phase 1:
+Both scripts end with a `Needs you:` list. Only three things ever appear there:
 
-```bash
-RUNTIME=".agents/monorepo-agents-harness"
+1. **`{{PROJECT_GOTCHAS}}` in `AGENTS.md`** — your project's own rules (layering, boundaries,
+   conventions). Fill it in or delete the example item; no script can guess this.
+2. **`AGENTS.md` already existed** — it is left untouched. Run
+   `core/skills/agents-md-merge/SKILL.md`: it keeps 100% of your content, weaves in only the
+   harness rules you're missing, shows you the full diff, and writes nothing until you approve.
+3. **A `<file>.harness-proposed`** — review and merge with
+   `git diff --no-index <file> <file>.harness-proposed`.
 
-# a) core scripts have no syntax errors
-for f in "$RUNTIME"/core/scripts/*.sh; do bash -n "$f" && echo "$f OK"; done
-
-# b) no unresolved placeholders remain in the installed copies
-! grep -rn '{{PROJECT_NAME}}\|{{MONOREPO_FRAMEWORK}}\|{{PROJECT_GOTCHAS}}' AGENTS.md \
-  "$RUNTIME"/core/root-AGENTS.md \
-  && echo "no placeholders left"
-
-# c) every workspace got its task-artifact seeds
-for parent in $(bash "$RUNTIME/core/scripts/detect-monorepo-framework.sh" --workspaces 2>/dev/null); do
-  [ -d "$parent" ] || continue
-  for d in "$parent"/*/; do
-    [ -f "$d/.agents/artifacts/index.md" ] || echo "missing index seed: ${d%/}"
-  done
-done
-echo "seed check done"
-
-# d) key runtime files exist
-ls -l "$RUNTIME"/core/scripts/ "$RUNTIME"/core/skills/
-
-# e) changelogs/ must not exist in the installed copy — self-heal if it does
-# (it is never a prompt source; prompts are always read from a temporary clone at update time)
-if [ -d "$RUNTIME/changelogs" ]; then
-  echo "changelogs/ should have been moved out during install — moving now"
-  TRASH=".agents/.harness-trash/$(date +%Y%m%d_%H%M%S)_$$"
-  mkdir -p "$TRASH"
-  mv "$RUNTIME/changelogs" "$TRASH/changelogs"
-fi
-echo "changelogs/ absent: OK"
-
-# f) root AGENTS.md is reconciled and clean
-grep -q '^<!-- monorepo-agents-harness: root-AGENTS\.md v' AGENTS.md \
-  && echo "AGENTS.md provenance marker OK" \
-  || echo "AGENTS.md has no provenance marker — run core/skills/agents-md-merge/SKILL.md"
-! grep -n '^<<<<<<< \|^>>>>>>> \|^||||||| ' AGENTS.md && echo "no conflict markers in AGENTS.md"
-```
-
-**End-to-end check of the memory-gate** (the core enforcement, agent-free default mode).
-Simulate a fabricated task dir for today:
+## 5. Confirm nothing was missed
 
 ```bash
-TODAY="$(date +%Y_%m_%d)"
-mkdir -p apps/web/.agents/artifacts/task_${TODAY}_smoke_test
-
-bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh; echo "exit=$?"
-#   expect: exit=1 — 2_spec.md and 3_memory.md are missing
-
-printf '## Test / verification plan\nrun smoke test\n' \
-  > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/2_spec.md
-: > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/3_memory.md
-bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh; echo "exit=$?"
-#   expect: exit=1 — 4_verify.md is missing (the spec's verification plan is not N/A)
-
-: > apps/web/.agents/artifacts/task_${TODAY}_smoke_test/4_verify.md
-bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh; echo "exit=$?"
-#   expect: exit=0 (gate satisfied)
-
-rm -rf apps/web/.agents/artifacts/task_${TODAY}_smoke_test
+bash .agents/monorepo-agents-harness/core/scripts/audit-install.sh          # add --json for machine output
 ```
 
-If the first run exits 1, the second also exits 1 (now missing only `4_verify.md`), and the third
-exits 0, the core is live. Adapter-specific verification (skill registration, hook wiring, plugin
-behavior) is in each adapter's README.
+Compares your project against the installed bundle's manifests: every bundle row, every adapter
+entry point (missing or stale), your `AGENTS.md` provenance marker, and every workspace's scaffold
+seeds. Exit 0 means complete; anything else names the exact paths. Then commit the install.
 
----
+To prove the hard gate itself is live, create a throwaway
+`apps/<name>/.agents/artifacts/task_<YYYY_MM_DD>_smoke/` and run
+`bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh` as you add `2_spec.md`,
+`3_memory.md` and `4_verify.md`: it must exit 1 until all of them exist, then 0. Delete the
+throwaway dir afterwards.
 
-## 9. Using the harness day to day
+## 6. Optional extras
 
-1. Enter plan mode for any non-trivial task; on plan approval the adapter's reminder fires. If the
-   reminder is missed or your agent has no automatic hook, type `/monorepo-harness-build` to trigger the same
-   plan/spec build step.
-2. Apply the **`agent-workflow`** skill templates; create
-   `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/` and write `1_plan.md` + `2_spec.md`
-   before the first Edit/Write.
-3. Implement; keep changes scoped to the workspace (see `AGENTS.md`). Before wrapping up, verify
-   the work against `2_spec.md`'s "Test / verification plan" — directly, or by delegating to the
-   `verifier` subagent where your adapter ships one (see `PORTABILITY.md`).
-4. Commit, then write `3_memory.md` (with commit SHAs) and, unless the verification plan is `N/A`,
-   `4_verify.md` (the verification evidence) — the memory-gate won't release the task until both
-   exist. Update the workspace's searchable index `.agents/artifacts/index.md` in the same commit
-   (rules: `core/governance/artifacts/AGENTS.md`).
+- **CI** — ask your agent `/monorepo-harness-ci`; it detects the provider and wires
+  `memory-gate.sh` in (`core/skills/ci-integration/SKILL.md`).
+- **Review policy** — copy `core/root-REVIEW.md` to `REVIEW.md` and resolve
+  `{{PROJECT_NAME}}`/`{{PROJECT_REVIEW_POLICY}}` to customize `/monorepo-harness-review`.
+- **Intent inbox** — `/monorepo-harness-intent` (`core/governance/intents/AGENTS.md`).
 
-> **Migrating from an older install** (artifacts previously lived under
-> `<docs-app>/agents/<workspace>/`)? Move each `task_*` dir into its workspace
-> (`<workspace>/.agents/artifacts/`), fold any old per-workspace index into that workspace's new
-> `.agents/artifacts/index.md`, then commit. The memory-gate and the skill only look at the new
-> location.
+## 7. Updating
 
----
-
-## 10. Updating the harness
-
-The harness is versioned at `.agents/monorepo-agents-harness/VERSION` (SemVer; upstream:
-`https://github.com/atayahmet/monorepo-agents-harness`, overridable via `HARNESS_UPSTREAM`). The
-bundle (`.agents/monorepo-agents-harness/core/VERSION`) is the source of truth during upgrades; the
-active agent copies the new version file into `.agents/monorepo-agents-harness/VERSION`. Every
-release documents behavior changes in `CHANGELOG.md` under **Upgrade Notes**, and the actual upgrade
-steps are described in `changelogs/version-X.Y.Z.md` prompts for the active agent to read and apply.
-
-**Check** (manual, or via the agent command):
-
-```bash
-bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh check          # exit: 0 current · 1 outdated · 2 unknown
-bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh check --json   # {"installed","latest","status","upstream"}
-```
-
-Or ask your agent: `/monorepo-harness:update` (claude-code) /
-`/monorepo-harness-update` (opencode). The shared workflow lives in
-`core/skills/harness-update/SKILL.md`: it reports the diff, asks for consent, then reads and applies
-the changelog prompts.
-
-**Upgrade** (consent-gated; driven by `changelogs/version-X.Y.Z.md` prompts):
-
-```bash
-git clone --depth 1 --branch v<latest> https://github.com/atayahmet/monorepo-agents-harness .agents/.harness-update-tmp
-```
-
-Then let your agent apply the upgrade. Since 0.11.0, `core/` and `adapters/` inside the installed
-bundle are synced **wholesale** from this fresh clone (not from an itemized per-version file list —
-see `changelogs/README.md`'s 0.11.0+ note for why), then verified with
-`harness-update.sh verify-copy` so an incomplete sync is never reported as a success. The agent then
-re-applies each already-installed adapter's own `INSTALL.md` copy/symlink steps against the fresh
-bundle — this is what gets newly-added commands/skills (e.g. `/monorepo-harness-review`) into a
-project that adapted an earlier version, without you having to copy them by hand. Only each
-adapter's config-merge step (`.claude/settings.json`, `.codex/hooks.json`, `opencode.jsonc`) is
-excluded from that automatic re-apply, since a repeated `jq` merge would duplicate hook entries —
-that one stays a manual follow-up, and only when the adapter's hook definitions actually changed.
-The agent also runs any `Commands to run` from `.agents/.harness-update-tmp/changelogs/version-<latest>.md`
-(and any intermediate version prompts) and presents their manual follow-ups. As its final steps the
-agent reconciles your root `AGENTS.md` against the new `core/root-AGENTS.md`
-(`core/skills/harness-update/SKILL.md` step 9, backed by `core/skills/agents-md-merge/SKILL.md`) and
-removes the installed `.agents/monorepo-agents-harness/changelogs/` directory (step 10) — that
-directory is never a prompt source, prompts are always read from the temporary clone. The `AGENTS.md`
-reconciliation is a three-way merge against the template version recorded in your file's provenance
-marker (or an additive adoption merge if the file has no marker yet), presented as a clean diff and
-**written only after you approve it** — declining leaves the file untouched. The upgrade still
-**never touches** `.agents/` working state and task history.
-
-## 11. CI integration (optional)
-
-`core/scripts/memory-gate.sh` runs in CI as a plain `bash` invocation, but *where* to put that
-invocation differs by provider. `/monorepo-harness-ci` (every adapter) detects the provider via
-`core/scripts/detect-ci-provider.sh` and wires it in — tiered by what each CI format actually
-supports:
-
-- **GitHub Actions** — supports independent workflow files, so the skill writes a new, dedicated
-  `.github/workflows/harness-memory-gate.yml` running `memory-gate.sh`, after asking **"Add this CI
-  workflow file?"**. It never overwrites an existing file of that name.
-- **GitLab / Bitbucket Pipelines / CircleCI** — each reads exactly one pipeline file, so the skill
-  only detects the provider and shows the matching snippet + paste location; it never edits
-  `.gitlab-ci.yml` / `bitbucket-pipelines.yml` / `.circleci/config.yml` itself.
-- **Unknown** — reports that no provider was detected and offers an opt-in GitHub Actions starter.
-
-Run it any time after Phase 1 (core install):
-
-```bash
-bash .agents/monorepo-agents-harness/core/scripts/detect-ci-provider.sh --provider
-```
-
-or ask your agent: `/monorepo-harness-ci`. Full instructions: `core/skills/ci-integration/SKILL.md`.
-
-## 12. PR review (optional)
-
-`/monorepo-harness-ci` catches missing artifacts; `/monorepo-harness-review` (every adapter) reviews
-the actual diff. It reads `REVIEW.md` at your repo root if present (copy `core/root-REVIEW.md` there
-and resolve `{{PROJECT_NAME}}`/`{{PROJECT_REVIEW_POLICY}}` to customize passes, thresholds, and
-exclusions) — otherwise it uses built-in defaults. When the diff maps to a task tracked under
-`.agents/artifacts/`, it also checks the diff against that task's own `1_plan.md`/`2_spec.md`/
-`4_verify.md`, not just generic code-quality heuristics.
-
-This only ever produces a report: it never posts to a PR platform, tags comments, or merges/approves
-anything (see `core/skills/pr-review/SKILL.md` "Out of scope"). Copying `REVIEW.md` in is optional —
-skip it if the built-in defaults are fine.
-
-## 13. Intent capture (optional)
-
-`/monorepo-harness-intent` (every adapter) lets any stakeholder — not just an engineer mid-task —
-describe a problem before it's scoped into work. Each request becomes
-`<workspace>/.agents/intents/intent_<YYYY_MM_DD>_<slug>.md` with `status: pending`, seeded per
-workspace by `scaffold-workspace-agents.sh` (§4 step 5). A product owner or manager later asks the
-same command to review pending intents; each is presented individually and gated behind an explicit
-**"Approve this intent?"** question — nothing changes `status` without an answer in the current
-turn. Approved and rejected intents are both kept, never deleted, as an audit trail.
-
-An **approved** intent is optional input to plan-mode work: `core/skills/agent-workflow/SKILL.md`
-Phase 1 does a best-effort match against `<workspace>/.agents/intents/` before writing `1_plan.md`,
-and copies a match in as the task's `0_intent.md`. Most ad-hoc engineering tasks have no intent
-behind them and skip this silently — full rules: `core/governance/intents/AGENTS.md`.
-
+`bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh check`, or ask your agent
+(`/monorepo-harness:update` on claude-code, `/monorepo-harness-update` elsewhere). The upgrade is
+consent-gated and re-uses the very same installer scripts, so an update can never disagree with an
+install about what "complete" means. Full workflow: `core/skills/harness-update/SKILL.md`.

@@ -2,8 +2,12 @@
 #
 # harness-update.sh - lightweight version engine for the agent harness.
 #
-# Performs only structural version checks. The actual upgrade is driven by the
-# active agent reading the changelog prompts under changelogs/version-X.Y.Z.md.
+# Performs only structural version checks. The upgrade itself is performed by
+# core/scripts/install-harness.sh --sync-only + install-adapter.sh --refresh, driven by the
+# active agent following core/skills/harness-update/SKILL.md.
+#
+# Versions are compared with SemVer precedence (prereleases included, e.g. 0.1.0-rc.0 < 0.1.0)
+# via harness-common.sh — never with sort -V, which gets prereleases backwards.
 #
 # Usage:
 #   harness-update.sh current                    print the installed harness version
@@ -23,13 +27,16 @@ set -u
 DEFAULT_UPSTREAM="https://github.com/atayahmet/monorepo-agents-harness"
 UPSTREAM="${HARNESS_UPSTREAM:-$DEFAULT_UPSTREAM}"
 
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+. "$SCRIPT_DIR/harness-common.sh"
+
+ROOT="$(harness_root)"
 BUNDLE_DIR="${BUNDLE_DIR:-$ROOT/.agents/monorepo-agents-harness}"
 RUNTIME_DIR="${RUNTIME_DIR:-$BUNDLE_DIR}"
 VERSION_FILE="$RUNTIME_DIR/VERSION"
-# Fallback to the legacy locations for pre-0.4.1 installs during migration.
-LEGACY_VERSION_FILE="$BUNDLE_DIR/core/VERSION"
-LEGACY_ROOT_BUNDLE_FILE="$ROOT/monorepo-agents-harness/core/VERSION"
+
+# Release tags, prerelease ones (v0.1.0-rc.0) included.
+TAG_RE='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$'
 
 json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 
@@ -40,14 +47,11 @@ emit_json() {
 
 installed_version() {
   if [ -f "$VERSION_FILE" ]; then tr -d '[:space:]' <"$VERSION_FILE"; return 0; fi
-  if [ -f "$LEGACY_VERSION_FILE" ]; then tr -d '[:space:]' <"$LEGACY_VERSION_FILE"; return 0; fi
-  if [ -f "$LEGACY_ROOT_BUNDLE_FILE" ]; then tr -d '[:space:]' <"$LEGACY_ROOT_BUNDLE_FILE"; return 0; fi
   echo ""
 }
 
-semver_is_older() {
-  [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n1)" = "$1" ] && [ "$1" != "$2" ]
-}
+# Prerelease-aware; see harness-common.sh for why sort -V is not usable here.
+semver_is_older() { harness_semver_is_older "$1" "$2"; }
 
 cmd_current() {
   local cur; cur="$(installed_version)"
@@ -57,11 +61,18 @@ cmd_current() {
 }
 
 cmd_latest() {
-  local json="${1:-}" tags latest
+  local json="${1:-}" tags latest="" tag
   tags="$(git ls-remote --tags "$UPSTREAM" 2>/dev/null \
     | awk -F'/' '/refs\/tags\//{print $NF}' \
-    | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true)"
-  latest="$(printf '%s\n' "$tags" | grep -v '^$' | sort -V | tail -n1)"
+    | sed 's/\^{}$//' \
+    | grep -E "$TAG_RE" | sort -u || true)"
+  # Pick the max by SemVer precedence — sort -V would rank a release below its own prereleases.
+  while IFS= read -r tag; do
+    [ -n "$tag" ] || continue
+    if [ -z "$latest" ] || [ "$(harness_semver_cmp "${tag#v}" "${latest#v}")" = "1" ]; then
+      latest="$tag"
+    fi
+  done <<<"$tags"
   if [ -z "$latest" ]; then
     if [ "$json" = "--json" ]; then emit_json "unknown" "$(installed_version)" ""
     else echo "harness-update: could not resolve the latest version from $UPSTREAM" >&2; fi

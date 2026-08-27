@@ -1,18 +1,40 @@
 # Changelog Prompts
 
-Each release that needs commands run, manual follow-ups, or a release summary ships a
-human-readable upgrade prompt under this directory: `version-X.Y.Z.md`.
+A release ships a prompt here — `version-X.Y.Z.md` — **only if** it needs something the manifests
+cannot express: a command to run, or a manual follow-up for the user. Most releases need neither, and
+this directory is legitimately empty apart from this file.
 
-These prompts are consumed by the active agent (Claude Code, opencode, Codex,
-Cursor, etc.). The agent reads the markdown, interprets the instructions, and
-performs the upgrade operations. `core/scripts/harness-update.sh` does **not**
-parse these files; it only resolves the installed and latest versions (and, since
-0.11.0, verifies the bundle sync — see `verify-copy` below).
+These prompts are consumed by the active agent (Claude Code, opencode, Codex, Cursor, …). The agent
+reads the markdown, interprets the instructions, and performs the operations.
+`core/scripts/harness-update.sh` does **not** parse these files; it only resolves the installed and
+latest versions and verifies a copy (`verify-copy`).
 
-**Since 0.11.0, prompts no longer drive file copying.** `core/` and `adapters/` are synced
-wholesale from the fresh clone every update (`core/skills/harness-update/SKILL.md` step 7) —
-nothing is enumerated, so nothing can be silently left out of a release's list. Prompts now exist
-only for `Commands to run`, `Manual follow-ups for the user`, and `Release summary`.
+## Prompts never move files
+
+Adding a file to the bundle or to an adapter needs **no prompt entry at all** — add a manifest row
+instead:
+
+- `core/install-manifest.txt` — what belongs in `.agents/monorepo-agents-harness/`.
+- `adapters/<agent>/manifest.txt` — what an adapter installs into the project.
+
+`core/skills/harness-update/SKILL.md` step 7 runs the new release's own
+`core/scripts/install-harness.sh --sync-only` against the first manifest, and step 7.5 runs
+`core/scripts/install-adapter.sh <agent> --refresh` against the second. Both are the same scripts a
+fresh install runs, so an update and an install cannot disagree about what a complete installation
+contains.
+
+This is deliberate: a hand-maintained per-release "files to copy" list is structurally prone to
+omission — one forgotten line and a new skill or command silently never reaches installed projects.
+Never list a bundle or adapter path in a prompt "just to be safe"; that reintroduces exactly the
+list this rule exists to eliminate.
+
+Two more things the prompts must **not** carry, because the workflow already does them:
+
+- **Root `AGENTS.md` reconciliation** — step 9 performs a consent-gated merge via
+  `core/skills/agents-md-merge/SKILL.md`. Never write "compare/merge your `AGENTS.md` against the
+  fresh template" as a manual follow-up.
+- **Adapter entry points** — step 7.5 re-applies every installed adapter's `copy`/`link` rows. Never
+  write "copy the new slash command into place" as a manual follow-up.
 
 ## File naming
 
@@ -20,23 +42,23 @@ only for `Commands to run`, `Manual follow-ups for the user`, and `Release summa
 changelogs/version-X.Y.Z.md
 ```
 
-where `X.Y.Z` is the SemVer version being released.
+where `X.Y.Z` is the SemVer version being released (prereleases included, e.g.
+`version-0.1.0-rc.1.md`).
 
 ## Prompt structure
 
-Every `version-X.Y.Z.md` should use the following standard sections so the agent
-can interpret it reliably:
+Use these standard sections so the agent can interpret the prompt reliably:
 
 ```markdown
 ---
-version: 0.11.0
-from: 0.10.0
-date: 2026-08-26
+version: 0.2.0
+from: 0.1.0
+date: 2026-09-14
 ---
 
-# Version 0.11.0 Upgrade Instructions
+# Version 0.2.0 Upgrade Instructions
 
-You are upgrading the monorepo-agents-harness from 0.10.0 to 0.11.0.
+You are upgrading the monorepo-agents-harness from 0.1.0 to 0.2.0.
 
 ## Commands to run
 
@@ -46,7 +68,7 @@ bash core/scripts/scaffold-workspace-agents.sh
 
 ## Manual follow-ups for the user
 
-- Re-apply the opencode config merge (`opencode.jsonc`) if it was changed upstream.
+- Re-apply the opencode config merge (`opencode.jsonc`) — its hook definitions changed this release.
 
 ## Release summary
 
@@ -58,54 +80,25 @@ bash core/scripts/scaffold-workspace-agents.sh
 | Section | Purpose |
 |---|---|
 | `Commands to run` | Execute each command block from the installed bundle root. Stop on first failure. |
-| `Manual follow-ups for the user` | Present these to the user at the end; do not execute automatically. |
+| `Manual follow-ups for the user` | Present these to the user at the end; never execute automatically. |
 | `Release summary` | Human-readable summary used when reporting the upgrade. |
-| `Files to copy from the new bundle to the installed bundle` (rare, opt-in — omit unless needed) | Only for paths **outside** `core/` and `adapters/`, which are always synced wholesale (see the 0.11.0+ note below). Directories ending in `/` are copied recursively. |
-| `Files to delete from the installed bundle` (rare, opt-in — omit unless needed) | Same scope restriction as above. If `(only if they exist)` is present, silently skip missing targets. |
+| `Files to copy from the new bundle to the installed bundle` (rare, opt-in — omit unless needed) | Only for a path covered by **neither** manifest. Directories ending in `/` are copied recursively. |
+| `Files to delete from the installed bundle` (rare, opt-in — omit unless needed) | Same scope restriction. If `(only if they exist)` is present, silently skip missing targets. |
 
-### `core/` and `adapters/` sync wholesale, not by itemized list (0.11.0+)
+## The installed `changelogs/` directory
 
-Before 0.11.0, every release's "Files to copy" list had to enumerate each new/changed file under
-`core/` — a hand-maintained list that could (and did) silently omit files, leaving installed
-projects with a stale or incomplete bundle. From 0.11.0 on, `core/skills/harness-update/SKILL.md`
-step 7 replaces `core/` and `adapters/` wholesale from the fresh clone every time, then verifies
-the result with `harness-update.sh verify-copy`. **Do not** list `core/...` or `adapters/...`
-paths under "Files to copy"/"Files to delete" in prompts released from 0.11.0 onward — reserve
-those sections for the rare path that lives outside both trees. (Prompts released before 0.11.0
-still list `core/...` paths; historical artifact, harmless since the wholesale sync already
-covers them — left as-is.) Adapter entry-point files (new slash commands/skills) are also no
-longer a manual follow-up: `core/skills/harness-update/SKILL.md` step 7.5 re-applies each
-installed adapter's own `INSTALL.md` copy steps automatically.
-
-### Installed `changelogs/` is ephemeral (0.4.4+)
-
-Every install and update ends by deleting the installed
-`.agents/monorepo-agents-harness/changelogs/` directory entirely (see
-`INSTALL.md` §4 step 1 and `core/skills/harness-update/SKILL.md` step 9). The
-agent always reads prompts from a temporary clone of the upstream bundle, never
-from the installed copy, so nothing is lost. **Do not** list a prompt's own
-`changelogs/version-X.Y.Z.md` under "Files to copy from the new bundle to the
-installed bundle" going forward — it would just be deleted moments later by
-the final cleanup step. (Prompts released before 0.4.4 still list their own
-self-copy line; that is a historical artifact, left as-is.)
-
-### Root `AGENTS.md` reconciliation is automatic (0.5.0+)
-
-`core/skills/harness-update/SKILL.md` step 9 now reconciles the project's root
-`AGENTS.md` against the fresh `core/root-AGENTS.md` itself — a consent-gated
-merge via `core/skills/agents-md-merge/SKILL.md` — instead of leaving it to
-the user. **Do not** list "compare/merge your `AGENTS.md` against the fresh
-`core/root-AGENTS.md` template" as a manual follow-up in prompts released from
-0.5.0 onward; the update workflow performs it. (Prompts released before 0.5.0
-still carry that follow-up; historical artifact, left as-is.)
+`changelogs/` is not a `core/install-manifest.txt` row, so an installed bundle never has one. The
+agent always reads prompts from a temporary clone of the upstream bundle. Never list a prompt's own
+`changelogs/version-X.Y.Z.md` under "Files to copy".
 
 ## How the agent selects prompts
 
-When upgrading from version `A` to version `B`, the agent reads every prompt
-where:
+When upgrading from version `A` to version `B`, the agent reads every prompt where:
 
 ```
 A < prompt.version <= B
 ```
 
-Prompts are processed in SemVer order.
+Prompts are processed in SemVer order, prereleases ranking below their release (`0.2.0-rc.1` <
+`0.2.0`). A version in that range with **no** prompt file is normal — it simply needed no commands
+or follow-ups.

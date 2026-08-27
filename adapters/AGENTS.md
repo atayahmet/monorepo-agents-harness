@@ -22,24 +22,29 @@ in the same change.
    must be thin pointers (`@AGENTS.md`) to the single source of truth — never a copy of it.
 3. **Fail-open hooks.** Hook/plugin wiring must degrade gracefully: missing `jq`/git/bundle →
    exit 0 with no block, so they coexist safely with other hooks.
-4. **One README (user guide) and one INSTALL.md (install guide) per adapter.** The README
-   explains what the adapter gives you, the available slash commands, a typical workflow, and
-   agent-specific notes. The INSTALL.md follows the fixed install structure: "What maps to what"
-   table, Prerequisites, Install steps, Verify, Notes / semantic differences. Follow the existing
-   adapters verbatim in shape.
-5. **Update the docs in the same commit** when you add/change an adapter or capability:
+4. **`manifest.txt` is the install.** Every file an adapter puts into a consumer project is a row in
+   `adapters/<agent>/manifest.txt`, executed by `core/scripts/install-adapter.sh` and verified by
+   `core/scripts/audit-install.sh`. Adding a file means adding a row — **never** a prose step in an
+   `INSTALL.md`. Verbs: `copy` (overwrite, idempotent), `link` (symlink into the bundle), `merge`
+   (never clobber; propose `<file>.harness-proposed`), `tmpl` (same, with placeholders resolved).
+   Anything an update must not re-run belongs on `merge`/`tmpl`, never `copy`.
+5. **One README (user guide) and one INSTALL.md (install guide) per adapter, INSTALL.md ≤100 lines.**
+   The README explains what the adapter gives you, the available slash commands, a typical workflow,
+   and agent-specific notes. The INSTALL.md follows the fixed structure — Prerequisites, Install
+   (the one `install-adapter.sh` command + what is never overwritten), "What maps to what" table,
+   Verify, Notes / semantic differences — and stays a thin wrapper over the manifest. Follow the
+   existing adapters verbatim in shape.
+6. **Update the docs in the same commit** when you add/change an adapter or capability:
    - `../PORTABILITY.md` — capability matrix + semantic-difference notes;
-   - `../INSTALL.md` — Phase 2 table (Agent / Adapter / Guide) if a new adapter ships.
-6. **Slash commands and subagents ship only for harness plumbing** (the update check, the plan/spec
+   - `../INSTALL.md` — Phase 2 table (Agent / Adapter notes) if a new adapter ships.
+7. **Slash commands and subagents ship only for harness plumbing** (the update check, the plan/spec
    build trigger, the CI integration trigger, the PR review trigger, the intent capture/review
-   trigger, and the `verifier` subagent). Project-specific commands/subagents do not belong here
-   (see `../INSTALL.md` §7).
-7. **Shipped dependencies.** If an adapter ships a `package.json` (e.g., a plugin that needs
-   `node_modules`), the adapter README install steps MUST include installing those dependencies
-   (`npm install`, `pnpm install`, or equivalent) before copying files into the target repo. Never
-   assume `node_modules` is already present.
-8. **English everywhere** — all files under this tree are English-only.
-9. **Commits are mandatory at the end of any file-changing task** unless the user explicitly opts out.
+   trigger, and the `verifier` subagent). Project-specific commands/subagents do not belong here.
+8. **Shipped dependencies.** If an adapter ships a `package.json` (e.g., a plugin that needs
+   `node_modules`), `install-adapter.sh` surfaces it as a `Needs you:` follow-up automatically —
+   document what the dependency is for in the adapter README. Never assume `node_modules` is present.
+9. **English everywhere** — all files under this tree are English-only.
+10. **Commits are mandatory at the end of any file-changing task** unless the user explicitly opts out.
 
 ## What the `agent-workflow` skill expects from every adapter
 
@@ -81,11 +86,15 @@ table in its README.
 
 1. Read `../PORTABILITY.md` ("Authoring a new adapter") and walk the capability matrix column by
    column: native mechanism or fallback row for each capability.
-2. Create `adapters/<agent>/` with: config/hooks/plugin wiring + `README.md` + `INSTALL.md`
-   (rule 4) + any thin pointer/instruction file the agent needs. If the adapter has a `package.json`,
-   document `npm install` (or equivalent) in the install steps.
-3. Register it: `../PORTABILITY.md` matrix columns, `../INSTALL.md` §5 table, `../README.md`
+2. Create `adapters/<agent>/` with: config/hooks/plugin wiring + `manifest.txt` (rule 4) +
+   `README.md` + `INSTALL.md` (rule 5) + any thin pointer/instruction file the agent needs.
+3. Teach the tooling about it: add the agent to the loop in `core/scripts/audit-install.sh`
+   (the `for agent in ...` list) so its manifest is audited too.
+4. Register it: `../PORTABILITY.md` matrix columns, `../INSTALL.md` §3 table, `../README.md`
    mentions if present.
+5. Prove it: install into a scratch monorepo, run
+   `core/scripts/install-adapter.sh <agent>` twice (idempotence) and
+   `core/scripts/audit-install.sh` (must exit 0).
 
 ## Verification before done
 
@@ -96,7 +105,10 @@ bash -n <changed-script-or-hook>
 # JSON configs stay valid
 jq . <changed-config>.json >/dev/null && echo OK
 
-# memory-gate still passes end-to-end (per ../INSTALL.md §8 smoke test)
+# the manifest and the project agree (authoritative — reads adapters/<agent>/manifest.txt)
+bash core/scripts/audit-install.sh
+
+# memory-gate still passes end-to-end (per ../INSTALL.md §5 smoke test)
 ```
 
 Adapter-specific checks (skill registration, hook firing, plugin load) are documented in each

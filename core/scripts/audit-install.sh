@@ -4,24 +4,29 @@
 #
 # Compares the consumer project's installed state against a bundle-source tree (a fresh clone, or
 # the original install source) to catch files that should have landed but didn't — the failure
-# class behind real bugs like a missing adapter command or a missing core/root-REVIEW.md. Every
-# copy step in INSTALL.md and core/skills/harness-update/SKILL.md is executed by an agent reading
-# prose; this script is the deterministic check that nothing was missed, independent of that.
+# class behind real bugs like a missing adapter command or a missing core/root-REVIEW.md.
+#
+# The expected state is read from the same manifests the installers execute — the bundle whitelist
+# core/install-manifest.txt and each adapters/<agent>/manifest.txt — so this check and the install
+# can never disagree about what "complete" means.
 #
 # Usage:
-#   audit-install.sh --against <bundle-source-dir> [--json]
+#   audit-install.sh [--against <bundle-source-dir>] [--json]
 #
-# <bundle-source-dir> is whatever tree the caller already has on disk to compare against — the
-# temporary clone made during an update (.agents/.harness-update-v<latest>), or the original bundle
-# source used at install time.
+# <bundle-source-dir> defaults to the installed bundle (.agents/monorepo-agents-harness), which
+# answers "does my project match the harness I have installed?" — the useful question after an
+# install. Point it at a fresh clone (.agents/.harness-update-v<latest>) to instead ask "did this
+# update land completely?".
 #
 # Exit codes: 0 = everything in sync, 1 = at least one gap found, 2 = usage error.
 # Dependencies: git + coreutils only. Read-only — never writes or deletes anything.
 set -u
 
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-BUNDLE_DIR="${BUNDLE_DIR:-$ROOT/.agents/monorepo-agents-harness}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/harness-common.sh"
+
+ROOT="$(harness_root)"
+BUNDLE_DIR="${BUNDLE_DIR:-$ROOT/.agents/monorepo-agents-harness}"
 DETECT_SCRIPT="${DETECT_SCRIPT:-$BUNDLE_DIR/core/scripts/detect-monorepo-framework.sh}"
 
 against=""
@@ -34,82 +39,85 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-if [ -z "$against" ] || [ ! -d "$against" ]; then
-  echo "audit-install: --against <bundle-source-dir> is required and must exist" >&2
+[ -n "$against" ] || against="$BUNDLE_DIR"
+if [ ! -d "$against" ]; then
+  echo "audit-install: no bundle to compare against: $against" >&2
   exit 2
 fi
 
 gaps=()
 add_gap() { gaps+=("$1"); }
 
-semver_is_older() {
-  [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -n1)" = "$1" ] && [ "$1" != "$2" ]
-}
-
-# --- Check 1: bundle sync (core/, adapters/) — delegate to harness-update.sh verify-copy ---
+# --- Check 1: bundle sync — every core/install-manifest.txt row, via harness-update.sh verify-copy ---
 check_bundle_sync() {
-  local label="$1" src="$against/$1" dst="$BUNDLE_DIR/$1" out rc
-  [ -d "$src" ] || return 0
-  out="$(bash "$SCRIPT_DIR/harness-update.sh" verify-copy "$src" "$dst" 2>&1)"
-  rc=$?
-  if [ "$rc" -ne 0 ]; then
-    while IFS= read -r line; do
-      case "$line" in
-        *"missing after copy:"*) add_gap "bundle ($label): ${line#*missing after copy: }" ;;
-      esac
-    done <<<"$out"
+  local manifest="$against/core/install-manifest.txt" row src dst out rc
+  if [ ! -f "$manifest" ]; then
+    add_gap "bundle: core/install-manifest.txt missing from $against (not a harness bundle?)"
+    return
   fi
-}
-
-# --- Check 2: adapter entry-point freshness ---
-DENY_BASENAMES="settings.json opencode.jsonc config.toml hooks.json CLAUDE.md README.md INSTALL.md package.json package-lock.json"
-
-is_denied() {
-  local base d
-  base="$(basename "$1")"
-  for d in $DENY_BASENAMES; do
-    [ "$base" = "$d" ] && return 0
-  done
-  return 1
-}
-
-required_entrypoints() {
-  case "$1" in
-    claude-code)
-      printf '%s\n' \
-        ".claude/commands/monorepo-harness-build.md" \
-        ".claude/commands/monorepo-harness/update.md" \
-        ".claude/agents/verifier.md"
-      ;;
-    opencode)
-      printf '%s\n' \
-        ".opencode/commands/monorepo-harness-build.md" \
-        ".opencode/commands/monorepo-harness-update.md"
-      ;;
-    codex)
-      printf '%s\n' \
-        ".agents/skills/monorepo-harness-build/SKILL.md" \
-        ".agents/skills/monorepo-harness-update/SKILL.md"
-      ;;
-  esac
-}
-
-check_adapter_entrypoints() {
-  local agent="$1" adapter_dir="$against/adapters/$1" rel proj_path f req
-  [ -d "$adapter_dir" ] || return 0
-
-  while IFS= read -r f; do
-    rel="${f#"$adapter_dir"/}"
-    is_denied "$rel" && continue
-    proj_path="$ROOT/$rel"
-    if [ -e "$proj_path" ] && ! cmp -s "$f" "$proj_path"; then
-      add_gap "entrypoint stale ($agent): $rel"
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    src="$against/$row"
+    dst="$BUNDLE_DIR/$row"
+    if [ ! -e "$src" ]; then
+      add_gap "bundle: manifest row missing from the source: $row"
+      continue
     fi
-  done < <(find "$adapter_dir" -type f 2>/dev/null)
+    if [ ! -e "$dst" ]; then
+      add_gap "bundle: not installed: $row"
+      continue
+    fi
+    if [ -d "$src" ]; then
+      out="$(bash "$SCRIPT_DIR/harness-update.sh" verify-copy "$src" "$dst" 2>&1)"
+      rc=$?
+      if [ "$rc" -ne 0 ]; then
+        while IFS= read -r line; do
+          case "$line" in
+            *"missing after copy:"*) add_gap "bundle ($row): ${line#*missing after copy: }" ;;
+          esac
+        done <<<"$out"
+      fi
+    elif ! cmp -s "$src" "$dst"; then
+      add_gap "bundle stale: $row"
+    fi
+  done < <(harness_manifest_rows "$manifest")
+}
 
-  while IFS= read -r req; do
-    [ -e "$ROOT/$req" ] || add_gap "entrypoint missing ($agent, required): $req"
-  done < <(required_entrypoints "$agent")
+# --- Check 2: adapter entry points, driven by adapters/<agent>/manifest.txt ---
+# copy/link rows must exist and match; merge/tmpl rows are user-owned config — their *absence* is a
+# gap (the adapter is not wired), but their content is never compared, because a project is
+# supposed to customize them.
+check_adapter_entrypoints() {
+  local agent="$1" adapter_dir="$against/adapters/$1" manifest verb path target
+  [ -d "$adapter_dir" ] || return 0
+  manifest="$adapter_dir/manifest.txt"
+  if [ ! -f "$manifest" ]; then
+    add_gap "adapter ($agent): manifest.txt missing from $adapter_dir"
+    return
+  fi
+  while read -r verb path target; do
+    [ -n "${verb:-}" ] || continue
+    case "$verb" in
+      copy)
+        if [ ! -e "$ROOT/$path" ]; then
+          add_gap "entrypoint missing ($agent): $path"
+        elif ! cmp -s "$adapter_dir/$path" "$ROOT/$path"; then
+          add_gap "entrypoint stale ($agent): $path"
+        fi
+        ;;
+      link)
+        if [ ! -e "$ROOT/$path" ]; then
+          add_gap "entrypoint missing ($agent, symlink): $path"
+        elif [ ! -L "$ROOT/$path" ]; then
+          add_gap "entrypoint should be a symlink into the bundle ($agent): $path"
+        fi
+        ;;
+      merge|tmpl)
+        [ -e "$ROOT/$path" ] || add_gap "config missing ($agent): $path"
+        ;;
+      *) add_gap "adapter ($agent): unknown manifest verb '$verb'" ;;
+    esac
+  done < <(harness_manifest_rows "$manifest")
 }
 
 # --- Check 3: root AGENTS.md provenance freshness ---
@@ -119,19 +127,16 @@ check_agents_md() {
     add_gap "AGENTS.md: missing at repo root"
     return
   fi
-  marker_version="$(head -1 "$agents_file" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | tr -d 'v')"
+  # Prerelease suffixes are part of the version — v0.1.0-rc.0 must not read as v0.1.0.
+  marker_version="$(head -1 "$agents_file" \
+    | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?' | head -1 | sed 's/^v//')"
   if [ -z "$marker_version" ]; then
     add_gap "AGENTS.md: no provenance marker on line 1 (expected '<!-- monorepo-agents-harness: root-AGENTS.md vX.Y.Z -->')"
     return
   fi
-  if [ -f "$BUNDLE_DIR/VERSION" ]; then
-    installed_version="$(tr -d '[:space:]' <"$BUNDLE_DIR/VERSION")"
-  elif [ -f "$BUNDLE_DIR/core/VERSION" ]; then
-    installed_version="$(tr -d '[:space:]' <"$BUNDLE_DIR/core/VERSION")"
-  else
-    return
-  fi
-  if semver_is_older "$marker_version" "$installed_version" && [ ! -f "$agents_file.harness-proposed" ]; then
+  [ -f "$BUNDLE_DIR/VERSION" ] || return
+  installed_version="$(tr -d '[:space:]' <"$BUNDLE_DIR/VERSION")"
+  if harness_semver_is_older "$marker_version" "$installed_version" && [ ! -f "$agents_file.harness-proposed" ]; then
     add_gap "AGENTS.md: provenance marker v$marker_version is older than installed v$installed_version, and no AGENTS.md.harness-proposed is present"
   fi
 }
@@ -158,15 +163,23 @@ check_workspace_scaffold() {
   done
 }
 
-check_bundle_sync "core"
-check_bundle_sync "adapters"
+# An adapter counts as installed once any of its manifest copy rows exists in the project. Derived
+# from the manifest rather than a per-agent directory guess, so a project that merely happens to
+# have a .claude/ or .agents/skills/ dir is never audited against an adapter it never installed.
+adapter_installed() {
+  local manifest="$against/adapters/$1/manifest.txt" verb path target
+  [ -f "$manifest" ] || return 1
+  while read -r verb path target; do
+    [ "${verb:-}" = "copy" ] || continue
+    [ -e "$ROOT/$path" ] && return 0
+  done < <(harness_manifest_rows "$manifest")
+  return 1
+}
+
+check_bundle_sync
 
 for agent in claude-code opencode codex; do
-  case "$agent" in
-    claude-code) [ -d "$ROOT/.claude" ] || continue ;;
-    opencode)    [ -d "$ROOT/.opencode" ] || continue ;;
-    codex)       [ -d "$ROOT/.agents/skills" ] || continue ;;
-  esac
+  adapter_installed "$agent" || continue
   check_adapter_entrypoints "$agent"
 done
 
