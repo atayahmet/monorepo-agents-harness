@@ -22,8 +22,8 @@ bash .agents/.harness-install/core/scripts/install-harness.sh
 ```
 
 That copies every `core/install-manifest.txt` row into `.agents/monorepo-agents-harness/`, verifies
-each one landed, writes your root `AGENTS.md` (with the provenance marker, project name and
-monorepo framework filled in) unless you already have one, scaffolds `.agents/` state for every
+each one landed, writes your root `AGENTS.md` and `REVIEW.md` (each with its provenance marker and
+project name filled in) unless you already have them, scaffolds `.agents/` state for every
 workspace, wires `memory-gate.sh` as `.git/hooks/pre-commit` if that slot is free, and moves the
 clone away when it's done.
 
@@ -60,10 +60,13 @@ Both scripts end with a `Needs you:` list. Only three things ever appear there:
 
 1. **`{{PROJECT_GOTCHAS}}` in `AGENTS.md`** — your project's own rules (layering, boundaries,
    conventions). Fill it in or delete the example item; no script can guess this.
-2. **`AGENTS.md` already existed** — it is left untouched. Run
+2. **`{{PROJECT_REVIEW_POLICY}}` in `REVIEW.md`** — your project's review passes / thresholds /
+   exclusions for `/monorepo-harness-review`. Fill it in or delete the section; the built-in
+   defaults are reasonable if you do nothing.
+3. **`AGENTS.md` already existed** — it is left untouched. Run
    `core/skills/agents-md-merge/SKILL.md`: it keeps 100% of your content, weaves in only the
    harness rules you're missing, shows you the full diff, and writes nothing until you approve.
-3. **A `<file>.harness-proposed`** — review and merge with
+4. **A `<file>.harness-proposed`** — review and merge with
    `git diff --no-index <file> <file>.harness-proposed`.
 
 ## 5. Confirm nothing was missed
@@ -86,8 +89,6 @@ throwaway dir afterwards.
 
 - **CI** — ask your agent `/monorepo-harness-ci`; it detects the provider and wires
   `memory-gate.sh` in (`core/skills/ci-integration/SKILL.md`).
-- **Review policy** — copy `core/root-REVIEW.md` to `REVIEW.md` and resolve
-  `{{PROJECT_NAME}}`/`{{PROJECT_REVIEW_POLICY}}` to customize `/monorepo-harness-review`.
 - **Intent inbox** — `/monorepo-harness-intent` (`core/governance/intents/AGENTS.md`).
 
 ## 7. Updating

@@ -440,7 +440,7 @@ can update itself later with `/monorepo-harness:update` (claude-code) or `/monor
 | [core/skills/monorepo/SKILL.md](core/skills/monorepo/SKILL.md)             | Monorepo guidance (framework-agnostic + Turborepo/Nx/Lerna/workspaces)                     |
 | [core/skills/ci-integration/SKILL.md](core/skills/ci-integration/SKILL.md) | Detects the target project's CI provider and wires `memory-gate.sh` into it (Scenario 3)   |
 | [core/skills/pr-review/SKILL.md](core/skills/pr-review/SKILL.md)           | Reviews a diff against `REVIEW.md` policy and a task's plan/spec/verify artifacts (Scenario 4) |
-| [core/root-REVIEW.md](core/root-REVIEW.md) | Optional installable review-policy template — copied into target repos as `REVIEW.md` |
+| [core/root-REVIEW.md](core/root-REVIEW.md) | Review-policy template — installed to target repo roots as `REVIEW.md` |
 | [core/skills/intent-workflow/SKILL.md](core/skills/intent-workflow/SKILL.md) | Captures stakeholder intents and lets a product owner approve/reject them (Scenario 1)     |
 | [core/governance/intents/AGENTS.md](core/governance/intents/AGENTS.md) | Intent file format and status-lifecycle rules for every `<workspace>/.agents/intents/` |
 | [core/governance/artifacts/AGENTS.md](core/governance/artifacts/AGENTS.md) | Task-index format & searchability rules for every `<workspace>/.agents/artifacts/index.md` |

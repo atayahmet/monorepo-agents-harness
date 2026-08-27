@@ -128,6 +128,16 @@ else
   note "AGENTS.md already existed: reconcile it with core/skills/agents-md-merge/SKILL.md (it keeps 100% of your content and asks before writing)."
 fi
 
+if [ ! -e "$ROOT/REVIEW.md" ]; then
+  { printf '<!-- monorepo-agents-harness: root-REVIEW.md v%s -->\n\n' "$VERSION"
+    harness_resolve_placeholders "$DEST/core/root-REVIEW.md" "$PROJECT_NAME" "$FRAMEWORK"
+  } >"$ROOT/REVIEW.md" || fail "could not write REVIEW.md"
+  echo "  + REVIEW.md (project: $PROJECT_NAME)"
+  note "Fill in {{PROJECT_REVIEW_POLICY}} in REVIEW.md (or delete it) — it customizes /monorepo-harness-review for your project."
+else
+  echo "  = REVIEW.md exists — left untouched"
+fi
+
 # --- 4. Per-workspace state -----------------------------------------------------------------
 bash "$DEST/core/scripts/scaffold-workspace-agents.sh" || fail "workspace scaffolding failed"
 

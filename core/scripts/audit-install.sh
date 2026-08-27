@@ -141,7 +141,27 @@ check_agents_md() {
   fi
 }
 
-# --- Check 4: per-workspace scaffold seeds ---
+# --- Check 4: root REVIEW.md provenance freshness ---
+check_review_md() {
+  local review_file="$ROOT/REVIEW.md" marker_version installed_version
+  if [ ! -f "$review_file" ]; then
+    add_gap "REVIEW.md: missing at repo root"
+    return
+  fi
+  marker_version="$(head -1 "$review_file" \
+    | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?' | head -1 | sed 's/^v//')"
+  if [ -z "$marker_version" ]; then
+    add_gap "REVIEW.md: no provenance marker on line 1 (expected '<!-- monorepo-agents-harness: root-REVIEW.md vX.Y.Z -->')"
+    return
+  fi
+  [ -f "$BUNDLE_DIR/VERSION" ] || return
+  installed_version="$(tr -d '[:space:]' <"$BUNDLE_DIR/VERSION")"
+  if harness_semver_is_older "$marker_version" "$installed_version" && [ ! -f "$review_file.harness-proposed" ]; then
+    add_gap "REVIEW.md: provenance marker v$marker_version is older than installed v$installed_version, and no REVIEW.md.harness-proposed is present"
+  fi
+}
+
+# --- Check 5: per-workspace scaffold seeds ---
 check_workspace_scaffold() {
   local parents=() parent ws dest f
   if [ -x "$DETECT_SCRIPT" ]; then
@@ -184,6 +204,7 @@ for agent in claude-code opencode codex; do
 done
 
 check_agents_md
+check_review_md
 check_workspace_scaffold
 
 if [ "$json" -eq 1 ]; then

@@ -27,6 +27,25 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.1.0-rc.2] - 2026-08-27
+
+### Added
+
+- **Root `REVIEW.md` is now installed automatically.** `core/scripts/install-harness.sh` writes the
+  review-policy file at the project root from `core/root-REVIEW.md` (provenance marker on line 1,
+  `{{PROJECT_NAME}}` resolved), exactly like the existing `AGENTS.md` step. It is no longer a manual
+  "copy it yourself" step. `core/scripts/audit-install.sh` now reports a missing or stale
+  `REVIEW.md` alongside the existing `AGENTS.md` check.
+
+### Upgrade Notes
+
+- Existing projects that never created a root `REVIEW.md` will get one on their next **full**
+  install (a re-run of `install-harness.sh` without `--sync-only`), exactly like `AGENTS.md` — the
+  `--sync-only` update path deliberately does not touch root files. A `REVIEW.md` that already exists
+  is **never overwritten** — it is left untouched, like `AGENTS.md`. The `{{PROJECT_REVIEW_POLICY}}`
+  region is yours to fill in or delete; leaving the defaults in place preserves the current review
+  behavior (the skill's built-in defaults match the generated file).
+
 ## [0.1.0-rc.1] - 2026-08-27
 
 ### Changed
@@ -100,6 +119,7 @@ First release candidate. Versioning starts here.
 - While on `-rc.*`, treat the artifact layout and the manifest format as still settling: a breaking
   change may land in a later `rc` without a MAJOR bump.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.1...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.2...HEAD
+[0.1.0-rc.2]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.2
 [0.1.0-rc.1]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.1
 [0.1.0-rc.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.0

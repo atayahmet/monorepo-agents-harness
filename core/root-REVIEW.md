@@ -1,13 +1,12 @@
 <!--
-  TEMPLATE — root REVIEW.md for a monorepo project using the agent harness.
+  Root REVIEW.md — review policy for a monorepo project using the agent harness.
   Read by the `pr-review` skill (core/skills/pr-review/SKILL.md) when a review is requested via
-  /monorepo-harness-review. If this file is absent, the skill falls back to the built-in defaults
-  documented in that skill — copying this in is optional, but recommended once you want to tune
-  thresholds or exclusions for your project.
-  Resolve the placeholder before use:
-    {{PROJECT_REVIEW_POLICY}} -> project-specific review rules (extra passes, stricter/looser
-                                  thresholds, additional exclusions); delete the section if none.
--->
+  /monorepo-harness-review; if this file is absent the skill falls back to the built-in defaults
+  documented in that skill.
+  Installed by core/scripts/install-harness.sh, which fills in the project name and prepends the
+  provenance marker on line 1. The {{PROJECT_REVIEW_POLICY}} region below is yours — tune passes,
+  thresholds or exclusions for your project, or delete the section if the defaults are sufficient.
+--> 
 
 # {{PROJECT_NAME}} — Review Policy
 
