@@ -47,7 +47,7 @@ they coexist with your existing hooks safely.
 | Plan/spec/memory + monorepo templates | `core/skills/**/SKILL.md` | symlinked into `.agents/skills/` (auto-registration) |
 | Plan/spec reminder (start of impl.) | — | `PostToolUse[update_plan]` hook (`systemMessage` reminder) |
 | Session-start reminder | — | `SessionStart` hook (`additionalContext` reminder) |
-| Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `/monorepo-harness-build` skill |
+| Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` + `core/scripts/task-state.sh` | `/monorepo-harness-spec` · `/monorepo-harness-plan` · `/monorepo-harness-build` skills |
 | Memory-gate (incl. `4_verify.md` when required) | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (soft reminder) + the universal git/CI gate (hard) |
 | Verifier | `core/skills/agent-workflow/SKILL.md` Phase 4 | — (no subagent primitive; run the same verification inline) |
 | Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `/monorepo-harness-update` skill |

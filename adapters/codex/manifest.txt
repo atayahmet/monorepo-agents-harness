@@ -14,6 +14,8 @@ link  .agents/skills/monorepo        core/skills/monorepo
 
 copy  .agents/skills/monorepo-harness-build/SKILL.md
 copy  .agents/skills/monorepo-harness-update/SKILL.md
+copy  .agents/skills/monorepo-harness-spec/SKILL.md
+copy  .agents/skills/monorepo-harness-plan/SKILL.md
 copy  .agents/skills/monorepo-harness-ci/SKILL.md
 copy  .agents/skills/monorepo-harness-review/SKILL.md
 copy  .agents/skills/monorepo-harness-intent/SKILL.md

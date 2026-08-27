@@ -27,6 +27,38 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.1.0-rc.3] - 2026-08-27
+
+### Added
+
+- **Per-SDLC-stage slash commands.** The single `/monorepo-harness-build` that wrote spec+plan in
+  one step is split into three gated stages, plus a new read-only validator
+  `core/scripts/task-state.sh`:
+  - `/monorepo-harness-spec <intent.md?>` — writes `1_spec.md`; when an intent path is given it
+    refuses (via `check-intent-approved`) unless that intent is `approved`, and copies it as
+    `0_intent.md`. Without a path it makes a normal ad-hoc spec.
+  - `/monorepo-harness-plan <spec.md>` — writes `2_plan.md`; validates the spec (`check-spec`) and
+    asks about plan mode first (proceeding without it if the user declines).
+  - `/monorepo-harness-build <2_plan.md>` — runs the implementation gated on the whole chain
+    (`check-chain`: spec+plan present; intent approved if the task is intent-seeded), then
+    **automatically** writes `3_memory.md` + `4_verify.md` (unless the spec's Test/verification plan
+    is `N/A`) and updates the index.
+- `task-state.sh` ships inside the bundle automatically (part of the existing `core/` row).
+- All three adapters gain the new `-spec`/`-plan` commands and a rewritten `-build` (manifest rows
+  added); docs (`PORTABILITY.md`, each adapter `README.md`/`INSTALL.md`, root `README.md`) updated.
+
+### Upgrade Notes
+
+- `/monorepo-harness-build` **no longer writes `1_spec.md`/`2_plan.md`.** If your workflow relied on
+  it to create plan/spec artifacts, use `/monorepo-harness-spec` then `/monorepo-harness-plan`
+  instead. `-build` now starts implementation (gated) and writes memory/verify on completion.
+- The intent-approval requirement is **conditional, not universal**: it is enforced only when a task
+  is seeded by an intent (a `0_intent.md` exists). Ad-hoc tasks (no intent) are unaffected — they
+  skip the intent gate entirely, preserving the existing lightweight path.
+- An existing installed adapter does not get the new commands until you re-run its installer
+  (`install-adapter.sh <agent> --refresh`) or upgrade the harness — see
+  `changelogs/version-0.1.0-rc.3.md`.
+
 ## [0.1.0-rc.2] - 2026-08-27
 
 ### Added
@@ -119,7 +151,8 @@ First release candidate. Versioning starts here.
 - While on `-rc.*`, treat the artifact layout and the manifest format as still settling: a breaking
   change may land in a later `rc` without a MAJOR bump.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.2...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.3...HEAD
+[0.1.0-rc.3]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.3
 [0.1.0-rc.2]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.2
 [0.1.0-rc.1]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.1
 [0.1.0-rc.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.0

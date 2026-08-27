@@ -1,12 +1,13 @@
-# Todo — Install root REVIEW.md during install
+# Todo — Per-SDLC-stage commands with a gated artifact chain
 
-## Task: task_2026_08_27_install_root_review
+## Task: task_2026_08_27_sdlc_commands
 
-- [x] Decide behavior (user: auto-install like AGENTS.md; leave existing REVIEW.md untouched)
-- [x] install-harness.sh: step 3 REVIEW.md generation (marker, resolve PROJECT_NAME, note policy; leave-existing)
-- [x] core/root-REVIEW.md: header comment describes auto-install
-- [x] audit-install.sh: check_review_md() provenance (missing + stale marker)
-- [x] Docs: INSTALL.md §2/§4/§6, README.md index row, PORTABILITY.md
-- [x] VERSION 0.1.0-rc.2 + CHANGELOG.md section + Upgrade Note (no prompt file needed — no command/manual follow-up)
-- [x] Verify: bash -n, smoke install fresh + pre-existing, audit missing/match/stale
+- [x] Decide design (user: shared script; intent mandatory only when given; build auto-writes memory/verify; plan questions on plan-mode; build = implement)
+- [x] core/scripts/task-state.sh: check-intent-approved / check-spec / check-plan / check-chain
+- [x] agent-workflow/SKILL.md: stage-commands table + gating + per-phase entry points
+- [x] Adapter stubs: -spec (new), -plan (new), -build (rewrite) across claude-code/opencode/codex
+- [x] Manifests: 2 new rows each (no new skill registration / jsonc change needed)
+- [x] Docs: PORTABILITY.md, adapter READMEs + INSTALL.md rows, root README
+- [x] VERSION 0.1.0-rc.3 + CHANGELOG + changelogs prompt (manual follow-up: re-run adapter installer)
+- [x] Verify: bash -n, task-state.sh smoke cases, scratch install (idempotence) + audit exit 0
 - [ ] Memory + verify artifacts + commit

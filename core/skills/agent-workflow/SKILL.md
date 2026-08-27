@@ -1,6 +1,6 @@
 ---
 name: agent-workflow
-description: 4-phase agent workflow — opens a dedicated task directory per task; writes 1_spec.md then 2_plan.md on plan approval (spec = what/Design before plan = how/Build, per the AI-native SDLC order), and 3_memory.md plus 4_verify.md on task completion (verify only when the spec's Test/verification plan is not N/A), under <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ where <workspace> is the target app or package (api, web, example-pkg, ...). Triggered automatically when exiting plan mode, or manually via /monorepo-harness-build, before implementation starts; also used when the task ends.
+description: 4-phase agent workflow — opens a dedicated task directory per task; writes 1_spec.md then 2_plan.md (spec = what/Design before plan = how/Build, per the AI-native SDLC order), and 3_memory.md plus 4_verify.md on task completion (verify only when the spec's Test/verification plan is not N/A), under <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ where <workspace> is the target app or package (api, web, example-pkg, ...). Triggered automatically when exiting plan mode, or manually via the stage commands /monorepo-harness-spec, -plan and -build, before implementation starts; also used when the task ends.
 ---
 
 # Agent Workflow — Per-Task Plan / Spec / Memory Artifacts
@@ -56,10 +56,35 @@ The memory-gate scans `apps/*/.agents/artifacts/` and `packages/*/.agents/artifa
 
 **Important**: All files for one task live in the **same directory**. The numeric prefix (`1_`, `2_`, `3_`, `4_`) indicates phase order — and matches the AI-native SDLC artifact order `intent → spec → plan → memory → verify`, so the **spec (`1_spec.md`) is written before the plan (`2_plan.md`)**. `4_verify.md` is required whenever `1_spec.md`'s "Test / verification plan" section is not `N/A` — see Phase 4.
 
-## Phase 1 — `1_spec.md` (after plan approval or `/monorepo-harness-build`)
+## Stage commands — one SDLC phase per command
+
+The workflow is driven one stage at a time by dedicated slash commands, each validating its input
+before writing anything. Use them in order; a stage refuses to run against a stale or unwarranted
+input (see `core/scripts/task-state.sh` for the read-only checks):
+
+| Command | Validates | Writes |
+| ------- | --------- | ------ |
+| `/monorepo-harness-intent [review]` | — | `<workspace>/.agents/intents/intent_*.md` (`status: pending`, then `approved`) |
+| `/monorepo-harness-spec <intent.md?>` | intent **approved** (only when a path is given) | `1_spec.md` (+ `0_intent.md` = copy of the approved intent) |
+| `/monorepo-harness-plan <spec.md>` | spec present (`phase: spec`) + plan-mode consent | `2_plan.md` |
+| `/monorepo-harness-build <plan.md>` | chain: plan + spec present; intent approved **if** the task is intent-seeded | implementation + `3_memory.md` + `4_verify.md` |
+
+**Intent-approval policy:** an approved intent is mandatory only when a task was seeded by one (i.e.
+its directory contains a `0_intent.md`). Ad-hoc tasks (no intent behind them) are exempt — this is
+the common case, and `check-chain` treats the absence of `0_intent.md` as valid. `-spec` enforces an
+approved intent whenever an intent path is passed to it, and copies that approved intent into the
+task dir as `0_intent.md`, so the chain has the evidence it needs downstream.
+
+Each command stub lives in your agent adapter (`.claude/commands/`, `.opencode/commands/`, or a
+codex skill) and is purposely thin: it calls the relevant `task-state.sh` check, handles the only
+adapter-specific concern (plan-mode detection in `-plan`), then runs the phase below. The writing
+templates live here — they are never duplicated into an adapter.
+
+## Phase 1 — `1_spec.md` (via `/monorepo-harness-spec`, or on plan-mode exit)
 
 When plan mode is approved (e.g., `ExitPlanMode` is invoked on Claude Code, or the user runs
-`/monorepo-harness-build` on any agent), **before the first implementation tool call**, create the
+`/monorepo-harness-spec <intent.md?>` on any agent), **before the first implementation tool call**,
+create the
 directory and write `1_spec.md` — the "what": the contract and acceptance criteria. The spec is
 written **before** the plan, matching the AI-native SDLC order (`intent → spec → plan`: Design
 precedes Build); `2_plan.md` (the "how") then builds against this spec in Phase 2.
@@ -69,7 +94,11 @@ precedes Build); `2_plan.md` (the "how") then builds against this spec in Phase 
 1. **Prior art (mandatory)** — grep `<workspace>/.agents/artifacts/index.md` using 1–3 keywords
    derived from the task. On a match, read that task's `1_spec.md` (and `3_memory.md` if marked ◆)
    and keep its relevance ready to cite in `2_plan.md`'s `## Related prior work` (Phase 2).
-2. **Approved intent (optional, best-effort)** — if `<workspace>/.agents/intents/` exists, check
+2. **Approved intent (via `-spec`, else best-effort)** — when `/monorepo-harness-spec <intent.md>`
+   is used, it runs `task-state.sh check-intent-approved`, refuses to write if the intent is not
+   approved, and copies the approved intent into the task dir as `0_intent.md`. When the spec is
+   written without `-spec` (plan-mode exit), fall back to the best-effort check below: if
+   `<workspace>/.agents/intents/` exists, check
    whether an `approved` intent plausibly matches this task (by slug, keywords, or affected files).
    On a match, copy it into the task directory as `0_intent.md` and reference it from `2_plan.md`'s
    `## Problem` (Phase 2). Most ad-hoc tasks have no intent behind them — skip silently if none
@@ -111,11 +140,14 @@ Write "N/A" only for research-only tasks with no verifiable behavior change.>
 compatibility) — consistent with root AGENTS.md gotchas>
 ```
 
-## Phase 2 — `2_plan.md` (before implementation starts)
+## Phase 2 — `2_plan.md` (via `/monorepo-harness-plan`, before implementation)
 
-Immediately after the spec file, **before the first Edit/Write call**, write `2_plan.md` in the same
-directory. The plan is the "how" built against the just-written spec — the spec defines "what", the
-plan the implementation sketch that an engineer who never saw the conversation could follow.
+`/monorepo-harness-plan <spec.md>` first runs `task-state.sh check-spec` (refusing to write if the
+spec is missing/invalid) and checks plan mode: if the agent is not in plan mode it asks "Enable plan
+mode?" — on **yes** it enters plan mode, on **no** it proceeds without. Then, in the task directory
+created by Phase 1, write `2_plan.md` — the "how" built against the just-written spec; the spec
+defines "what", the plan the implementation sketch that an engineer who never saw the conversation
+could follow.
 
 ```markdown
 ---
@@ -151,9 +183,9 @@ status: approved
 - [ ] ...
 ```
 
-## Phase 3 — `3_memory.md` (task end / Stop)
+## Phase 3 — `3_memory.md` (task end / via `/monorepo-harness-build`)
 
-When the task ends, write `3_memory.md` **in the same task directory**. Without it, the memory-gate (agent stop-hook, editor plugin, or git/CI check — depending on your adapter) will not let the task close.
+When the task ends, write `3_memory.md` **in the same task directory**. Without it, the memory-gate (agent stop-hook, editor plugin, or git/CI check — depending on your adapter) will not let the task close. `/monorepo-harness-build <plan.md>` runs `task-state.sh check-chain`, then on completion of the implementation **automatically** writes `3_memory.md` (below) and `4_verify.md` (Phase 4) and updates the workspace index — so the memory/verify stages need no separate command.
 
 ```markdown
 ---
@@ -226,13 +258,19 @@ slug: <slug>
 
 ## Edge cases
 
-- **Implementation without plan mode**: Skill is inactive; hooks do not warn.
+- **Implementation without plan mode**: Skill is inactive; hooks do not warn. If you are writing the
+  plan via `/monorepo-harness-plan`, it will have asked about plan mode first.
 - **Plan exists, no implementation (research only)**: Spec and memory can be skipped; plan stays.
+- **Un-approved intent or broken chain via the commands**: `-spec`/`-plan`/`-build` refuse to write
+  and print the reason from `task-state.sh`; they never silently proceed on a stale input.
 - **Spec's verification plan is `N/A`**: `4_verify.md` is not required (mirrors the research-only
   exemption above — nothing verifiable was ever claimed).
 - **Updating an existing task directory**: Overwrite files; add a `revisions:` log to `2_plan.md`.
 - **Commit requirement**: Memory must be written *after* the commit so `commits:` can be filled in.
+  When `/monorepo-harness-build` auto-generates memory/verify, it does so after the implementation
+  commits land, so the `commits:` list is populated.
   `4_verify.md` has no such ordering constraint relative to `3_memory.md` — both are required by
   task end, in either order.
 - **No matching approved intent**: normal and expected for most tasks — `0_intent.md` is simply
-  omitted; nothing warns about this, unlike the mandatory prior-art search above.
+  omitted; nothing warns about this, unlike the mandatory prior-art search above. As long as the
+  task dir also has no `0_intent.md`, `task-state.sh check-chain` treats it as a valid ad-hoc task.

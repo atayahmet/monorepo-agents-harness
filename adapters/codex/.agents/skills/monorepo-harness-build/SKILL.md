@@ -1,15 +1,19 @@
 ---
 name: monorepo-harness-build
-description: Manually trigger the plan/spec build for the current task. Use when the user types /monorepo-harness-build or asks to create the plan/spec artifacts for the current task.
+description: Run the implementation for the task, gated on a valid spec/plan/intent chain, then write memory and verify. Use when the user types /monorepo-harness-build <2_plan.md>.
 ---
 
 Follow the shared instructions in
-`.agents/monorepo-agents-harness/core/skills/agent-workflow/SKILL.md` exactly:
+`.agents/monorepo-agents-harness/core/skills/agent-workflow/SKILL.md` exactly, and gate with
+`core/scripts/task-state.sh`:
 
-1. Resolve the target workspace (`apps/<name>` or `packages/<name>`).
-2. Create the task directory `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/`.
-3. Write `1_spec.md` (`phase: spec`) — the "what" (contract, acceptance criteria).
-4. Write `2_plan.md` (frontmatter `phase: plan`, `status: approved`) — the "how" — after the spec.
-5. Update `<workspace>/.agents/artifacts/index.md` with a new row for this task.
+1. Resolve the plan path the user typed after the command: `/monorepo-harness-build <2_plan.md>`.
+2. Run `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-chain <2_plan.md>`. If
+   it exits non-zero, do **not** start; report the reason and stop.
+3. Run the implementation for the task following the plan/spec — change only what the task requires.
+4. On completion, write `3_memory.md` (frontmatter `phase: memory`, with `commits:` filled after the
+   implementation commits) and `4_verify.md` (whenever the spec's "Test / verification plan" is not
+   `N/A`) per Phase 3/4, and update `<workspace>/.agents/artifacts/index.md`. Commit the work.
 
-Do this **before the first Edit/Write call** for the task.
+Do **not** write `1_spec.md` or `2_plan.md` here — those belong to `/monorepo-harness-spec` and
+`/monorepo-harness-plan`.

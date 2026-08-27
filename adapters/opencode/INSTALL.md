@@ -40,7 +40,7 @@ git diff --no-index opencode.jsonc opencode.jsonc.harness-proposed
 |---|---|---|
 | Rules / instructions | `AGENTS.md` (native to opencode) | — (no extra wiring) |
 | Plan/spec/memory + monorepo templates | `core/skills/**/SKILL.md` | referenced via `opencode.jsonc` `instructions` |
-| Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` | `/monorepo-harness-build` |
+| Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` + `core/scripts/task-state.sh` | `/monorepo-harness-spec` · `/monorepo-harness-plan` · `/monorepo-harness-build` |
 | Memory-gate (incl. `4_verify.md` when required) | `core/scripts/memory-gate.sh` | the universal git/CI gate (hard) — the only enforcement here |
 | Verifier | `core/skills/agent-workflow/SKILL.md` Phase 4 | — (no subagent primitive; run the same verification inline) |
 | Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `/monorepo-harness-update` |
@@ -55,7 +55,7 @@ opencode --help >/dev/null 2>&1 && echo "opencode present"
 
 The audit reports every missing or stale command file by exact path (it reads the same
 `manifest.txt`), so it is the authoritative check. Then start opencode and type
-`/monorepo-harness-update` — the harness commands must register.
+`/monorepo-harness-spec` — the harness commands must register.
 
 For the end-to-end memory-gate smoke test see `../../INSTALL.md` §5.
 

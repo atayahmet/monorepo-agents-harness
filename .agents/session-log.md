@@ -5,6 +5,14 @@ or `packages/` workspace). Append one entry per session (newest last); bump the 
 session. Every entry MUST record the **artifact directory** of that session. **Read this before
 starting any task that targets this workspace.**
 
+## v0.1.0-rc.3 — 2026-08-27
+- Scope: Split the monolithic `/monorepo-harness-build` into per-SDLC-stage commands
+  (`-spec`/`-plan`/`-build`) with read-only chain gating via a new `core/scripts/task-state.sh`.
+- Artifacts: .agents/artifacts/task_2026_08_27_sdlc_commands/
+- Outcome: `-spec` gates on an approved intent when a path is given (ad-hoc otherwise);
+  `-plan` validates the spec and asks about plan mode; `-build` validates the chain then runs the
+  implementation and auto-writes memory/verify. Adapters/manifests/docs/version updated; v0.1.0-rc.3.
+
 ## v0.1.0-rc.2 — 2026-08-27
 - Scope: Install root `REVIEW.md` during install (was only shipped in the bundle, never written to
   the target root as `REVIEW.md`).
