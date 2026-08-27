@@ -9,7 +9,6 @@ This adapter wires the harness into **opencode**. Because opencode has no `ExitP
 - **`/monorepo-harness-spec <intent.md?>`** — create the task directory and write `1_spec.md`, gated on an approved intent when a path is given.
 - **`/monorepo-harness-plan <spec.md>`** — write `2_plan.md`, gated on a valid spec, asking about plan mode first.
 - **`/monorepo-harness-build <2_plan.md>`** — run the implementation, gated on the full spec/plan/intent chain, then write `3_memory.md` + `4_verify.md`.
-- **`/monorepo-harness-update`** — compare your installed harness against upstream and upgrade the agent-neutral core with your consent.
 - **Universal hard gate** — the git pre-commit / CI version of `core/scripts/memory-gate.sh` blocks commits until `3_memory.md` exists, and `4_verify.md` too whenever the spec's Test/verification plan is not `N/A` (Feedback Loop enforcement).
 - **Feedback Loop, without a dedicated subagent** — opencode has no subagent primitive, so run your verification commands inline in the main session before writing `4_verify.md`; the underlying instructions are the same ones a `verifier` subagent would follow on Claude Code (see `PORTABILITY.md`).
 
@@ -43,9 +42,11 @@ spec present, and the intent approved if the task is intent-seeded), then runs t
 On completion it writes `3_memory.md` (with `commits:` filled after the commits) and `4_verify.md`
 (whenever the spec's Test/verification plan is not `N/A`), and updates the index.
 
-### `/monorepo-harness-update` — Check for harness updates
+### Checking for harness updates
 
-Use `/monorepo-harness-update` when you suspect the harness is out of date or after a release announcement. It reports the installed vs. latest version and asks for consent before upgrading.
+There is no `/monorepo-harness-update` command in this adapter. To check or upgrade the harness,
+follow the "Update from the repo" prompt in the project README, or run the shared
+`core/skills/harness-update/SKILL.md` workflow directly (backed by `core/scripts/harness-update.sh`).
 
 ## Typical workflow
 

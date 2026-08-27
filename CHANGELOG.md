@@ -27,6 +27,34 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.1.0-rc.4] - 2026-08-27
+
+### Removed
+
+- **Per-adapter harness update commands.** The `/monorepo-harness:update` (claude-code) and
+  `/monorepo-harness-update` (opencode, codex) entry points are removed. Updating is now driven by a
+  paste-in **"Or update from the repo"** prompt in the project README that points the active agent at
+  the (now-versionless) `core/skills/harness-update/SKILL.md` workflow — the same check, consent
+  gates, installer re-run, self-healing adapter `--refresh`, AGENTS.md reconciliation, and audit as
+  before, just no longer via a registered slash command. The shared skill and
+  `core/scripts/harness-update.sh` remain in the bundle.
+
+### Changed
+
+- Adapter install manifests drop the removed update-command rows; the capability matrix
+  (`PORTABILITY.md`), the README feature bullets, Scenario 5, the adapter tables, and each adapter's
+  README/INSTALL now describe the README-prompt-driven update instead.
+
+### Upgrade Notes
+
+- **No manual follow-up is required.** The removal is manifest-only: an existing installed adapter
+  keeps a stale `/monorepo-harness:update` command/skill until you re-run
+  `install-adapter.sh <agent> --refresh` (or run the README update prompt, which does this
+  automatically). Re-running it is optional — the stale entry point is harmless and still points at
+  the valid shared skill — but re-running it matches the new layout. Any consumer using
+  `audit-install.sh` against this release will flag a stale update command file as an extra file to
+  remove (or re-install), which is expected.
+
 ## [0.1.0-rc.3] - 2026-08-27
 
 ### Added
@@ -151,7 +179,8 @@ First release candidate. Versioning starts here.
 - While on `-rc.*`, treat the artifact layout and the manifest format as still settling: a breaking
   change may land in a later `rc` without a MAJOR bump.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.3...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.4...HEAD
+[0.1.0-rc.4]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.4
 [0.1.0-rc.3]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.3
 [0.1.0-rc.2]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.2
 [0.1.0-rc.1]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.1

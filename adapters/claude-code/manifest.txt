@@ -13,7 +13,6 @@ link  .claude/skills/agent-workflow  core/skills/agent-workflow
 link  .claude/skills/monorepo        core/skills/monorepo
 
 copy  .claude/commands/monorepo-harness-build.md
-copy  .claude/commands/monorepo-harness/update.md
 copy  .claude/commands/monorepo-harness-spec.md
 copy  .claude/commands/monorepo-harness-plan.md
 copy  .claude/commands/monorepo-harness-ci.md

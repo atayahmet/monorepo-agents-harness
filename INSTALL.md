@@ -93,7 +93,7 @@ throwaway dir afterwards.
 
 ## 7. Updating
 
-`bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh check`, or ask your agent
-(`/monorepo-harness:update` on claude-code, `/monorepo-harness-update` elsewhere). The upgrade is
+`bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh check`, or paste the "Or
+update from the repo" prompt from `README.md` into your agent. The upgrade is
 consent-gated and re-uses the very same installer scripts, so an update can never disagree with an
 install about what "complete" means. Full workflow: `core/skills/harness-update/SKILL.md`.

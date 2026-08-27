@@ -5,6 +5,15 @@ or `packages/` workspace). Append one entry per session (newest last); bump the 
 session. Every entry MUST record the **artifact directory** of that session. **Read this before
 starting any task that targets this workspace.**
 
+## v0.1.0-rc.4 — 2026-08-27
+- Scope: Remove the per-adapter harness update commands (`/monorepo-harness:update` on claude-code,
+  `/monorepo-harness-update` on opencode/codex); add an "Or update from the repo" paste-in prompt to
+  the project README that drives the same `core/skills/harness-update/SKILL.md` workflow.
+- Artifacts: .agents/artifacts/task_2026_08_27_remove_update_command/
+- Outcome: update entry files + manifest rows removed; shared skill/script kept in the bundle; root
+  README/INSTALL, PORTABILITY, adapter READMEs/INSTALLs, CHANGELOG, VERSION (0.1.0-rc.4) updated.
+  Manifest-only removal → no changelogs prompt file.
+
 ## v0.1.0-rc.3 — 2026-08-27
 - Scope: Split the monolithic `/monorepo-harness-build` into per-SDLC-stage commands
   (`-spec`/`-plan`/`-build`) with read-only chain gating via a new `core/scripts/task-state.sh`.

@@ -13,7 +13,6 @@
 # entries in opencode.jsonc instead (see adapters/opencode/README.md).
 
 copy  .opencode/commands/monorepo-harness-build.md
-copy  .opencode/commands/monorepo-harness-update.md
 copy  .opencode/commands/monorepo-harness-spec.md
 copy  .opencode/commands/monorepo-harness-plan.md
 copy  .opencode/commands/monorepo-harness-ci.md

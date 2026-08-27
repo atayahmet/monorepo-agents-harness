@@ -43,7 +43,7 @@ git diff --no-index opencode.jsonc opencode.jsonc.harness-proposed
 | Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` + `core/scripts/task-state.sh` | `/monorepo-harness-spec` · `/monorepo-harness-plan` · `/monorepo-harness-build` |
 | Memory-gate (incl. `4_verify.md` when required) | `core/scripts/memory-gate.sh` | the universal git/CI gate (hard) — the only enforcement here |
 | Verifier | `core/skills/agent-workflow/SKILL.md` Phase 4 | — (no subagent primitive; run the same verification inline) |
-| Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | `/monorepo-harness-update` |
+| Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | follow the README "Update from the repo" prompt, or run the skill directly (no command) |
 | CI wiring · PR review · intent capture | `core/skills/{ci-integration,pr-review,intent-workflow}/SKILL.md` | `/monorepo-harness-ci` · `/monorepo-harness-review` · `/monorepo-harness-intent` |
 
 ## Verify
