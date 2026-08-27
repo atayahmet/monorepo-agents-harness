@@ -19,7 +19,7 @@ the contract and which is the implementation sketch.
 Flip the numbered prefix and the write order so the agent produces `1_spec.md` (what/contract) then
 `2_plan.md` (how), preserving the numbered scheme and `0_intent.md` / `3_memory.md` / `4_verify.md`.
 Add backcompat so legacy installed dirs that only have `2_spec.md` still pass the gate. Propagate the
-rename across every consumer of the old names in a single commit and bump to `0.2.0`.
+rename across every consumer of the old names in a single commit and bump to `0.1.0-rc.1`.
 
 ## Related prior work
 
@@ -38,7 +38,7 @@ rename across every consumer of the old names in a single commit and bump to `0.
    opencode (build+review commands, README), codex (build skill, review skill, hooks.json, README),
    and `adapters/AGENTS.md`.
 6. Update docs: `README.md` scenarios/layout, `INSTALL.md`.
-7. Version: `VERSION` → `0.2.0`, `CHANGELOG.md` section, `changelogs/version-0.2.0.md` follow-up.
+7. Version: `VERSION` → `0.1.0-rc.1`, `CHANGELOG.md` section, `changelogs/version-0.1.0-rc.1.md` follow-up.
 8. Verify (bash -n, jq, audit-install.sh, backcompat smoke, grep sweep).
 
 ## Affected files / modules
@@ -48,7 +48,7 @@ rename across every consumer of the old names in a single commit and bump to `0.
 - core/governance/{artifacts,index-template,intents}
 - core/root-AGENTS.md, core/root-REVIEW.md, core/workspace-agents-template/session-log.md
 - adapters/{AGENTS.md, claude-code, opencode, codex} (commands, skills, hooks, verifier, READMEs)
-- README.md, INSTALL.md, VERSION, CHANGELOG.md, changelogs/version-0.2.0.md
+- README.md, INSTALL.md, VERSION, CHANGELOG.md, changelogs/version-0.1.0-rc.1.md
 
 ## Risks & assumptions
 
@@ -62,5 +62,5 @@ rename across every consumer of the old names in a single commit and bump to `0.
 - [ ] Spec-before-plan write order documented and enforced in skill + adapters
 - [ ] memory-gate requires `1_spec.md` and accepts legacy `2_spec.md`
 - [ ] Governée / root / adapters / docs all reference the new names consistently
-- [ ] VERSION 0.2.0 + CHANGELOG + follow-up prompt
+- [ ] VERSION 0.1.0-rc.1 + CHANGELOG + follow-up prompt
 - [ ] All verification commands pass

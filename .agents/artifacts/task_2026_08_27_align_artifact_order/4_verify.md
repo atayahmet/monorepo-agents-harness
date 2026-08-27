@@ -40,7 +40,7 @@ intentional backcompat notes in `memory-gate.sh`, `core/skills/pr-review/SKILL.m
 - [x] Root templates (`root-AGENTS.md`, `root-REVIEW.md`, `workspace-agents-template/session-log.md`) updated.
 - [x] All three adapters' build/review commands, claude-code verifier, and hook JSON messages updated — settings.json and hooks.json jq-valid.
 - [x] `README.md` and `INSTALL.md` reflect the new order with no stale `1_plan.md`/`2_spec.md` order claims — grep sweep clean.
-- [x] `VERSION` bumped to `0.2.0`; `CHANGELOG.md` section and `changelogs/version-0.2.0.md` follow-up added.
+- [x] `VERSION` bumped to `0.1.0-rc.1`; `CHANGELOG.md` section and `changelogs/version-0.1.0-rc.1.md` follow-up added.
 - [x] Verification: `bash -n`, `jq`, backcompat smoke passed; `audit-install.sh` exit 2 expected (no bundle in template repo).
 
 ## Deviations

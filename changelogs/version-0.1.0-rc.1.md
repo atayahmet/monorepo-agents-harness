@@ -1,12 +1,12 @@
 ---
-version: 0.2.0
-from: 0.1.0
+version: 0.1.0-rc.1
+from: 0.1.0-rc.0
 date: 2026-08-27
 ---
 
-# Version 0.2.0 Upgrade Instructions
+# Version 0.1.0-rc.1 Upgrade Instructions
 
-You are upgrading the monorepo-agents-harness from 0.1.0 to 0.2.0.
+You are upgrading the monorepo-agents-harness from 0.1.0-rc.0 to 0.1.0-rc.1.
 
 This release renames the per-task artifacts to match the AI-native SDLC order
 (`intent → spec → plan → memory → verify`): `1_plan.md` → `2_plan.md` (the "how") and

@@ -5,8 +5,8 @@ or `packages/` workspace). Append one entry per session (newest last); bump the 
 session. Every entry MUST record the **artifact directory** of that session. **Read this before
 starting any task that targets this workspace.**
 
-## v0.1.0 — 2026-08-27
+## v0.1.0-rc.1 — 2026-08-27
 - Scope: Align the artifact order with the AI-Native SDLC playbook — `intent → spec → plan →
   memory → verify`; renumber `1_plan.md`/`2_spec.md` to `1_spec.md`/`2_plan.md` with backcompat.
 - Artifacts: .agents/artifacts/task_2026_08_27_align_artifact_order/
-- Outcome: Renamed artifact contract; memory-gate/governance/adapters/docs updated; v0.2.0.
+- Outcome: Renamed artifact contract; memory-gate/governance/adapters/docs updated; v0.1.0-rc.1.

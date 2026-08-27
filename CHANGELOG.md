@@ -27,7 +27,7 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
-## [0.2.0] - 2026-08-27
+## [0.1.0-rc.1] - 2026-08-27
 
 ### Changed
 
@@ -100,6 +100,6 @@ First release candidate. Versioning starts here.
 - While on `-rc.*`, treat the artifact layout and the manifest format as still settling: a breaking
   change may land in a later `rc` without a MAJOR bump.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.2.0
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.1...HEAD
+[0.1.0-rc.1]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.1
 [0.1.0-rc.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.0

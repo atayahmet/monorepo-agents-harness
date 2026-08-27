@@ -52,7 +52,7 @@ altering the index row format; a forced in-place migration of the old names on i
 - [ ] Root templates (`root-AGENTS.md`, `root-REVIEW.md`, `workspace-agents-template/session-log.md`) updated.
 - [ ] All three adapters' build/review commands, the claude-code verifier, and hook JSON messages updated.
 - [ ] `README.md` and `INSTALL.md` reflect the new order with no stale `1_plan.md`/`2_spec.md` order claims.
-- [ ] `VERSION` bumped to `0.2.0`; `CHANGELOG.md` and a follow-up prompt added.
+- [ ] `VERSION` bumped to `0.1.0-rc.1`; `CHANGELOG.md` and a follow-up prompt added.
 - [ ] Verification: `bash -n`, `jq`, `audit-install.sh` exit 0, and a `memory-gate.sh` backcompat smoke test.
 
 ## Test / verification plan

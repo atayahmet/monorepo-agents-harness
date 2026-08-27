@@ -7,6 +7,6 @@
 - [ ] root-AGENTS.md, root-REVIEW.md, workspace-agents-template/session-log.md
 - [ ] adapters: build commands, review commands, verifier, hooks json, adapters/AGENTS.md, READMEs
 - [ ] README.md + INSTALL.md
-- [ ] VERSION 0.2.0 + CHANGELOG.md + changelogs prompt
+- [x] VERSION 0.1.0-rc.1 + CHANGELOG.md + changelogs prompt
 - [ ] Verify: bash -n, jq, audit-install.sh, memory-gate smoke
 - [ ] Commit

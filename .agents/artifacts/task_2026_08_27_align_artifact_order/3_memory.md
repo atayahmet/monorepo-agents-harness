@@ -14,7 +14,7 @@ memory → verify`): the spec is now `1_spec.md` (the "what"/contract) written f
 and the plan is now `2_plan.md` (the "how"). Propagated the rename across every consumer of the old
 names — the agent-workflow skill, memory-gate script, task-index format, governance rules, root
 templates, PR-review skill, and all three adapters' build/review commands, the claude-code verifier,
-and hook messages — and bumped VERSION to 0.2.0 with CHANGELOG plus a follow-up prompt.
+and hook messages — and bumped VERSION to 0.1.0-rc.1 with CHANGELOG plus a follow-up prompt.
 
 ## Surprising findings
 
@@ -39,5 +39,6 @@ and hook messages — and bumped VERSION to 0.2.0 with CHANGELOG plus a follow-u
   absent, so installed projects with in-flight tasks keep passing the gate on upgrade (user-confirmed).
 - **Keep the numbered scheme** (user-confirmed): `1_spec.md`/`2_plan.md`/`3_memory.md`/`4_verify.md`
   rather than non-numbered names, preserving the phase-order semantics and index-row stability.
-- **0.2.0 MINOR**: backcompat means no consumer breaks, but the approachable default (and thus the
-  guidance/docs) changed, so a named MINOR bump with an upgrade note is the right signal.
+- **0.1.0-rc.1 (prerelease bump)**: backcompat means no consumer breaks, and the user chose to
+  release this under the prerelease `0.1.0-rc.1` (from `0.1.0-rc.0`) rather than a MINOR — the
+  artifact layout and manifest format are still settling during `-rc.*`, per the release policy.
