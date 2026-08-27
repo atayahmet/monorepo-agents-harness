@@ -1,6 +1,6 @@
 ---
 name: agent-workflow
-description: 4-phase agent workflow — opens a dedicated task directory per task; writes 1_plan.md and 2_spec.md on plan approval, and 3_memory.md plus 4_verify.md on task completion (verify only when the spec's Test/verification plan is not N/A), under <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ where <workspace> is the target app or package (api, web, example-pkg, ...). Triggered automatically when exiting plan mode, or manually via /monorepo-harness-build, before implementation starts; also used when the task ends.
+description: 4-phase agent workflow — opens a dedicated task directory per task; writes 1_spec.md then 2_plan.md on plan approval (spec = what/Design before plan = how/Build, per the AI-native SDLC order), and 3_memory.md plus 4_verify.md on task completion (verify only when the spec's Test/verification plan is not N/A), under <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ where <workspace> is the target app or package (api, web, example-pkg, ...). Triggered automatically when exiting plan mode, or manually via /monorepo-harness-build, before implementation starts; also used when the task ends.
 ---
 
 # Agent Workflow — Per-Task Plan / Spec / Memory Artifacts
@@ -22,8 +22,8 @@ apps/api/
         ├── index.md                         # task index for the workspace
         └── task_<YYYY_MM_DD>_<slug>/
             ├── 0_intent.md                  # optional — only if an approved intent seeded this task
-            ├── 1_plan.md
-            ├── 2_spec.md
+            ├── 1_spec.md                    # the "what" (contract, acceptance criteria) — written first
+            ├── 2_plan.md                    # the "how" (implementation plan) — written after the spec
             ├── 3_memory.md
             └── 4_verify.md
 ```
@@ -32,8 +32,8 @@ apps/api/
 packages/example-pkg/.agents/artifacts/
 └── task_<YYYY_MM_DD>_<slug>/
     ├── 0_intent.md   # optional — see Phase 1
-    ├── 1_plan.md
-    ├── 2_spec.md
+    ├── 1_spec.md     # the "what" (contract) — written first
+    ├── 2_plan.md     # the "how" (implementation plan) — written after the spec
     ├── 3_memory.md
     └── 4_verify.md
 ```
@@ -54,60 +54,26 @@ Pick `<workspace>` from the file paths the task will touch:
 
 The memory-gate scans `apps/*/.agents/artifacts/` and `packages/*/.agents/artifacts/` for today's task — placement matters for the gate to find it.
 
-**Important**: All files for one task live in the **same directory**. The numeric prefix (`1_`, `2_`, `3_`, `4_`) indicates phase order. `4_verify.md` is required whenever `2_spec.md`'s "Test / verification plan" section is not `N/A` — see Phase 4.
+**Important**: All files for one task live in the **same directory**. The numeric prefix (`1_`, `2_`, `3_`, `4_`) indicates phase order — and matches the AI-native SDLC artifact order `intent → spec → plan → memory → verify`, so the **spec (`1_spec.md`) is written before the plan (`2_plan.md`)**. `4_verify.md` is required whenever `1_spec.md`'s "Test / verification plan" section is not `N/A` — see Phase 4.
 
-## Phase 1 — `1_plan.md` (after plan approval or `/monorepo-harness-build`)
+## Phase 1 — `1_spec.md` (after plan approval or `/monorepo-harness-build`)
 
-When plan mode is approved (e.g., `ExitPlanMode` is invoked on Claude Code, or the user runs `/monorepo-harness-build` on any agent), **before the first implementation tool call**, create the directory and write `1_plan.md`.
+When plan mode is approved (e.g., `ExitPlanMode` is invoked on Claude Code, or the user runs
+`/monorepo-harness-build` on any agent), **before the first implementation tool call**, create the
+directory and write `1_spec.md` — the "what": the contract and acceptance criteria. The spec is
+written **before** the plan, matching the AI-native SDLC order (`intent → spec → plan`: Design
+precedes Build); `2_plan.md` (the "how") then builds against this spec in Phase 2.
 
 **Before writing it**, two checks:
 
 1. **Prior art (mandatory)** — grep `<workspace>/.agents/artifacts/index.md` using 1–3 keywords
-   derived from the task. On a match, read that task's `2_spec.md` (and `3_memory.md` if marked ◆)
-   and summarize its relevance in the `## Related prior work` section below.
+   derived from the task. On a match, read that task's `1_spec.md` (and `3_memory.md` if marked ◆)
+   and keep its relevance ready to cite in `2_plan.md`'s `## Related prior work` (Phase 2).
 2. **Approved intent (optional, best-effort)** — if `<workspace>/.agents/intents/` exists, check
    whether an `approved` intent plausibly matches this task (by slug, keywords, or affected files).
-   On a match, copy it into the task directory as `0_intent.md` and reference it from `## Problem`
-   below. Most ad-hoc tasks have no intent behind them — skip silently if none matches or the
-   directory doesn't exist. See `core/skills/intent-workflow/SKILL.md`.
-
-```markdown
----
-phase: plan
-date: <YYYY-MM-DD>
-slug: <slug>
-status: approved
----
-
-# Plan: <Task title>
-
-## Problem
-<The problem being solved, 1–3 sentences>
-
-## Approach
-<High-level strategy, 2–5 sentences>
-
-## Related prior work
-<Grep `<workspace>/.agents/artifacts/index.md` for related keywords. List matches as
-`- [slug](task_YYYY_MM_DD_slug/2_spec.md) — why relevant`, or `- none found`.>
-
-## Steps
-1. ...
-2. ...
-
-## Affected files / modules
-- ...
-
-## Risks & assumptions
-- ...
-
-## Definition of done
-- [ ] ...
-```
-
-## Phase 2 — `2_spec.md` (before implementation starts)
-
-Immediately after the plan file, **before the first Edit/Write call**, write `2_spec.md` in the same directory. The spec is the declarative/contractual counterpart of the plan — the plan says "how", the spec defines "what".
+   On a match, copy it into the task directory as `0_intent.md` and reference it from `2_plan.md`'s
+   `## Problem` (Phase 2). Most ad-hoc tasks have no intent behind them — skip silently if none
+   matches or the directory doesn't exist. See `core/skills/intent-workflow/SKILL.md`.
 
 ```markdown
 ---
@@ -143,6 +109,46 @@ Write "N/A" only for research-only tasks with no verifiable behavior change.>
 ## Architectural constraints
 <Layer rules, module boundaries, and non-functional requirements (performance, security,
 compatibility) — consistent with root AGENTS.md gotchas>
+```
+
+## Phase 2 — `2_plan.md` (before implementation starts)
+
+Immediately after the spec file, **before the first Edit/Write call**, write `2_plan.md` in the same
+directory. The plan is the "how" built against the just-written spec — the spec defines "what", the
+plan the implementation sketch that an engineer who never saw the conversation could follow.
+
+```markdown
+---
+phase: plan
+date: <YYYY-MM-DD>
+slug: <slug>
+status: approved
+---
+
+# Plan: <Task title>
+
+## Problem
+<The problem being solved, 1–3 sentences — reference `0_intent.md` when one seeded the task>
+
+## Approach
+<High-level strategy, 2–5 sentences>
+
+## Related prior work
+<Cite matches from the Phase 1 prior-art grep as
+`- [slug](task_YYYY_MM_DD_slug/1_spec.md) — why relevant`, or `- none found`.>
+
+## Steps
+1. ...
+2. ...
+
+## Affected files / modules
+- ...
+
+## Risks & assumptions
+- ...
+
+## Definition of done
+- [ ] ...
 ```
 
 ## Phase 3 — `3_memory.md` (task end / Stop)
@@ -182,7 +188,7 @@ marker's meaning is unchanged by Phase 4 below — it still means "plan + memory
 
 ## Phase 4 — `4_verify.md` (task end, alongside memory)
 
-Required whenever `2_spec.md`'s "## Test / verification plan" section is **not** `N/A` — i.e.
+Required whenever `1_spec.md`'s "## Test / verification plan" section is **not** `N/A` — i.e.
 whenever there was something verifiable to check. Records the *actual* verification run as
 evidence, not narration: this is what makes "Verification Before Done" (root `AGENTS.md` Agent
 Lifecycle) checkable rather than a self-report. The memory-gate enforces this the same way it
@@ -206,7 +212,7 @@ slug: <slug>
 <Command(s) actually executed, verbatim, plus their real output/exit code — evidence, not narration>
 
 ## Acceptance criteria results
-- [x]/[ ] <criterion copied from 2_spec.md> — <how it was confirmed>
+- [x]/[ ] <criterion copied from 1_spec.md> — <how it was confirmed>
 
 ## Deviations
 <Any acceptance criterion not met, or verification steps skipped and why>
@@ -224,7 +230,7 @@ slug: <slug>
 - **Plan exists, no implementation (research only)**: Spec and memory can be skipped; plan stays.
 - **Spec's verification plan is `N/A`**: `4_verify.md` is not required (mirrors the research-only
   exemption above — nothing verifiable was ever claimed).
-- **Updating an existing task directory**: Overwrite files; add a `revisions:` log to `1_plan.md`.
+- **Updating an existing task directory**: Overwrite files; add a `revisions:` log to `2_plan.md`.
 - **Commit requirement**: Memory must be written *after* the commit so `commits:` can be filled in.
   `4_verify.md` has no such ordering constraint relative to `3_memory.md` — both are required by
   task end, in either order.

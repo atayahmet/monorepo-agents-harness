@@ -20,7 +20,7 @@ What every review checks, in order:
 2. **Security / vulnerabilities** — injection, auth bypass, secrets in diffs, unsafe deserialization,
    OWASP Top 10-class issues.
 3. **Spec compliance** — when the diff maps to a task under `<workspace>/.agents/artifacts/task_*/`,
-   whether it satisfies that task's `2_spec.md` acceptance criteria and stays within its stated
+   whether it satisfies that task's `1_spec.md` acceptance criteria and stays within its stated
    scope.
 
 ## Thresholds

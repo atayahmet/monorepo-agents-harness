@@ -79,9 +79,9 @@ connection stays traceable.
 ## Relationship to the plan/spec/memory/verify workflow
 
 An **approved** intent is optional input to `core/skills/agent-workflow/SKILL.md`'s Phase 1: before
-writing `1_plan.md`, the agent may find an approved intent in
+writing `1_spec.md`, the agent may find an approved intent in
 `<workspace>/.agents/intents/` matching the task at hand. If found, it is copied into the task's own
-directory as `0_intent.md` and referenced from `1_plan.md`'s `## Problem` section. This is a
+directory as `0_intent.md` and referenced from `2_plan.md`'s `## Problem` section. This is a
 best-effort match, not a mandatory search like the artifact-index prior-art check
 (`core/governance/artifacts/AGENTS.md`) — most ad-hoc engineering tasks have no intent behind them
 and skip this entirely.

@@ -98,7 +98,8 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 
 ## The universal hard gate (every agent, or none)
 
-`core/scripts/memory-gate.sh` fails when today's task dir is missing `2_spec.md` / `3_memory.md`.
+`core/scripts/memory-gate.sh` fails when today's task dir is missing its spec (`1_spec.md`, or legacy
+`2_spec.md`) / `3_memory.md`.
 It depends only on `git` + coreutils, so it works with any agent — or none.
 
 ```bash

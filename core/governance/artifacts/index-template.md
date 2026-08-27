@@ -1,7 +1,7 @@
 # <Workspace> Agent Tasks Index
 
 Task index for this workspace (`<workspace>/.agents/artifacts/`). Each `task_<YYYY_MM_DD>_<slug>/`
-dir contains `2_spec.md`; dirs marked ◆ also contain `1_plan.md` + `3_memory.md`. Links point to
+dir contains `1_spec.md`; dirs marked ◆ also contain `2_plan.md` + `3_memory.md`. Links point to
 the spec. 0 tasks.
 
 **Type legend:** `F` bugfix · `R` readability/refactor · `I` infrastructure/cross-cutting · `E` new endpoint/feature
@@ -11,7 +11,7 @@ the spec. 0 tasks.
 
 | Date  | Type | Task | Summary |
 | ----- | ---- | ---- | ------- |
-<!-- | MM-DD | E | [slug](task_YYYY_MM_DD_slug/2_spec.md) ◆ | ≤10-word English summary | -->
+<!-- | MM-DD | E | [slug](task_YYYY_MM_DD_slug/1_spec.md) ◆ | ≤10-word English summary | -->
 
 <!--
   MANDATORY (see core/governance/artifacts/AGENTS.md in the harness bundle): every add/update/delete

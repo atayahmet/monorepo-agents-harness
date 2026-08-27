@@ -27,6 +27,32 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.2.0] - 2026-08-27
+
+### Changed
+
+- **Artifact order now matches the AI-native SDLC playbook** (`intent → spec → plan → memory →
+  verify`): the per-task files are renamed so the spec is written first. What was `1_plan.md` is now
+  `2_plan.md` (the "how") and what was `2_spec.md` is now `1_spec.md` (the "what"). Plan-mode
+  approval now produces `1_spec.md` then `2_plan.md` before implementation, matching Design-before-
+  Build (`claude.com/blog/the-ai-native-sdlc-playbook`).
+- **Propagated the rename everywhere it is read by name:** the `agent-workflow` skill (Phase 1 =
+  spec, Phase 2 = plan), `core/scripts/memory-gate.sh`, the task-index format (link target now
+  `1_spec.md`; ◆ = `2_plan.md` + `3_memory.md`), the governance rules (`artifacts`, `intents`), the
+  root templates (`root-AGENTS.md`, `root-REVIEW.md`, workspace seed), the PR-review skill, and all
+  three adapters' build/review commands, the claude-code `verifier` subagent, and the hook messages.
+- **Backcompat for legacy task dirs.** `memory-gate.sh` and the review skill accept a pre-rename
+  task dir whose spec is still `2_spec.md` when no `1_spec.md` exists, so installed projects with
+  in-flight tasks keep passing the gate on upgrade. No forced migration, nothing renamed on disk.
+
+### Upgrade Notes
+
+- New task directories use `1_spec.md` / `2_plan.md`. Existing task dirs are left untouched and keep
+  passing the gate via backcompat — you may rename them at leisure; there is no release prompt that
+  forces a migration.
+- If you grep installed projects for the old `2_spec.md`/`1_plan.md` names you will still match
+  legacy dirs — that is expected until they are closed out.
+
 ## [0.1.0-rc.0] - 2026-08-27
 
 First release candidate. Versioning starts here.
@@ -74,5 +100,6 @@ First release candidate. Versioning starts here.
 - While on `-rc.*`, treat the artifact layout and the manifest format as still settling: a breaking
   change may land in a later `rc` without a MAJOR bump.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.0...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.2.0
 [0.1.0-rc.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.0

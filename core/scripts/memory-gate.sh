@@ -4,15 +4,20 @@
 # Task artifact convention: <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ where
 # <workspace> is discovered by detect-monorepo-framework.sh (apps/*, packages/*, libs/*, etc.).
 #
+# Artifact order (per the AI-native SDLC): 1_spec.md (what) -> 2_plan.md (how) -> 3_memory.md ->
+# 4_verify.md. The title file is the SPEC, named 1_spec.md. Backcompat: a legacy task directory
+# created under the old naming (where the spec was 2_spec.md and the plan was 1_plan.md) exposes its
+# spec as 2_spec.md only, so when 1_spec.md is absent the gate falls back to 2_spec.md as the spec.
+#
 # Two modes:
-#   default (git pre-commit / CI):  exit 1 when today's latest task dir is missing 2_spec.md,
-#                                   3_memory.md, or (when required) 4_verify.md. Works with ANY
-#                                   agent — or none.
+#   default (git pre-commit / CI):  exit 1 when today's latest task dir is missing its spec
+#                                   (1_spec.md, or legacy 2_spec.md), 3_memory.md, or (when
+#                                   required) 4_verify.md. Works with ANY agent — or none.
 #   --json (Claude Code Stop hook): print a {"decision":"block",...} JSON object when
 #                                   3_memory.md or (when required) 4_verify.md is missing;
 #                                   silent exit 0 otherwise.
 #
-# 4_verify.md (Feedback Loop enforcement) is only required when 2_spec.md's "## Test /
+# 4_verify.md (Feedback Loop enforcement) is only required when the spec's "## Test /
 # verification plan" section is not N/A — mirrors the existing research-only exemption for
 # tasks with nothing verifiable to check.
 #
@@ -63,11 +68,23 @@ fi
 [ -z "$LATEST" ] && exit 0   # no task started today → nothing to enforce
 rel="${LATEST#"$ROOT"/}"
 
-# 4_verify.md is only required when 2_spec.md's "## Test / verification plan" section says
-# something other than N/A. No spec → nothing to require verify against (not this function's
-# job to also flag the missing spec; the callers already check that separately).
+# 4_verify.md is only required when the spec's "## Test / verification plan" section (resolved from
+# 1_spec.md, or legacy 2_spec.md via resolve_spec) says something other than N/A. No spec → nothing
+# to require verify against (not this function's job to also flag the missing spec; the callers
+# already check that separately).
+# Resolve the spec file for a task dir: the canonical 1_spec.md, else the legacy 2_spec.md
+# (backcompat so pre-rename task dirs keep passing). Falls back to printing the canonical name so
+# callers can flag it as missing when neither exists.
+resolve_spec() {
+  local dir="$1"
+  [ -f "$dir/1_spec.md" ] && { printf '%s\n' "$dir/1_spec.md"; return; }
+  [ -f "$dir/2_spec.md" ] && { printf '%s\n' "$dir/2_spec.md"; return; }
+  printf '%s\n' "$dir/1_spec.md"
+}
+
 verify_required() {
-  local spec="$1/2_spec.md" section
+  local dir="$1" spec section
+  spec="$(resolve_spec "$dir")"
   [ -f "$spec" ] || return 1
   section="$(awk '/^## Test \/ verification plan/{f=1; next} /^## /{f=0} f' "$spec" 2>/dev/null || true)"
   case "$section" in
@@ -92,7 +109,8 @@ if [ "$JSON_MODE" -eq 1 ]; then
 fi
 
 missing=()
-[ -f "$LATEST/2_spec.md" ]   || missing+=("2_spec.md")
+MISSING_SPEC="$(basename "$(resolve_spec "$LATEST")")"
+[ -f "$(resolve_spec "$LATEST")" ] || missing+=("$MISSING_SPEC")
 [ -f "$LATEST/3_memory.md" ] || missing+=("3_memory.md")
 if verify_required "$LATEST" && [ ! -f "$LATEST/4_verify.md" ]; then
   missing+=("4_verify.md")

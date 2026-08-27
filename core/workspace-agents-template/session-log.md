@@ -2,7 +2,7 @@
 
 Working-session history for **this workspace** (`apps/<name>` or `packages/<name>`). Append one entry
 per session (newest last); bump the version each session. Every entry MUST record the **artifact
-directory** of that session — the task dir holding its `1_plan.md` / `2_spec.md` / `3_memory.md` /
+directory** of that session — the task dir holding its `1_spec.md` / `2_plan.md` / `3_memory.md` /
 `4_verify.md`. **Read this before starting any task that targets this workspace.**
 
 <!-- Entry template:

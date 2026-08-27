@@ -1,13 +1,13 @@
 ---
 name: pr-review
-description: Review the current diff against this project's REVIEW.md policy (or built-in defaults) and, when the diff maps to a known task, against that task's 1_plan.md/2_spec.md/4_verify.md. Reports findings tagged Important/Nit. Use when the user types /monorepo-harness-review or asks to review a PR, diff, or set of changes.
+description: Review the current diff against this project's REVIEW.md policy (or built-in defaults) and, when the diff maps to a known task, against that task's 2_plan.md/1_spec.md/4_verify.md. Reports findings tagged Important/Nit. Use when the user types /monorepo-harness-review or asks to review a PR, diff, or set of changes.
 ---
 
 # PR Review
 
 Reviews a diff the way a careful human reviewer would, but with an advantage generic review bots
 don't have: when the diff belongs to a task tracked by the `agent-workflow` skill, this skill reads
-that task's own `1_plan.md`/`2_spec.md`/`4_verify.md` and checks the diff against **what it actually
+that task's own `2_plan.md`/`1_spec.md`/`4_verify.md` and checks the diff against **what it actually
 committed to build**, not just generic code-quality heuristics.
 
 This skill produces a report. It does not run as a service, does not post to any PR platform, and
@@ -28,8 +28,8 @@ does not merge or approve anything — see "Out of scope" below.
 
 3. **Find the originating task, if any.** For each file touched by the diff, check whether it falls
    under a workspace with `.agents/artifacts/index.md`; grep that index for a task whose summary or
-   linked `2_spec.md` plausibly covers these files. On a match, read that task's `1_plan.md`,
-   `2_spec.md`, and `4_verify.md` (if present) as ground truth for the Spec compliance pass. If no
+   linked `1_spec.md` plausibly covers these files. On a match, read that task's `2_plan.md`,
+   `1_spec.md`, and `4_verify.md` (if present) as ground truth for the Spec compliance pass. If no
    match, skip that pass and say so explicitly in the report — do not guess at intent.
 
 4. **Apply the passes** from the loaded policy to the diff:
@@ -37,7 +37,7 @@ does not merge or approve anything — see "Out of scope" below.
      trace obviously-affected call sites.
    - **Security / vulnerabilities** — injection, auth bypass, secrets committed in the diff, unsafe
      deserialization, other OWASP Top 10-class issues.
-   - **Spec compliance** (only if a task was found in step 3) — does the diff satisfy `2_spec.md`'s
+   - **Spec compliance** (only if a task was found in step 3) — does the diff satisfy `1_spec.md`'s
      acceptance criteria, and does it stay within the plan's stated scope (`## Affected files /
      modules`)? Flag scope creep as Important, not Nit.
 
@@ -64,6 +64,9 @@ product-specific and the harness does not commit to any one of them):
 
 - **No `REVIEW.md`**: use the built-in defaults; mention this in the report's context line.
 - **No matching task found**: skip the spec-compliance pass explicitly; still run bugs/security.
+- **Legacy task naming**: a task directory created before the `1_spec.md`/`2_plan.md` rename keeps
+  its spec as `2_spec.md` and its plan as `1_plan.md` — treat either layout as valid: spec =
+  `1_spec.md` else `2_spec.md`, plan = `2_plan.md` else `1_plan.md`.
 - **Empty diff**: report that there is nothing to review — do not fabricate findings.
 - **Very large diff**: prioritize the passes over exhaustive line-by-line coverage; note in the
   report if scope was too large to review in full and what was prioritized.

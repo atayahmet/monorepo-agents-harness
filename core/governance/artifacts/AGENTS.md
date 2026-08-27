@@ -17,10 +17,10 @@ read it before scanning task directories, and keep it searchable (rules below).*
       index.md             <- task index for the workspace (MANDATORY, seeded empty)
       task_<YYYY_MM_DD>_<slug>/
         0_intent.md        <- optional, only if an approved core/governance/intents/ entry seeded this task
-        1_plan.md          <- optional (research-only tasks skip implementation phases)
-        2_spec.md          <- always present
+        1_spec.md          <- always present (the "what" — written first)
+        2_plan.md          <- optional (the "how"; research-only tasks skip implementation phases)
         3_memory.md        <- optional (written at task end)
-        4_verify.md        <- required at task end unless 2_spec.md's Test/verification plan is N/A
+        4_verify.md        <- required at task end unless 1_spec.md's Test/verification plan is N/A
 ```
 
 Workspaces are seeded by `.agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh`
@@ -35,14 +35,14 @@ minimal redundancy, fixed column order.
   `plugin-registry`). Small or one-off modules go under `## other modules`. Cross-module work goes
   under `## shared / cross-cutting infra`.
 - **Row format (fixed):**
-  `| MM-DD | Type | [slug](task_YYYY_MM_DD_slug/2_spec.md) | summary |`
+  `| MM-DD | Type | [slug](task_YYYY_MM_DD_slug/1_spec.md) | summary |`
   rows sorted by date within each section. Year is omitted from the date column (it is in the link
   path).
 - **Summary:** ≤ 10 words, English, derived from the spec title. **Prefer concrete, greppable
   identifiers** (route path, class name, usecase name) over prose — this is what makes keyword
   search hit.
-- **Link target:** always `2_spec.md` — the only file guaranteed to exist.
-- **◆ marker:** appended after the link when the task dir contains the full triad (`1_plan.md` +
+- **Link target:** always `1_spec.md` — the only file guaranteed to exist.
+- **◆ marker:** appended after the link when the task dir contains the full triad (`2_plan.md` +
   `3_memory.md`).
 - **Header line:** keeps the total task count and date range — update both when adding rows.
 
@@ -67,7 +67,7 @@ minimal redundancy, fixed column order.
    ls -td apps/*/.agents/artifacts/task_* packages/*/.agents/artifacts/task_* | head -1
    ```
 6. **Mandatory pre-plan search:** `core/skills/agent-workflow/SKILL.md` Phase 1 requires grepping
-   this index for prior art *before* `1_plan.md` is written, and the resulting `1_plan.md` template
+   this index for prior art *before* `1_spec.md` is written, and the resulting `2_plan.md` template
    has a `## Related prior work` section that must cite a match or state `- none found`. This file
    defines the index's *format*; the skill defines *when* it gets searched — keep both in sync.
 7. **English everywhere** — mixed-language rows break keyword search; the whole tree stays English.

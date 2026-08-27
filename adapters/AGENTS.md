@@ -48,12 +48,13 @@ in the same change.
 
 ## What the `agent-workflow` skill expects from every adapter
 
-`core/skills/agent-workflow/SKILL.md` defines the plan → spec → memory loop. Each adapter's
+`core/skills/agent-workflow/SKILL.md` defines the spec → plan → memory loop. Each adapter's
 enforcement layer must support exactly these expectations (native mechanism or fallback):
 
 1. **Task directory convention** — one dir per task:
-   `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/` containing `1_plan.md`, `2_spec.md`,
-   `3_memory.md`, `4_verify.md` (required whenever the spec's Test/verification plan is not `N/A`),
+   `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/` containing `1_spec.md` (the "what",
+   written first), `2_plan.md` (the "how"), `3_memory.md`, `4_verify.md` (required whenever the
+   spec's Test/verification plan is not `N/A`),
    and optionally `0_intent.md` (only when an approved entry under `<workspace>/.agents/intents/`
    seeded the task — see `core/governance/intents/AGENTS.md`). `<slug>` is `snake_case`,
    `[a-z0-9_]`, 3–5 words, decided in the plan phase and never renamed; dashes in the date become
@@ -61,8 +62,8 @@ enforcement layer must support exactly these expectations (native mechanism or f
    `apps/*/.agents/artifacts/` + `packages/*/.agents/artifacts/` — placement is load-bearing, do
    not invent other locations.
 2. **Plan/spec reminder at plan-mode exit** — when the agent exits plan mode, *before the first
-   implementation Edit/Write*, it must be nudged to create the task dir and write `1_plan.md`
-   (frontmatter `phase: plan`, `status: approved`) then `2_spec.md` (`phase: spec`) in the same
+   implementation Edit/Write*, it must be nudged to create the task dir and write `1_spec.md`
+   (`phase: spec`) then `2_plan.md` (frontmatter `phase: plan`, `status: approved`) in the same
    directory. Templates come from the SKILL.md — never redefined per adapter.
 3. **Memory-gate at task end** — a task may not close until today's task dir contains
    `3_memory.md` (`phase: memory`, `commits:` listing SHAs written *after* committing), plus
@@ -75,8 +76,8 @@ enforcement layer must support exactly these expectations (native mechanism or f
 5. **Workspace selection** — artifacts go to the workspace whose paths the task touches
    (`apps/<name>` or `packages/<name>`); cross-workspace work uses the primary workspace and notes
    the secondary in the plan. Adapters must not change this rule.
-6. **Edge cases to preserve** — research-only tasks (plan without implementation) may skip
-   spec/memory; updating a task appends a `revisions:` log to `1_plan.md` instead of opening a new
+6. **Edge cases to preserve** — research-only tasks (spec without implementation) may skip
+   plan/memory; updating a task appends a `revisions:` log to `2_plan.md` instead of opening a new
    dir; no task dir → hooks stay silent (implementation without plan mode is out of scope).
 
 When authoring or reviewing an adapter, verify each row above against the "what maps to what"

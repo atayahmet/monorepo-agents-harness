@@ -30,8 +30,9 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
 4. **Plan/spec/memory/verify artifact workflow is mandatory for plan-mode tasks.** When your agent
    signals plan approval, apply the `agent-workflow` skill templates and create a per-task directory
    `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/` (where `<workspace>` is the primary
-   target: an app name under `apps/` or a package name under `packages/`) containing `1_plan.md`,
-   `2_spec.md`, (at task end) `3_memory.md`, and `4_verify.md` (required unless the spec's Test/
+   target: an app name under `apps/` or a package name under `packages/`) containing `1_spec.md`
+   (the "what", written first), `2_plan.md` (the "how"), (at task end) `3_memory.md`, and
+   `4_verify.md` (required unless the spec's Test/
    verification plan is `N/A`) — plus, optionally, `0_intent.md` when an approved entry under
    `<workspace>/.agents/intents/` seeded the task (see `core/skills/intent-workflow/SKILL.md`).
    Every add/update/delete on a task directory must be reflected in that workspace's searchable
@@ -46,7 +47,7 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
 - [ ] Read `<target-workspace>/.agents/session-log.md`, bump version, write an entry — include the session's **artifact dir** path (`<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/`).
 - [ ] Read `<target-workspace>/.agents/lessons.md`.
 - [ ] Search `<target-workspace>/.agents/artifacts/index.md` for prior work related to this task
-      (1–3 keyword grep). On a match, read that task's `2_spec.md` (and `3_memory.md` if marked ◆)
+      (1–3 keyword grep). On a match, read that task's `1_spec.md` (and `3_memory.md` if marked ◆)
       before planning.
 - [ ] Write `<target-workspace>/.agents/todo.md` plan.
 - [ ] Enter plan mode if task has 3+ steps.

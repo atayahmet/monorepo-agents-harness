@@ -6,7 +6,7 @@ This adapter wires the harness into **Codex CLI**. Codex toggles plan mode with 
 
 ## What you get
 
-- **Plan/spec reminder** — after `update_plan` is called (and at session start), Codex is nudged to create the task directory and write `1_plan.md` + `2_spec.md`.
+- **Plan/spec reminder** — after `update_plan` is called (and at session start), Codex is nudged to create the task directory and write `1_spec.md` + `2_plan.md`.
 - **`/monorepo-harness-build`** — a manual fallback skill that triggers the same plan/spec build step. Use it if the automatic reminder is missed.
 - **`/monorepo-harness-update`** — compares your installed harness against upstream and upgrades the agent-neutral core with your consent.
 - **Memory reminder + universal hard gate** — the `Stop` hook warns if `3_memory.md` or (when required) `4_verify.md` is missing; the git pre-commit / CI gate actually blocks commits.
@@ -20,7 +20,7 @@ Use `/monorepo-harness-build` right after plan approval (or whenever the plan/sp
 
 1. Pick the target workspace (`apps/<name>` or `packages/<name>`).
 2. Create `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/`.
-3. Write `1_plan.md` and `2_spec.md`.
+3. Write `1_spec.md` and `2_plan.md`.
 4. Add a row to `<workspace>/.agents/artifacts/index.md`.
 
 Example:
@@ -28,7 +28,7 @@ Example:
 ```
 User: /monorepo-harness-build
 Agent:  → creates apps/web/.agents/artifacts/task_2026_08_23_add_login_form/
-        → writes 1_plan.md + 2_spec.md
+        → writes 1_spec.md + 2_plan.md
 ```
 
 ### `/monorepo-harness-update` — Check for harness updates
@@ -41,7 +41,7 @@ Use `/monorepo-harness-update` when you suspect the harness is out of date or af
 2. Update/approve the plan. Codex normally fires the plan/spec reminder automatically.
 3. If the reminder is missed, type `/monorepo-harness-build`.
 4. Implement the task, scoped to the target workspace.
-5. Verify the work against `2_spec.md`'s "Test / verification plan" — run the commands it describes
+5. Verify the work against `1_spec.md`'s "Test / verification plan" — run the commands it describes
    yourself (Codex has no subagent to delegate this to).
 6. Commit your changes.
 7. Write `3_memory.md`, and `4_verify.md` (unless the verification plan is `N/A`), in the same task

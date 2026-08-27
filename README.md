@@ -1,15 +1,16 @@
 # Agent Harness for Monorepos
 
-A portable **plan → spec → memory → verify** workflow harness that makes AI coding agents
+A portable **spec → plan → memory → verify** workflow harness that makes AI coding agents
 **auditable and self-documenting**, and wires them into the rest of the software lifecycle —
 intent intake, CI, and PR review — in any JavaScript/TypeScript monorepo, with **any agent**:
 Claude Code, opencode, Cursor, Codex, and more.
 
 ## What you get
 
-- **Auditable tasks** — every non-trivial task produces `1_plan.md`, `2_spec.md`, `3_memory.md`, and
-  (when there's something verifiable) `4_verify.md` in a dedicated per-task directory, so you can
-  always answer "why was this built this way, and how do we know it works?"
+- **Auditable tasks** — every non-trivial task produces `1_spec.md` (`what`), `2_plan.md` (`how`),
+  `3_memory.md`, and (when there's something verifiable) `4_verify.md` in a dedicated per-task
+  directory, so you can always answer "why was this built this way, and how do we know it works?"
+  The order follows the AI-native SDLC playbook — `intent → spec → plan → memory → verify`.
 - **Per-workspace working state** — each app/package owns `.agents/{session-log,lessons,todo}.md`;
   agents read them before work and record what they learned after.
 - **Enforced follow-through (Feedback Loop)** — the memory-gate blocks the task from ending until
@@ -31,7 +32,7 @@ Claude Code, opencode, Cursor, Codex, and more.
   formats can't be auto-integrated as a separate file.
 - **PR review** — `/monorepo-harness-review` checks a diff against `REVIEW.md` policy (or sensible
   defaults) and, when the diff maps to a tracked task, against that task's own
-  `1_plan.md`/`2_spec.md`/`4_verify.md` — a ground truth generic review bots don't have. Reports
+   `2_plan.md`/`1_spec.md`/`4_verify.md` — a ground truth generic review bots don't have. Reports
   Important/Nit findings; never posts to a PR platform or merges anything.
 - **Intent capture** — `/monorepo-harness-intent` lets any stakeholder file a problem description
   before it's scoped into a task, and a product owner/manager approve or reject it explicitly. An
@@ -48,8 +49,8 @@ searchable index:
 ├── index.md                          # searchable task index (entry point)
 └── task_<YYYY_MM_DD>_<slug>/
     ├── 0_intent.md                   # optional — copied in if an approved intent seeded this task
-    ├── 1_plan.md                     # the "how" (approved plan)
-    ├── 2_spec.md                     # the "what" (contract, acceptance criteria)
+    ├── 1_spec.md                     # the "what" (contract, acceptance criteria) — written first
+    ├── 2_plan.md                     # the "how" (implementation plan) — written after the spec
     ├── 3_memory.md                   # the outcome (findings, decisions, commit SHAs)
     └── 4_verify.md                   # the proof (verification run, per-criterion pass/fail)
 ```
@@ -131,9 +132,23 @@ always an explicit answer in that turn. On "yes" it appends:
 
 A developer picks it up. Entering plan mode, `core/skills/agent-workflow/SKILL.md` Phase 1 runs its
 two pre-plan checks: it greps `apps/api/.agents/artifacts/index.md` for prior art (finds
-`webhook_signature_verification`, cites it as related), and separately checks
-`apps/api/.agents/intents/` for an approved intent matching this task — finds `webhook_retry`, copies
-it in as `0_intent.md`, and references it from the plan:
+`webhook_signature_verification`, cites it as related — kept ready for the plan's `## Related prior
+work`), and separately checks `apps/api/.agents/intents/` for an approved intent matching this task
+— finds `webhook_retry`, copies it in as `0_intent.md`. Then, matching the playbook's
+`intent → spec → plan` order, it writes the **spec first** — the "what" (`1_spec.md`):
+
+```markdown
+## Acceptance criteria
+- [ ] `X-Idempotency-Key` header present on every order.created delivery
+- [ ] Same event redelivered → identical key
+- [ ] Different event, same order → different key
+
+## Test / verification plan
+`pnpm --filter api test webhooks/dispatch` covers key derivation and header presence; manual
+redelivery via the queue's local emulator confirms the key is stable across retries.
+```
+
+Then `2_plan.md` — the "how" — is written against that spec, before any `Edit`/`Write` call:
 
 ```markdown
 ---
@@ -155,7 +170,7 @@ a merchant's existing dedupe logic (most already have one, per the intent's Open
 just works without a payload shape change.
 
 ## Related prior work
-- [webhook_signature_verification](task_2026_07_02_webhook_signature_verification/2_spec.md) —
+- [webhook_signature_verification](task_2026_07_02_webhook_signature_verification/1_spec.md) —
   same dispatcher code path, same header-injection point.
 
 ## Steps
@@ -175,19 +190,6 @@ just works without a payload shape change.
 - [ ] Every order.created delivery carries a stable X-Idempotency-Key
 - [ ] Redelivering the same event produces the same key
 - [ ] No change to the existing payload body
-```
-
-`2_spec.md` follows immediately, before any `Edit`/`Write` call:
-
-```markdown
-## Acceptance criteria
-- [ ] `X-Idempotency-Key` header present on every order.created delivery
-- [ ] Same event redelivered → identical key
-- [ ] Different event, same order → different key
-
-## Test / verification plan
-`pnpm --filter api test webhooks/dispatch` covers key derivation and header presence; manual
-redelivery via the queue's local emulator confirms the key is stable across retries.
 ```
 
 Implementation happens. At task end, the `verifier` subagent (Claude Code) — or the same
@@ -233,7 +235,7 @@ The memory-gate now finds both `3_memory.md` and `4_verify.md` (the spec's plan 
 the task close. The same commit adds an index row:
 
 ```
-| 08-21 | E | [webhook_retry](task_2026_08_21_webhook_retry/2_spec.md) ◆ | Idempotency key on order.created delivery |
+| 08-21 | E | [webhook_retry](task_2026_08_21_webhook_retry/1_spec.md) ◆ | Idempotency key on order.created delivery |
 ```
 
 **Full chain, one glance:** stakeholder problem → explicit human approval → plan grounded in that
@@ -249,7 +251,7 @@ prior-art search (unlike the intent match, which is best-effort and silent when 
 
 ```markdown
 ## Related prior work
-- [webhook_retry](task_2026_08_21_webhook_retry/2_spec.md) — touches the same dispatch.ts test
+- [webhook_retry](task_2026_08_21_webhook_retry/1_spec.md) — touches the same dispatch.ts test
   fixture; this fix adjusts the fixture's timing assumption introduced there.
 ```
 
@@ -293,7 +295,7 @@ into someone's single pipeline file is worse than not touching it.
 A reviewer runs `/monorepo-harness-review` on the `webhook_retry` branch before merging. The skill
 loads `REVIEW.md` (or built-in defaults if absent), diffs against the merge-base, and — because the
 touched files fall under `apps/api` — greps `apps/api/.agents/artifacts/index.md` and finds the
-`webhook_retry` task. It reads that task's own `1_plan.md` and `2_spec.md` as ground truth, not just
+`webhook_retry` task. It reads that task's own `2_plan.md` and `1_spec.md` as ground truth, not just
 generic code-quality heuristics:
 
 ```
@@ -303,8 +305,8 @@ Policy: REVIEW.md
 
 Important:
 - apps/api/src/webhooks/dispatch.ts:142 — this diff also refactors the retry backoff timer,
-  which is outside 1_plan.md's "Affected files / modules" (dispatch.ts's header logic only) and
-  outside 2_spec.md's acceptance criteria. Likely scope creep — split into its own task or confirm
+  which is outside 2_plan.md's "Affected files / modules" (dispatch.ts's header logic only) and
+  outside 1_spec.md's acceptance criteria. Likely scope creep — split into its own task or confirm
   intentionally in scope.
 
 Nit:

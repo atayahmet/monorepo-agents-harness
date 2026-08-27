@@ -78,7 +78,7 @@ seeds. Exit 0 means complete; anything else names the exact paths. Then commit t
 
 To prove the hard gate itself is live, create a throwaway
 `apps/<name>/.agents/artifacts/task_<YYYY_MM_DD>_smoke/` and run
-`bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh` as you add `2_spec.md`,
+`bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh` as you add `1_spec.md`,
 `3_memory.md` and `4_verify.md`: it must exit 1 until all of them exist, then 0. Delete the
 throwaway dir afterwards.
 

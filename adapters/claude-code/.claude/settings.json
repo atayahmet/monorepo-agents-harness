@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -n '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"<system-reminder>\\nPlan approved. Invoke the agent-workflow skill and create the task directory under the target workspace:\\n<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/\\n\\n<workspace> is the primary app or package this task targets (app under apps/, or package under packages/) — choose from the file paths the plan will touch.\\n\\nBefore the first Edit/Write call, write these two files inside that directory:\\n  1_plan.md\\n  2_spec.md\\n\\nSlug must be snake_case. Follow the skill SKILL.md template.\\n</system-reminder>\"}}'"
+            "command": "jq -n '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"<system-reminder>\\nPlan approved. Invoke the agent-workflow skill and create the task directory under the target workspace:\\n<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/\\n\\n<workspace> is the primary app or package this task targets (app under apps/, or package under packages/) — choose from the file paths the plan will touch.\\n\\nBefore the first Edit/Write call, write these two files inside that directory — the spec first, then the plan:\\n  1_spec.md\\n  2_plan.md\\n\\nSlug must be snake_case. Follow the skill SKILL.md template.\\n</system-reminder>\"}}'"
           },
           {
             "type": "command",
