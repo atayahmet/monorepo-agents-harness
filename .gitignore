@@ -17,5 +17,10 @@ lessons.md
 session-log.md
 todo.md
 
+# Root-workspace working state (same files live per-workspace; covered by the rules above)
+/.agents/lessons.md
+/.agents/session-log.md
+/.agents/todo.md
+
 # Per-task working artifacts (plan/spec/memory/verify + index)
 /.agents/artifacts/
