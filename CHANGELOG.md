@@ -27,6 +27,31 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.1.0-rc.8] - 2026-08-28
+
+### Changed
+
+- **Intent capture now asks before creating (and committing to) a dedicated `intent/<slug>` branch.**
+  On capture the workflow already asked which workspace the intent goes under; it now also present a
+  slug-derived branch name it **recommends** (e.g. `intent/add_login_form`) and asks the author to
+  confirm or decline creating it via `git switch -c` / `git checkout -b`. If a branch is created, it
+  then asks **separately** whether to commit the `status: pending` intent file to that branch. Both
+  are explicit in-turn consent questions — a branch is never created, and a pending intent is never
+  committed, without the author's answer. Intent files that are gitignored stay in the working tree
+  uncommitted rather than being force-added. This is a single-source-of-truth change to
+  `core/skills/intent-workflow/SKILL.md` plus the matching rule in
+  `core/governance/intents/AGENTS.md`; the three adapters' `/monorepo-harness-intent` stage files were
+  updated to reflect the new workspace → branch → commit consent flow, and `PORTABILITY.md` notes that
+  the flow now uses native `git` branch/commit alongside the existing consent questions.
+
+### Upgrade Notes
+
+- **No manual follow-up required.** Prompt/rule change only — no manifest rows, no gate changes, no
+  migration. Branch/commit only happen when the author consents during capture; if a project's
+  `.gitignore` excludes `<workspace>/.agents/intents/`, the commit consent degrades gracefully to
+  leaving the file in the working tree (documented edge case). Installed projects pick the behavior up
+  on the normal harness-update path (the intent skill + rules + stage files ship in the bundle).
+
 ## [0.1.0-rc.7] - 2026-08-28
 
 ### Changed
@@ -270,7 +295,8 @@ First release candidate. Versioning starts here.
 - While on `-rc.*`, treat the artifact layout and the manifest format as still settling: a breaking
   change may land in a later `rc` without a MAJOR bump.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.7...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.8...HEAD
+[0.1.0-rc.8]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.8
 [0.1.0-rc.7]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.7
 [0.1.0-rc.6]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.6
 [0.1.0-rc.5]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.5

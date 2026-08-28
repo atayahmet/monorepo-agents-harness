@@ -25,6 +25,13 @@ workspace the intent should be filed under and presents its own recommendation (
 workspace in the current turn. Filing an intent into the wrong inbox misroutes both the review step
 and the later plan-mode task that would consume an approved intent.
 
+**An intent may live on its own branch, by explicit consent.** On capture the agent proposes a
+dedicated `intent/<slug>` branch (slug-derived name per `core/skills/intent-workflow/SKILL.md`) and
+asks whether to create it, then asks separately whether to commit the `status: pending` file to it.
+Both are consent questions answered in the current turn: a branch is created only when approved, and
+a `pending` intent is committed only when its own commit question is answered yes. If the intent file
+is gitignored, the file stays in the working tree uncommitted rather than force-added.
+
 ## Intent file format
 
 ```markdown

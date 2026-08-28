@@ -26,10 +26,24 @@ intent.
    part of it, including the `slug`/frontmatter) until the author gives an explicit workspace in the
    current turn — a wrong workspace misroutes both the review inbox and the later plan-mode task.
 2. Then decide a `slug` (`snake_case`, 3-5 words) and today's date.
-3. Write `<workspace>/.agents/intents/intent_<YYYY_MM_DD>_<slug>.md` following the template in
+3. **Ask whether to create a dedicated branch for the intent, with a name you propose.** Offer
+   `intent/<slug>` (the slug from step 2), e.g. "Create an `intent/add_login_form` branch for this
+   intent? (my recommendation)", and let the author confirm or decline. If they confirm, create it
+   **with git** (`git switch -c intent/<slug>` or `git checkout -b intent/<slug>`) *before* writing
+   the file, so the intent lives in isolation; if they decline, stay on the current branch and write
+   the file there — never create a branch without the explicit in-turn answer, and never leave the
+   working tree on a branch the author didn't consent to.
+4. **Ask separately whether to commit the intent file to that branch.** Only when step 3 created a
+   branch, ask e.g. "Commit `intent_add_login_form.md` to `intent/add_login_form` now?" — a distinct
+   consent, not bundled with the branch question. On an explicit yes, commit the `status: pending`
+   intent file to the branch; on no or when no branch was created, leave the file in the working tree
+   uncommitted. Do not commit an intent unless the author answers this in the current turn — the
+   intent is still `pending` and the author decides whether it lives on a dedicated commit or just in
+   the working tree.
+5. Write `<workspace>/.agents/intents/intent_<YYYY_MM_DD>_<slug>.md` following the template in
    `core/governance/intents/AGENTS.md`, frontmatter `status: pending`.
-4. Confirm to the author what was recorded and that it now awaits review — do not imply it has been
-   approved or that work will start.
+6. Confirm to the author what was recorded (workspace, branch, commit status) and that it now awaits
+   review — do not imply it has been approved or that work will start.
 
 ## Workflow — Review
 
@@ -66,6 +80,11 @@ or specs itself.
   and confirm the most likely target before writing. Never silently file under the most likely
   workspace without the explicit in-turn answer step 1 requires. Same convention as cross-workspace
   plan-mode tasks.
+- **Intent file is gitignored (can't commit it)**: `<workspace>/.agents/` may be excluded in the
+  host project's `.gitignore` (or a root `/.agents/` exclusion may shadow it). If the author asks to
+  commit but the intent file is untracked/ignored, tell them why it can't be committed and leave it
+  in the working tree, or ask them to adjust `.gitignore` — never force-add (`git add -f`) an intent
+  against the project's ignore rules.
 - **Reviewer wants to bulk-approve**: still ask per intent — a single "approve all" answer is fine
   as the consent for the whole batch, but each file's `## Review` section is still written
   individually with its own timestamp.
