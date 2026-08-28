@@ -37,9 +37,10 @@ Release procedure (harness maintainers):
   confirm or decline creating it via `git switch -c` / `git checkout -b`. If a branch is created, it
   then asks **separately** whether to commit the `status: pending` intent file to that branch. Both
   are explicit in-turn consent questions — a branch is never created, and a pending intent is never
-  committed, without the author's answer. Intent files that are gitignored stay in the working tree
-  uncommitted rather than being force-added. This is a single-source-of-truth change to
-  `core/skills/intent-workflow/SKILL.md` plus the matching rule in
+  committed, without the author's answer. Whether the intent file is actually tracked by git is left
+  to the host project, whose `.gitignore` decides it — the harness does not mandate or force it
+  (`install-manifest.txt` deliberately ships no `.gitignore`). This is a single-source-of-truth change
+  to `core/skills/intent-workflow/SKILL.md` plus the matching rule in
   `core/governance/intents/AGENTS.md`; the three adapters' `/monorepo-harness-intent` stage files were
   updated to reflect the new workspace → branch → commit consent flow, and `PORTABILITY.md` notes that
   the flow now uses native `git` branch/commit alongside the existing consent questions.
@@ -47,10 +48,10 @@ Release procedure (harness maintainers):
 ### Upgrade Notes
 
 - **No manual follow-up required.** Prompt/rule change only — no manifest rows, no gate changes, no
-  migration. Branch/commit only happen when the author consents during capture; if a project's
-  `.gitignore` excludes `<workspace>/.agents/intents/`, the commit consent degrades gracefully to
-  leaving the file in the working tree (documented edge case). Installed projects pick the behavior up
-  on the normal harness-update path (the intent skill + rules + stage files ship in the bundle).
+  migration. Branch/commit only happen when the author consents during capture; whether a project's
+  `.gitignore` excludes `<workspace>/.agents/intents/` is that project's own decision, and the harness
+  never force-adds an intent against it. Installed projects pick the behavior up on the normal
+  harness-update path (the intent skill + rules + stage files ship in the bundle).
 
 ## [0.1.0-rc.7] - 2026-08-28
 

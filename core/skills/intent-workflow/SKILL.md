@@ -80,11 +80,6 @@ or specs itself.
   and confirm the most likely target before writing. Never silently file under the most likely
   workspace without the explicit in-turn answer step 1 requires. Same convention as cross-workspace
   plan-mode tasks.
-- **Intent file is gitignored (can't commit it)**: `<workspace>/.agents/` may be excluded in the
-  host project's `.gitignore` (or a root `/.agents/` exclusion may shadow it). If the author asks to
-  commit but the intent file is untracked/ignored, tell them why it can't be committed and leave it
-  in the working tree, or ask them to adjust `.gitignore` — never force-add (`git add -f`) an intent
-  against the project's ignore rules.
 - **Reviewer wants to bulk-approve**: still ask per intent — a single "approve all" answer is fine
   as the consent for the whole batch, but each file's `## Review` section is still written
   individually with its own timestamp.

@@ -29,8 +29,8 @@ and the later plan-mode task that would consume an approved intent.
 dedicated `intent/<slug>` branch (slug-derived name per `core/skills/intent-workflow/SKILL.md`) and
 asks whether to create it, then asks separately whether to commit the `status: pending` file to it.
 Both are consent questions answered in the current turn: a branch is created only when approved, and
-a `pending` intent is committed only when its own commit question is answered yes. If the intent file
-is gitignored, the file stays in the working tree uncommitted rather than force-added.
+a `pending` intent is committed only when its own commit question is answered yes. Whether the intent
+file is tracked by git is the host project's own decision — the harness does not mandate it.
 
 ## Intent file format
 
