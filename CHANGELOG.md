@@ -27,6 +27,30 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.1.0-rc.6] - 2026-08-28
+
+### Changed
+
+- **Implementation is now gated on an approved plan.** Fixed the gap where a helpful agent, right
+  after writing the spec (`1_spec.md`), would jump straight into implementation without an approved
+  `2_plan.md`. Every `/monorepo-harness-spec` command now ends by telling the agent to **stop and
+  wait** for `/monorepo-harness-plan`, and every `/monorepo-harness-plan` command ends by telling it
+  to **stop and wait** for `/monorepo-harness-build` — so implementation never begins before a
+  user-approved plan exists, preserving the `intent → spec → plan → memory → verify` SDLC order.
+- **Shared skill hardened.** `core/skills/agent-workflow/SKILL.md` Phase 1 and Phase 2 each end with
+  an explicit wait/stop step, and its description no longer implies automatic plan-mode-exit
+  triggering exists on every agent (it is manual on opencode and codex).
+- **Parity across adapters.** The identical STOP text was applied to all three adapters' `-spec`
+  and `-plan` stage files (opencode commands, claude-code commands, codex skills) and all three
+  READMEs' typical-workflow sections were updated to name the stop/wait points.
+
+### Upgrade Notes
+
+- **No manual follow-up required.** This is a prompt/instruction change only — no manifest rows,
+  no gate changes, no migration. Existing installed projects pick it up on the normal harness-update
+  path (the `-spec`/`-plan` stage files ship inside the adapter bundle and update on `refresh`).
+  Agents that previously skipped the plan will now stop and ask for `/monorepo-harness-plan` first.
+
 ## [0.1.0-rc.5] - 2026-08-28
 
 ### Added
@@ -226,7 +250,8 @@ First release candidate. Versioning starts here.
 - While on `-rc.*`, treat the artifact layout and the manifest format as still settling: a breaking
   change may land in a later `rc` without a MAJOR bump.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.5...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.6...HEAD
+[0.1.0-rc.6]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.6
 [0.1.0-rc.5]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.5
 [0.1.0-rc.4]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.4
 [0.1.0-rc.3]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.3

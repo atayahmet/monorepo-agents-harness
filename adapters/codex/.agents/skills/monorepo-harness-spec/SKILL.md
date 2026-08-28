@@ -17,3 +17,6 @@ with `core/scripts/task-state.sh`:
    Phase 1.
 4. Update `<workspace>/.agents/artifacts/index.md` with a new row for this task.
 5. If no intent path was given, proceed as a normal ad-hoc spec (no `0_intent.md`).
+6. After writing `1_spec.md` and updating the index, **STOP here**. Do **not** write `2_plan.md`,
+   and do **not** start implementation. The user must run `/monorepo-harness-plan <1_spec.md>` next —
+   implementation may not begin until an approved plan exists.

@@ -28,13 +28,16 @@ User: /monorepo-harness-spec apps/web/.agents/intents/intent_2026_08_23_add_logi
 Agent:  → creates apps/web/.agents/artifacts/task_2026_08_23_add_login_form/
         → writes 0_intent.md + 1_spec.md
 ```
+It **stops** after writing the spec — the agent must not write `2_plan.md` or start implementation
+until you run `/monorepo-harness-plan <1_spec.md>`.
 
 ### `/monorepo-harness-plan <spec.md>` — Create the plan
 
 Run it after the spec, still **before the first Edit/Write**. It validates the spec via
 `task-state.sh check-spec`, then checks plan mode: if you are not in plan mode it asks "Enable plan
 mode?" — yes enters plan mode, no proceeds without it. Then it writes `2_plan.md`
-(`phase: plan`, `status: approved`) and updates the index.
+(`phase: plan`, `status: approved`) and updates the index. It **stops** there — the agent must not
+start implementation until you run `/monorepo-harness-build <2_plan.md>`.
 
 ### `/monorepo-harness-build <2_plan.md>` — Implement, then write memory/verify
 
@@ -54,7 +57,10 @@ follow the "Update from the repo" prompt in the project README, or run the share
 1. Start a non-trivial task. Capture an intent (`/monorepo-harness-intent`) and approve it if the
    work is intent-driven; most quick tasks are ad-hoc and skip this.
 2. Type `/monorepo-harness-spec` (optionally `<intent.md>` to seed the spec from an approved intent).
-3. Type `/monorepo-harness-plan <1_spec.md>`; approve plan mode when asked.
+   **It stops there** — do not write `2_plan.md` or start implementation until you run the next
+   command.
+3. Type `/monorepo-harness-plan <1_spec.md>`; approve plan mode when asked. **It stops there** — do
+   not start implementation until you run `/monorepo-harness-build`.
 4. Type `/monorepo-harness-build <2_plan.md>` to implement the task.
 5. `/monorepo-harness-build` writes `3_memory.md` and `4_verify.md` (unless the verification plan is
    `N/A`) and updates the index as it finishes.

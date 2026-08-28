@@ -1,6 +1,6 @@
 ---
 name: agent-workflow
-description: 4-phase agent workflow — opens a dedicated task directory per task; writes 1_spec.md then 2_plan.md (spec = what/Design before plan = how/Build, per the AI-native SDLC order), and 3_memory.md plus 4_verify.md on task completion (verify only when the spec's Test/verification plan is not N/A), under <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ where <workspace> is the target app or package (api, web, example-pkg, ...). Triggered automatically when exiting plan mode, or manually via the stage commands /monorepo-harness-spec, -plan and -build, before implementation starts; also used when the task ends.
+description: 4-phase agent workflow — opens a dedicated task directory per task; writes 1_spec.md then 2_plan.md (spec = what/Design before plan = how/Build, per the AI-native SDLC order), and 3_memory.md plus 4_verify.md on task completion (verify only when the spec's Test/verification plan is not N/A), under <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ where <workspace> is the target app or package (api, web, example-pkg, ...). Driven manually via the stage commands /monorepo-harness-spec, -plan and -build, before implementation starts; also used when the task ends. Each stage stops and waits for the user before the next; implementation never begins before an approved plan.
 ---
 
 # Agent Workflow — Per-Task Plan / Spec / Memory Artifacts
@@ -157,6 +157,12 @@ Write "N/A" when the task makes no architecture-affecting decision (see
 `core/skills/adr-workflow/SKILL.md` for the threshold).>
 ```
 
+**After Phase 1, stop and wait.** Once `1_spec.md` is written (and the index updated), **do not**
+proceed to Phase 2 or start implementation on your own. Report that the spec is ready and that the
+user must run `/monorepo-harness-plan <task_dir>/1_spec.md` next. Implementation may not begin until
+an approved plan (`2_plan.md`, `status: approved`) exists — the plan defines the "how" that build
+executes against, and it must be user-approved first.
+
 ## Phase 2 — `2_plan.md` (via `/monorepo-harness-plan`, before implementation)
 
 `/monorepo-harness-plan <spec.md>` first runs `task-state.sh check-spec` (refusing to write if the
@@ -204,6 +210,11 @@ status: approved
 ## Definition of done
 - [ ] ...
 ```
+
+**After Phase 2, stop and wait.** Once `2_plan.md` is written (frontmatter `status: approved`) and
+the index updated, **do not** start implementation on your own. Report that the plan is approved and
+that the user must run `/monorepo-harness-build <task_dir>/2_plan.md` next. Implementation only
+begins when that command gates the plan/spec chain (`task-state.sh check-chain`) successfully.
 
 ## Phase 3 — `3_memory.md` (task end / via `/monorepo-harness-build`)
 
