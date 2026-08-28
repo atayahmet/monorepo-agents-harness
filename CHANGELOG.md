@@ -27,6 +27,26 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.1.0-rc.7] - 2026-08-28
+
+### Changed
+
+- **Intent capture now always confirms the target workspace with the author.** The intent workflow no
+  longer files an intent under the workspace most likely to drive the work by default — on capture it
+  always asks which workspace the intent goes under and presents its own recommendation as the prompt
+  (e.g. "File this intent under `apps/api`? (my recommendation)"). The intent file is written only
+  after the author confirms the workspace in the current turn, so the intent lands in the right review
+  inbox and correctly routes the later plan-mode task that consumes an approved intent. This is a
+  single-source-of-truth change to `core/skills/intent-workflow/SKILL.md` plus the matching rule in
+  `core/governance/intents/AGENTS.md`; all three adapters' `/monorepo-harness-intent` stage files
+  already defer to the shared skill, so they inherit the behavior unchanged.
+
+### Upgrade Notes
+
+- **No manual follow-up required.** Prompt/rule change only — no manifest rows, no gate changes, no
+  migration. Installed projects pick it up on the normal harness-update path (the intent skill and
+  rules ship in the core bundle).
+
 ## [0.1.0-rc.6] - 2026-08-28
 
 ### Changed
@@ -250,7 +270,8 @@ First release candidate. Versioning starts here.
 - While on `-rc.*`, treat the artifact layout and the manifest format as still settling: a breaking
   change may land in a later `rc` without a MAJOR bump.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.6...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.7...HEAD
+[0.1.0-rc.7]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.7
 [0.1.0-rc.6]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.6
 [0.1.0-rc.5]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.5
 [0.1.0-rc.4]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.4

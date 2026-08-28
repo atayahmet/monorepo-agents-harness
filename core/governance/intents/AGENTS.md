@@ -19,6 +19,12 @@ rather than an ad-hoc engineering request.
 Workspaces are seeded by `.agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh`
 (creates `intents/AGENTS.md`); re-run it after adding a workspace.
 
+**The target inbox is author-confirmed, never assumed.** On capture, the agent always asks which
+workspace the intent should be filed under and presents its own recommendation (per
+`core/skills/intent-workflow/SKILL.md`); the file is written only after the author confirms that
+workspace in the current turn. Filing an intent into the wrong inbox misroutes both the review step
+and the later plan-mode task that would consume an approved intent.
+
 ## Intent file format
 
 ```markdown

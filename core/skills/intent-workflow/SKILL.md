@@ -18,10 +18,14 @@ Full format and lifecycle rules: `core/governance/intents/AGENTS.md`.
 Triggered when a stakeholder describes a new problem or feature idea, or explicitly asks to file an
 intent.
 
-1. Resolve the target workspace the same way `agent-workflow` does (`apps/<name>` or
-   `packages/<name>`) — ask if it's unclear from the description; unlike a plan-mode task, an intent
-   author may not know the codebase, so guess conservatively and confirm.
-2. Decide a `slug` (`snake_case`, 3-5 words) and today's date.
+1. **Always ask which workspace the intent should be filed under.** Present the workspace you would
+   recommend as the prompt's own suggestion, then let the author confirm or override it. Resolve the
+   recommendation the same way `agent-workflow` does (`apps/<name>` or `packages/<name>`) from the
+   description; an intent author may not know the codebase, so phrase it as a suggestion, e.g.
+   "File this intent under `apps/api`? (my recommendation)". Do **not** write the intent file (or any
+   part of it, including the `slug`/frontmatter) until the author gives an explicit workspace in the
+   current turn — a wrong workspace misroutes both the review inbox and the later plan-mode task.
+2. Then decide a `slug` (`snake_case`, 3-5 words) and today's date.
 3. Write `<workspace>/.agents/intents/intent_<YYYY_MM_DD>_<slug>.md` following the template in
    `core/governance/intents/AGENTS.md`, frontmatter `status: pending`.
 4. Confirm to the author what was recorded and that it now awaits review — do not imply it has been
@@ -57,9 +61,11 @@ or specs itself.
 - **No `<workspace>/.agents/intents/` yet**: run
   `core/scripts/scaffold-workspace-agents.sh` first (it seeds `intents/AGENTS.md` for every
   discovered workspace), or create the directory manually before writing the first intent.
-- **Author doesn't know the workspace**: ask; if genuinely cross-cutting, file it under the
-  workspace most likely to drive the eventual work and note the ambiguity in "Open questions."
-  Same convention as cross-workspace plan-mode tasks.
+- **Author doesn't know the workspace**: the capture step still always asks — present your
+  recommendation, and if the author genuinely can't decide, note the ambiguity in "Open questions"
+  and confirm the most likely target before writing. Never silently file under the most likely
+  workspace without the explicit in-turn answer step 1 requires. Same convention as cross-workspace
+  plan-mode tasks.
 - **Reviewer wants to bulk-approve**: still ask per intent — a single "approve all" answer is fine
   as the consent for the whole batch, but each file's `## Review` section is still written
   individually with its own timestamp.
