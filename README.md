@@ -11,6 +11,11 @@ Claude Code, opencode, Cursor, Codex, and more.
   `3_memory.md`, and (when there's something verifiable) `4_verify.md` in a dedicated per-task
   directory, so you can always answer "why was this built this way, and how do we know it works?"
   The order follows the AI-native SDLC playbook — `intent → spec → plan → memory → verify`.
+- **Architecture decisions travel with the task** — when a spec or plan surfaces an
+  architecture-affecting choice (a new dependency, a data-model or cross-workspace contract change,
+  a delivery-guarantee change, …), the `adr-workflow` skill writes a lightweight ADR
+  (`adr/NNNN-<title>.md`) right next to the plan/spec — context, the chosen option, and the rejected
+  alternatives — and PR review verifies the record exists at merge time (`task-state.sh check-adr`).
 - **Per-workspace working state** — each app/package owns `.agents/{session-log,lessons,todo}.md`;
   agents read them before work and record what they learned after.
 - **Enforced follow-through (Feedback Loop)** — the memory-gate blocks the task from ending until
@@ -51,6 +56,8 @@ searchable index:
     ├── 0_intent.md                   # optional — copied in if an approved intent seeded this task
     ├── 1_spec.md                     # the "what" (contract, acceptance criteria) — written first
     ├── 2_plan.md                     # the "how" (implementation plan) — written after the spec
+    ├── adr/                          # optional — architecture decisions the spec's
+    │   └── NNNN-<title>.md           #   "## Architectural decisions" section links
     ├── 3_memory.md                   # the outcome (findings, decisions, commit SHAs)
     └── 4_verify.md                   # the proof (verification run, per-criterion pass/fail)
 ```
@@ -191,6 +198,40 @@ just works without a payload shape change.
 - [ ] Redelivering the same event produces the same key
 - [ ] No change to the existing payload body
 ```
+
+The key-derivation choice is architecture-affecting — it changes a contract every merchant
+integration consumes — so Phase 1 fires the `adr-workflow` skill and writes the decision next to the
+spec, recording the rejected alternative that later engineers would otherwise have to re-derive:
+
+```markdown
+---
+phase: adr
+date: 2026-08-21
+slug: webhook_retry
+adr: 0001
+status: accepted
+---
+
+# ADR 0001 — Deterministic X-Idempotency-Key derivation
+
+## Context
+Queue redelivery produces duplicate order.created deliveries (see `0_intent.md`). Merchants need a
+stable way to detect a repeat without a payload-shape change.
+
+## Decision
+Derive `X-Idempotency-Key` from `orderId:eventType`, deterministically, rather than from a random UUID.
+
+## Alternatives considered
+- Random UUID per delivery — rejected: every delivery would look unique, defeating the purpose.
+- ULID carrying an order-instance id — rejected: over-engineered for the current redelivery scope.
+
+## Consequences
+Easier: merchants dedupe on a simple stable header; replaying the same event reproduces the same key.
+Harder: key space is tied to `orderId:eventType` — a future redelivery-with-modification must revisit this.
+```
+
+The spec's `## Architectural decisions` section links `adr/0001-deterministic-idempotency-key.md`,
+and `/monorepo-harness-review` (Scenario 4) verifies the record exists before merge.
 
 Implementation happens. At task end, the `verifier` subagent (Claude Code) — or the same
 verification commands run inline (other adapters) — executes the plan the way it's written, and
@@ -468,7 +509,8 @@ Rules while you do this:
 | [adapters/claude-code/manifest.txt](adapters/claude-code/manifest.txt)     | Per-adapter install rules (one per agent) — executed by `install-adapter.sh`, audited by `audit-install.sh` |
 | [PORTABILITY.md](PORTABILITY.md)                                           | Cross-agent capability matrix; how to author a new adapter                                 |
 | [core/root-AGENTS.md](core/root-AGENTS.md)                                 | Template root instructions — the single source of truth copied into target repos as `AGENTS.md` |
-| [core/skills/agent-workflow/SKILL.md](core/skills/agent-workflow/SKILL.md) | Plan/spec/memory/verify file templates (Scenarios 1–2)                                     |
+| [core/skills/agent-workflow/SKILL.md](core/skills/agent-workflow/SKILL.md) | Plan/spec/memory/verify file templates (Scenarios 1–2) |
+| [core/skills/adr-workflow/SKILL.md](core/skills/adr-workflow/SKILL.md) | Captures architecture-affecting decisions as `adr/NNNN-*.md` next to the plan/spec (Scenario 1) |
 | [core/skills/agents-md-merge/SKILL.md](core/skills/agents-md-merge/SKILL.md) | Reconciles a project's root `AGENTS.md` with the harness template on install/upgrade       |
 | [core/skills/harness-update/SKILL.md](core/skills/harness-update/SKILL.md) | Update-check / upgrade workflow — re-runs the installers, self-heals adapters (Scenario 5) |
 | [core/skills/monorepo/SKILL.md](core/skills/monorepo/SKILL.md)             | Monorepo guidance (framework-agnostic + Turborepo/Nx/Lerna/workspaces)                     |

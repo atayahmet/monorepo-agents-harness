@@ -34,7 +34,9 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
    (the "what", written first), `2_plan.md` (the "how"), (at task end) `3_memory.md`, and
    `4_verify.md` (required unless the spec's Test/
    verification plan is `N/A`) — plus, optionally, `0_intent.md` when an approved entry under
-   `<workspace>/.agents/intents/` seeded the task (see `core/skills/intent-workflow/SKILL.md`).
+   `<workspace>/.agents/intents/` seeded the task (see `core/skills/intent-workflow/SKILL.md`), and
+   `adr/` records when the spec or plan surfaces architecture-affecting decisions (see
+   `core/skills/adr-workflow/SKILL.md`, validated by `task-state.sh check-adr`).
    Every add/update/delete on a task directory must be reflected in that workspace's searchable
    index `<workspace>/.agents/artifacts/index.md` in the same commit. The memory-gate (your agent
    adapter's stop-hook and/or `core/scripts/memory-gate.sh` at git pre-commit/CI) scans every
@@ -101,7 +103,9 @@ This is a {{MONOREPO_FRAMEWORK}} monorepo. Default context is the repository roo
 5. **Verification Before Done** — Never mark complete without proof. Prefer narrowest scope first.
 6. **Demand Elegance** — For non-trivial changes, pause and ask "is there a more elegant way?" Don't over-engineer obvious fixes.
 7. **Autonomous Bug Fixing** — Treat bugs as execution tasks: investigate, fix root cause, verify.
-8. **Memory / Knowledge Base** — Record durable outcomes in the task's `3_memory.md`; promote recurring architectural decisions or reusable patterns into specs and `lessons.md`.
+8. **Memory / Knowledge Base** — Record durable outcomes in the task's `3_memory.md`; promote
+   architecture-affecting decisions into ADRs (`core/skills/adr-workflow/SKILL.md`) and recurring
+   decisions/reusable patterns into specs and `lessons.md`.
 
 ## Reference Map
 

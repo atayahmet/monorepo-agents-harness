@@ -11,6 +11,7 @@ This adapter wires the harness into **Codex CLI**. Codex toggles plan mode with 
 - **`/monorepo-harness-plan <spec.md>`** — write `2_plan.md`, gated on a valid spec, asking about plan mode first.
 - **`/monorepo-harness-build <2_plan.md>`** — run the implementation, gated on the full spec/plan/intent chain, then write `3_memory.md` + `4_verify.md`.
 - **Memory reminder + universal hard gate** — the `Stop` hook warns if `3_memory.md` or (when required) `4_verify.md` is missing; the git pre-commit / CI gate actually blocks commits.
+- **Automatic ADR capture** — the `adr-workflow` skill (symlinked into `.agents/skills/`, so it also appears in the slash list) fires automatically while `1_spec.md`/`2_plan.md` are written whenever the task makes an architecture-affecting decision, producing `adr/NNNN-<title>.md` records referenced from the spec's `## Architectural decisions` section.
 - **Feedback Loop, without a dedicated subagent** — Codex has no subagent primitive, so run your verification commands inline in the main session before writing `4_verify.md`; the underlying instructions are the same ones a `verifier` subagent would follow on Claude Code (see `PORTABILITY.md`).
 
 ## Day-to-day commands

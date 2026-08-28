@@ -21,6 +21,10 @@ What every review checks, in order:
 3. **Spec compliance** — when the diff maps to a task under `<workspace>/.agents/artifacts/task_*/`,
    whether it satisfies that task's `1_spec.md` acceptance criteria and stays within its stated
    scope.
+4. **ADR compliance** — when the diff maps to a tracked task, the ADRs its spec lists under
+   `## Architectural decisions` must exist and carry `phase: adr` (run
+   `core/scripts/task-state.sh check-adr` against the task's `1_spec.md`); an architecture-affecting
+   change with no ADR declared is at most a Nit — the record stays optional.
 
 ## Thresholds
 

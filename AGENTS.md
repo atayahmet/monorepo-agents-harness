@@ -30,10 +30,13 @@ change to a reusable template, not to a single application.
 5. **Plan/spec/memory/verify artifact workflow is mandatory for plan-mode tasks.** When you signal
    plan approval, create a per-task directory `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/`
    (where `<workspace>` is the primary target: an app under `apps/` or a package under `packages/`,
-   or the repo root when neither exists — see Workspace Routing below) containing `1_plan.md`,
-   `2_spec.md`, (at task end) `3_memory.md`, and `4_verify.md` (required unless the spec's Test/
+   or the repo root when neither exists — see Workspace Routing below) containing `1_spec.md`
+   (the "what", written first), `2_plan.md` (the "how"), (at task end) `3_memory.md`, and
+   `4_verify.md` (required unless the spec's Test/
    verification plan is `N/A`) — plus, optionally, `0_intent.md` when an approved entry under
-   `<workspace>/.agents/intents/` seeded the task (see `core/skills/intent-workflow/SKILL.md`).
+   `<workspace>/.agents/intents/` seeded the task (see `core/skills/intent-workflow/SKILL.md`), and
+   `adr/` records when the spec or plan surfaces architecture-affecting decisions (see
+   `core/skills/adr-workflow/SKILL.md`, validated by `core/scripts/task-state.sh check-adr`).
    Every add/update/delete on a task directory must be reflected in that workspace's searchable
    index `<workspace>/.agents/artifacts/index.md` in the same commit. The memory-gate
    (`core/scripts/memory-gate.sh`) scans every workspace's artifacts dir and blocks
@@ -110,7 +113,9 @@ This repo has a Turborepo-shaped layout but exists to ship the harness template.
 5. **Verification Before Done** — Never mark complete without proof. Prefer narrowest scope first.
 6. **Demand Elegance** — For non-trivial changes, pause and ask "is there a more elegant way?" Don't over-engineer obvious fixes.
 7. **Autonomous Bug Fixing** — Treat bugs as execution tasks: investigate, fix root cause, verify.
-8. **Memory / Knowledge Base** — Record durable outcomes in the task's `3_memory.md`; promote recurring architectural decisions or reusable patterns into specs and `lessons.md`.
+8. **Memory / Knowledge Base** — Record durable outcomes in the task's `3_memory.md`; promote
+   architecture-affecting decisions into ADRs (`core/skills/adr-workflow/SKILL.md`) and recurring
+   decisions/reusable patterns into specs and `lessons.md`.
 
 ## Reference Map
 

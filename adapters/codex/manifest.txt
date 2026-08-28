@@ -10,6 +10,7 @@
 #   tmpl  <p>        like merge, with {{PROJECT_NAME}}/{{MONOREPO_FRAMEWORK}} resolved first
 
 link  .agents/skills/agent-workflow  core/skills/agent-workflow
+link  .agents/skills/adr-workflow    core/skills/adr-workflow
 link  .agents/skills/monorepo        core/skills/monorepo
 
 copy  .agents/skills/monorepo-harness-build/SKILL.md

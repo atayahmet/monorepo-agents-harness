@@ -24,6 +24,8 @@ apps/api/
             ├── 0_intent.md                  # optional — only if an approved intent seeded this task
             ├── 1_spec.md                    # the "what" (contract, acceptance criteria) — written first
             ├── 2_plan.md                    # the "how" (implementation plan) — written after the spec
+            ├── adr/                         # optional — architecture decisions the spec's
+            │   └── NNNN-<title>.md          #   "## Architectural decisions" section links
             ├── 3_memory.md
             └── 4_verify.md
 ```
@@ -34,6 +36,7 @@ packages/example-pkg/.agents/artifacts/
     ├── 0_intent.md   # optional — see Phase 1
     ├── 1_spec.md     # the "what" (contract) — written first
     ├── 2_plan.md     # the "how" (implementation plan) — written after the spec
+    ├── adr/          # optional — see the adr-workflow skill (Phase 1)
     ├── 3_memory.md
     └── 4_verify.md
 ```
@@ -89,7 +92,7 @@ directory and write `1_spec.md` — the "what": the contract and acceptance crit
 written **before** the plan, matching the AI-native SDLC order (`intent → spec → plan`: Design
 precedes Build); `2_plan.md` (the "how") then builds against this spec in Phase 2.
 
-**Before writing it**, two checks:
+**Before writing it**, three checks:
 
 1. **Prior art (mandatory)** — grep `<workspace>/.agents/artifacts/index.md` using 1–3 keywords
    derived from the task. On a match, read that task's `1_spec.md` (and `3_memory.md` if marked ◆)
@@ -103,6 +106,13 @@ precedes Build); `2_plan.md` (the "how") then builds against this spec in Phase 
    On a match, copy it into the task directory as `0_intent.md` and reference it from `2_plan.md`'s
    `## Problem` (Phase 2). Most ad-hoc tasks have no intent behind them — skip silently if none
    matches or the directory doesn't exist. See `core/skills/intent-workflow/SKILL.md`.
+3. **Architecture decisions (via the `adr-workflow` skill)** — while writing `1_spec.md`, fill its
+   `## Architectural decisions` section. When it lists one or more decisions, immediately apply
+   `core/skills/adr-workflow/SKILL.md` and write the matching `adr/NNNN-<title>.md` files in the
+   same pass, **before** moving on to the plan. When the section is `N/A`, create no `adr/` directory.
+   Before leaving Phase 1, run
+   `bash <bundle>/core/scripts/task-state.sh check-adr <task>/1_spec.md` to confirm every referenced
+   ADR exists.
 
 ```markdown
 ---
@@ -138,6 +148,13 @@ Write "N/A" only for research-only tasks with no verifiable behavior change.>
 ## Architectural constraints
 <Layer rules, module boundaries, and non-functional requirements (performance, security,
 compatibility) — consistent with root AGENTS.md gotchas>
+
+## Architectural decisions
+<Architecture-affecting decisions this task makes — one bullet per decision, linking the record the
+`adr-workflow` skill writes into this task's `adr/` directory (Phase 1, below):
+- [0001 - <Title>](adr/0001-<title>.md) — <one-line rationale>
+Write "N/A" when the task makes no architecture-affecting decision (see
+`core/skills/adr-workflow/SKILL.md` for the threshold).>
 ```
 
 ## Phase 2 — `2_plan.md` (via `/monorepo-harness-plan`, before implementation)
@@ -148,6 +165,11 @@ mode?" — on **yes** it enters plan mode, on **no** it proceeds without. Then, 
 created by Phase 1, write `2_plan.md` — the "how" built against the just-written spec; the spec
 defines "what", the plan the implementation sketch that an engineer who never saw the conversation
 could follow.
+
+**Decisions not yet recorded:** when writing `2_plan.md` surfaces a decision the spec's
+`## Architectural decisions` did not record (or the `## Approach` would contradict one), apply the
+`adr-workflow` skill and write/amend the `adr/NNNN-*.md` file(s) then, citing them from
+`## Approach` — do not defer them to task end.
 
 ```markdown
 ---
@@ -274,3 +296,7 @@ slug: <slug>
 - **No matching approved intent**: normal and expected for most tasks — `0_intent.md` is simply
   omitted; nothing warns about this, unlike the mandatory prior-art search above. As long as the
   task dir also has no `0_intent.md`, `task-state.sh check-chain` treats it as a valid ad-hoc task.
+- **Architecture-affecting decisions**: capture them in Phases 1–2 via the `adr-workflow` skill, not
+  at task end; `3_memory.md` keeps only a one-line pointer to the ADR(s). `task-state.sh check-adr`
+  validates every ADR the spec's `## Architectural decisions` section references; a spec without that
+  section is treated as "no ADRs declared" (fail-open, so in-flight tasks are never blocked).

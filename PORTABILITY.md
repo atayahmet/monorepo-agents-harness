@@ -30,6 +30,7 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 | Project instructions / rules | root `AGENTS.md` | native + root `CLAUDE.md` = `@AGENTS.md` pointer | native | native | `AGENTS.md` — read by most agents |
 | Per-workspace working state (`session-log`/`lessons`/`todo` under `<ws>/.agents/`) | `core/workspace-agents-template/` + `core/scripts/scaffold-workspace-agents.sh` | `AGENTS.md` "Before You Start" mandate | same | same | `AGENTS.md` mandate (instruction-level → **universal**, no hook needed) |
 | Plan/spec/memory templates | `.agents/monorepo-agents-harness/core/skills/agent-workflow/SKILL.md` | symlinked into `.claude/skills/` (auto-registered skill) | referenced via `opencode.jsonc` `instructions` | symlinked into `.agents/skills/` (auto-registered skill) | reference the shared runtime templates via your agent's instruction mechanism |
+| **ADR capture** (architecture decisions → `adr/NNNN-*.md` inside the task dir, referenced from the spec's `## Architectural decisions`) | `.agents/monorepo-agents-harness/core/skills/adr-workflow/SKILL.md` + `core/scripts/task-state.sh check-adr` | symlinked into `.claude/skills/` (auto-registered skill) | referenced via `opencode.jsonc` `instructions` | symlinked into `.agents/skills/` (auto-registered skill) | `AGENTS.md` mandate + the `agent-workflow`/`pr-review` skill references (instruction-level) |
 | Monorepo guidance | `.agents/monorepo-agents-harness/core/skills/monorepo/SKILL.md` | same as above | same as above | same as above | link from `AGENTS.md` |
 | Plan/spec reminder (start of impl.) | `AGENTS.md` gotcha #4 | `PostToolUse[ExitPlanMode]` hook + `/monorepo-harness-spec`/`-plan` commands | `AGENTS.md` mandate + `/monorepo-harness-spec`/`-plan` commands | `PostToolUse[update_plan]` hook + `SessionStart` reminder + `/monorepo-harness-spec`/`-plan` skills | `AGENTS.md` mandate |
 | Per-SDLC-stage commands (intent → spec → plan → build) | `core/skills/agent-workflow/SKILL.md` (stage entry points) + `core/scripts/task-state.sh` (read-only chain validation) | `.claude/commands/monorepo-harness-{spec,plan,build}.md` | `.opencode/commands/monorepo-harness-{spec,plan,build}.md` | `.agents/skills/monorepo-harness-{spec,plan,build}/SKILL.md` | run the `task-state.sh` checks and follow the stage phases by hand |
@@ -83,6 +84,13 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
   instructions are agent-neutral, so opencode/codex sessions run the same commands inline in the
   main session — the *capability* (verification before `4_verify.md`) is universal; only the
   *isolated-context delivery mechanism* is claude-code-specific.
+- **ADR capture is instruction-level, not a stage command.** The `adr-workflow` skill triggers
+  automatically via its description and the explicit `agent-workflow` Phase 1/2 references, so it
+  ships as a registered skill (claude-code symlink, codex symlink) or an `opencode.jsonc`
+  `instructions` entry — never as a `/monorepo-harness-adr` command. On codex it still *appears* in
+  the slash list because codex auto-registers every `.agents/skills/*` as a slash command; invoking
+  it manually just runs the same workflow. Validation (`check-adr`) is a return-0-or-1 read-only
+  check the review skill shells out to — no agent-specific mechanism involved.
 
 ## Authoring a new adapter
 

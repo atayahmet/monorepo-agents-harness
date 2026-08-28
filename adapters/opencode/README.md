@@ -10,6 +10,7 @@ This adapter wires the harness into **opencode**. Because opencode has no `ExitP
 - **`/monorepo-harness-plan <spec.md>`** — write `2_plan.md`, gated on a valid spec, asking about plan mode first.
 - **`/monorepo-harness-build <2_plan.md>`** — run the implementation, gated on the full spec/plan/intent chain, then write `3_memory.md` + `4_verify.md`.
 - **Universal hard gate** — the git pre-commit / CI version of `core/scripts/memory-gate.sh` blocks commits until `3_memory.md` exists, and `4_verify.md` too whenever the spec's Test/verification plan is not `N/A` (Feedback Loop enforcement).
+- **Automatic ADR capture** — the `adr-workflow` SKILL.md (listed in `opencode.jsonc` `instructions`) fires automatically while `1_spec.md`/`2_plan.md` are written whenever the task makes an architecture-affecting decision, producing `adr/NNNN-<title>.md` records referenced from the spec's `## Architectural decisions` section.
 - **Feedback Loop, without a dedicated subagent** — opencode has no subagent primitive, so run your verification commands inline in the main session before writing `4_verify.md`; the underlying instructions are the same ones a `verifier` subagent would follow on Claude Code (see `PORTABILITY.md`).
 
 ## Day-to-day commands

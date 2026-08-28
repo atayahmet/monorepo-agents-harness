@@ -9,6 +9,7 @@
   // Adjust the prefix if you vendored the bundle under a different path.
   "instructions": [
     ".agents/monorepo-agents-harness/core/skills/agent-workflow/SKILL.md",
+    ".agents/monorepo-agents-harness/core/skills/adr-workflow/SKILL.md",
     ".agents/monorepo-agents-harness/core/skills/monorepo/SKILL.md"
   ]
 

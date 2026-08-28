@@ -13,17 +13,24 @@
 #                                        task was seeded by an intent (a `0_intent.md` is present),
 #                                        that intent is approved. Ad-hoc tasks (no `0_intent.md`)
 #                                        are exempt from the intent requirement.
+#   check-adr <spec.md>                — advisory (no gate): validates the ADRs the spec's
+#                                        `## Architectural decisions` section references — each
+#                                        linked `adr/NNNN-<title>.md` must exist and carry
+#                                        `phase: adr` frontmatter. `N/A` and specs without the
+#                                        section pass (backcompat, no ADRs expected).
 #
 # Web usage (from the shared bundle root in a consumer project):
 #   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved \
 #        apps/api/.agents/intents/intent_2026_08_27_add_auth.md
 #   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-chain \
 #        apps/api/.agents/artifacts/task_2026_08_27_add_auth/2_plan.md
+#   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-adr \
+#        apps/api/.agents/artifacts/task_2026_08_27_add_auth/1_spec.md
 
 set -euo pipefail
 
 cmd="${1:-}"
-[ -n "$cmd" ] || { echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain> <path>" >&2; exit 2; }
+[ -n "$cmd" ] || { echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr> <path>" >&2; exit 2; }
 path="${2:-}"
 [ -n "$path" ] || { echo "usage: task-state.sh $cmd <path>" >&2; exit 2; }
 
@@ -79,9 +86,41 @@ case "$cmd" in
       echo "task-state: chain valid — spec + plan present, ad-hoc (no intent required) — $dir"
     fi
     ;;
+  check-adr)
+    [ -f "$path" ] || fail "spec file '$path' missing"
+    value="$(frontmatter_field "$path" phase || true)"
+    [ "$value" = "spec" ] || fail "'$path' is not a spec (phase: '${value:-<none>}')"
+    dir="$(dirname "$path")"
+    section="$(awk '
+      /^## Architectural decisions[[:space:]]*$/ { f=1; next }
+      f && /^## / { exit }
+      f { print }
+    ' "$path")"
+    [ -n "$section" ] || {
+      echo "task-state: check-adr — no '## Architectural decisions' section (pre-existing spec, none expected) — $path"
+      exit 0
+    }
+    refs="$(printf '%s\n' "$section" | grep -oE 'adr/[0-9]{4}-[A-Za-z0-9._-]+\.md' | sort -u || true)"
+    if [ -n "$refs" ]; then
+      for r in $refs; do
+        [ -f "$dir/$r" ] || fail "spec '$path' references '$r' but the file is missing in task dir '$dir'"
+        av="$(frontmatter_field "$dir/$r" phase || true)"
+        [ "$av" = "adr" ] || fail "adr file '$r' has no 'phase: adr' frontmatter (phase: '${av:-<none>}')"
+      done
+      echo "task-state: check-adr — $(printf '%s\n' "$refs" | wc -l | tr -d ' ') referenced ADR(s) valid — $path"
+      exit 0
+    fi
+    # No adr/ links: valid only when the section declares N/A (word-boundary match, so incidental
+    # "N/A" inside prose is not enough once the section references real files — but here there are none).
+    if printf '%s\n' "$section" | grep -qE '(^|[^A-Za-z0-9])N/A([^A-Za-z0-9]|$)'; then
+      echo "task-state: check-adr — spec declares no ADRs (N/A), nothing to validate — $path"
+      exit 0
+    fi
+    fail "spec '$path' has '## Architectural decisions' but references no adr/ files — write the ADR(s) or state N/A"
+    ;;
   *)
     echo "task-state: unknown subcommand '$cmd'" >&2
-    echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain> <path>" >&2
+    echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr> <path>" >&2
     exit 2
     ;;
 esac

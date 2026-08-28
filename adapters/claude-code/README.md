@@ -7,6 +7,7 @@ This adapter wires the harness into **Claude Code**. It gives you an automatic p
 ## What you get
 
 - **Automatic plan/spec reminder** — when you exit plan mode (`ExitPlanMode`), Claude Code is nudged to create the task directory and write `1_spec.md` + `2_plan.md` before any implementation.
+- **Automatic ADR capture** — the `adr-workflow` skill (symlinked into `.claude/skills/`) fires automatically while `1_spec.md`/`2_plan.md` are written whenever the task makes an architecture-affecting decision (new dependency, data-model or cross-workspace contract change, delivery-guarantee change, …), producing `adr/NNNN-<title>.md` records referenced from the spec's `## Architectural decisions` section.
 - **`/monorepo-harness-spec <intent.md?>`** — create the task directory and write `1_spec.md`, gated on an approved intent when a path is given.
 - **`/monorepo-harness-plan <spec.md>`** — write `2_plan.md`, gated on a valid spec, asking about plan mode first.
 - **`/monorepo-harness-build <2_plan.md>`** — run the implementation, gated on the full spec/plan/intent chain, then write `3_memory.md` + `4_verify.md`.
@@ -64,6 +65,6 @@ follow the "Update from the repo" prompt in the project README, or run the share
 
 ## Notes
 
-- The automatic reminder and `/monorepo-harness-spec`/`-plan`/`-build` all share the same `core/skills/agent-workflow/SKILL.md` instructions and `core/scripts/task-state.sh` gates.
+- The automatic reminder and `/monorepo-harness-spec`/`-plan`/`-build` all share the same `core/skills/agent-workflow/SKILL.md` instructions and `core/scripts/task-state.sh` gates. ADRs are validated by `task-state.sh check-adr` before commit and re-checked by the PR-review skill.
 - The memory-gate is a **hard block** in Claude Code; you cannot end the task until `3_memory.md` exists, and until `4_verify.md` exists too whenever required.
 - The `verifier` subagent (`.claude/agents/verifier.md`) is claude-code-specific — opencode/codex have no subagent primitive, so those adapters run the same verification instructions inline in the main session instead (see `PORTABILITY.md`). No capability is lost, just the isolated context.

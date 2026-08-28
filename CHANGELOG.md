@@ -27,6 +27,53 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.1.0-rc.5] - 2026-08-28
+
+### Added
+
+- **ADR (Architecture Decision Record) workflow, automatically triggered.** A new
+  `core/skills/adr-workflow/SKILL.md` fires while the spec (`1_spec.md`) or plan (`2_plan.md`) is
+  being written whenever a task makes an architecture-affecting decision — new external dependency
+  or service integration, persistent data-model change with cross-workspace ripple, cross-workspace
+  API/event contract change, delivery-guarantee change (idempotency/retry/ordering),
+  auth/security model change, or any choice between alternatives with material, hard-to-reverse
+  consequences. Decisions land as `adr/NNNN-<title>.md` files **inside the task directory**
+  (`## Context` / `## Decision` / `## Alternatives considered` / `## Consequences` /
+  `## Related prior ADRs`), each referenced from the spec's new `## Architectural decisions` section.
+  Tasks with no architecture-affecting decision write `N/A` and are done — the record stays
+  conditional, never gated.
+- **`core/scripts/task-state.sh check-adr <spec.md>`** — read-only validator (fail-open backcompat:
+  a pre-existing spec without the section passes) used by the `agent-workflow` Phase 1 and the PR
+  review pass.
+- **ADR-compliance pass in review.** `core/skills/pr-review/SKILL.md` and the root `REVIEW.md`
+  template (`core/root-REVIEW.md`) now check that every ADR a task's spec references exists with
+  `phase: adr` (failing = Important); an architecture-affecting diff with no ADR declared is at most
+  a Nit.
+- **Spec template integration.** `core/skills/agent-workflow/SKILL.md` gains the
+  `## Architectural decisions` section in the `1_spec.md` template, an `adr/` row in its layout
+  trees, and Phase 1/2 trigger steps for the new skill.
+- **Adapter registration.** The skill ships for all three agents: new `link` rows in
+  `adapters/claude-code/manifest.txt` and `adapters/codex/manifest.txt` (auto-registered skill), and
+  a new `instructions` entry in `adapters/opencode/opencode.jsonc`. No slash command — triggering is
+  automatic (codex auto-registers it in the slash list anyway, same as the other shared skills).
+- Docs updated: `PORTABILITY.md` capability matrix + semantic note, `README.md` (feature bullet,
+  artifact tree, Scenario 1 ADR example, docs map), the three adapter READMEs, and the installable
+  templates (`core/root-AGENTS.md`, `core/governance/artifacts/AGENTS.md`).
+
+### Upgrade Notes
+
+- **New files reach installed projects via the normal update path.** The `adr-workflow` skill
+  (bundle, inside `core/`) and the new claude-code/codex `link` rows are applied automatically by
+  the harness-update workflow (`install-harness.sh --sync-only` + `install-adapter.sh --refresh`).
+- **opencode needs one manual merge.** The new skill reference lives inside `opencode.jsonc`, which
+  installs as a `merge` row — the update flow proposes `opencode.jsonc.harness-proposed` but never
+  touches your existing file. Add
+  `.agents/monorepo-agents-harness/core/skills/adr-workflow/SKILL.md` to the `instructions` array
+  (or accept the proposed version); until then opencode just won't auto-load the ADR skill — a soft
+  loss, no hard gate (see `changelogs/version-0.1.0-rc.5.md`).
+- **Task directories may optionally contain `adr/`.** No migration, nothing renamed: existing tasks
+  without the `## Architectural decisions` section are treated as "no ADRs declared" by `check-adr`.
+
 ## [0.1.0-rc.4] - 2026-08-27
 
 ### Removed
@@ -179,7 +226,8 @@ First release candidate. Versioning starts here.
 - While on `-rc.*`, treat the artifact layout and the manifest format as still settling: a breaking
   change may land in a later `rc` without a MAJOR bump.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.4...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.5...HEAD
+[0.1.0-rc.5]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.5
 [0.1.0-rc.4]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.4
 [0.1.0-rc.3]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.3
 [0.1.0-rc.2]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.2

@@ -29,17 +29,25 @@ does not merge or approve anything — see "Out of scope" below.
 3. **Find the originating task, if any.** For each file touched by the diff, check whether it falls
    under a workspace with `.agents/artifacts/index.md`; grep that index for a task whose summary or
    linked `1_spec.md` plausibly covers these files. On a match, read that task's `2_plan.md`,
-   `1_spec.md`, and `4_verify.md` (if present) as ground truth for the Spec compliance pass. If no
-   match, skip that pass and say so explicitly in the report — do not guess at intent.
+   `1_spec.md`, the ADRs its spec's `## Architectural decisions` section links, and `4_verify.md`
+   (if present) as ground truth for the Spec compliance pass. If no match, skip that pass and say so
+   explicitly in the report — do not guess at intent.
 
 4. **Apply the passes** from the loaded policy to the diff:
    - **Bugs / logic errors** — read the actual changed code, not just the diff hunks in isolation;
-     trace obviously-affected call sites.
+      trace obviously-affected call sites.
    - **Security / vulnerabilities** — injection, auth bypass, secrets committed in the diff, unsafe
-     deserialization, other OWASP Top 10-class issues.
+      deserialization, other OWASP Top 10-class issues.
    - **Spec compliance** (only if a task was found in step 3) — does the diff satisfy `1_spec.md`'s
-     acceptance criteria, and does it stay within the plan's stated scope (`## Affected files /
-     modules`)? Flag scope creep as Important, not Nit.
+      acceptance criteria, and does it stay within the plan's stated scope (`## Affected files /
+      modules`)? Flag scope creep as Important, not Nit.
+   - **ADR compliance** (only if a task was found in step 3) — run
+      `bash <bundle>/core/scripts/task-state.sh check-adr <task-dir>/1_spec.md` where `<bundle>` is
+      `.agents/monorepo-agents-harness`. A failing check (spec references `adr/...` files that are
+      missing or lack `phase: adr`) is Important. When the spec declares `N/A` but the diff looks
+      architecture-affecting (new dependency, data-model change, cross-workspace contract change),
+      raise it as a Nit: "consider whether an ADR is warranted" — the record stays optional, so this
+      is advisory, never blocking.
 
 5. **Report**, in this order:
    - One line of context: diff range reviewed, task found (or "no matching task — spec-compliance

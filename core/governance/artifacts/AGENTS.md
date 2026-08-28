@@ -19,6 +19,8 @@ read it before scanning task directories, and keep it searchable (rules below).*
         0_intent.md        <- optional, only if an approved core/governance/intents/ entry seeded this task
         1_spec.md          <- always present (the "what" — written first)
         2_plan.md          <- optional (the "how"; research-only tasks skip implementation phases)
+        adr/               <- optional — architecture decisions the spec's "## Architectural
+                              decisions" section links (NNNN-<title>.md per the adr-workflow skill)
         3_memory.md        <- optional (written at task end)
         4_verify.md        <- required at task end unless 1_spec.md's Test/verification plan is N/A
 ```
@@ -101,3 +103,7 @@ minimal redundancy, fixed column order.
    legend per section. The index must stay cheap to load into agent context and trivially greppable.
 6. When a workspace gets its first task dir, its `index.md` already exists (scaffold-seeded);
    extend it — never recreate the format from scratch.
+7. **ADR files are indexed by reference, not by a new column or marker.** Adding, updating, or
+   removing an `adr/NNNN-<title>.md` requires updating the spec's `## Architectural decisions`
+   bullets in the SAME commit (`core/scripts/task-state.sh check-adr` validates the round-trip).
+   The index row and the `◆` marker stay unchanged; ADRs remain discoverable through the spec link.
