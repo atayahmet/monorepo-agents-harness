@@ -52,6 +52,7 @@ they coexist with your existing hooks safely.
 | Verifier | `core/skills/agent-workflow/SKILL.md` Phase 4 | — (no subagent primitive; run the same verification inline) |
 | Update check | `core/scripts/harness-update.sh` + `core/skills/harness-update/SKILL.md` | follow the README "Update from the repo" prompt, or run the skill directly (no skill) |
 | CI wiring · PR review · intent capture | `core/skills/{ci-integration,pr-review,intent-workflow}/SKILL.md` | `/monorepo-harness-ci` · `/monorepo-harness-review` · `/monorepo-harness-intent` skills |
+| Self-improvement (`/monorepo-self-improve`) | `core/skills/self-improvement-workflow/SKILL.md` | `/monorepo-self-improve` skill · skill symlinked into `.agents/skills/` |
 
 ## Verify
 

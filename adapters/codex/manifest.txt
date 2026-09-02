@@ -9,9 +9,10 @@
 #   merge <p>        absent -> copy; present -> write <p>.harness-proposed, never touch the original
 #   tmpl  <p>        like merge, with {{PROJECT_NAME}}/{{MONOREPO_FRAMEWORK}} resolved first
 
-link  .agents/skills/agent-workflow  core/skills/agent-workflow
-link  .agents/skills/adr-workflow    core/skills/adr-workflow
-link  .agents/skills/monorepo        core/skills/monorepo
+link  .agents/skills/agent-workflow            core/skills/agent-workflow
+link  .agents/skills/adr-workflow              core/skills/adr-workflow
+link  .agents/skills/monorepo                  core/skills/monorepo
+link  .agents/skills/self-improvement-workflow core/skills/self-improvement-workflow
 
 copy  .agents/skills/monorepo-harness-build/SKILL.md
 copy  .agents/skills/monorepo-harness-spec/SKILL.md
@@ -19,6 +20,7 @@ copy  .agents/skills/monorepo-harness-plan/SKILL.md
 copy  .agents/skills/monorepo-harness-ci/SKILL.md
 copy  .agents/skills/monorepo-harness-review/SKILL.md
 copy  .agents/skills/monorepo-harness-intent/SKILL.md
+copy  .agents/skills/monorepo-self-improve/SKILL.md
 
 merge .codex/config.toml
 merge .codex/hooks.json

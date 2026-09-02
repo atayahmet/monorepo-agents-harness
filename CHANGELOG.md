@@ -93,6 +93,11 @@ Release procedure (harness maintainers):
 - **Reconcile your root `AGENTS.md`.** This release adds Reference Map rows for `.agents/rules/*.md`
   and `.agents/skills/*/SKILL.md`. The normal harness-update flow will propose the merge via
   `agents-md-merge`; accept it so future agents know where project-owned rules and skills live.
+- **opencode users: merge `opencode.jsonc`.** The self-improvement skill is added to the adapter's
+  `instructions` list. The update flow writes `opencode.jsonc.harness-proposed`; merge it to enable
+  auto-loading. The `/monorepo-self-improve` command works regardless.
+- **Re-install installed adapters.** Run `install-adapter.sh <agent> --refresh` for each agent you
+  use so the new `/monorepo-self-improve` entry point and skill symlink land.
 - **No gate or artifact-layout migration.** Existing task directories and the memory-gate are
   unchanged.
 
