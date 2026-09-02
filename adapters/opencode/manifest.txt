@@ -18,5 +18,6 @@ copy  .opencode/commands/monorepo-harness-plan.md
 copy  .opencode/commands/monorepo-harness-ci.md
 copy  .opencode/commands/monorepo-harness-review.md
 copy  .opencode/commands/monorepo-harness-intent.md
+copy  .opencode/commands/monorepo-self-improve.md
 
 merge opencode.jsonc
