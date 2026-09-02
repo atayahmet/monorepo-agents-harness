@@ -12,6 +12,7 @@ This adapter wires the harness into **Claude Code**. It gives you an automatic p
 - **`/monorepo-harness-plan <spec.md>`** — write `2_plan.md`, gated on a valid spec, asking about plan mode first.
 - **`/monorepo-harness-build <2_plan.md>`** — run the implementation, gated on the full spec/plan/intent chain, then write `3_memory.md` + `4_verify.md`.
 - **Hard memory-gate** — the `Stop` hook refuses to end the task until today's task directory contains `3_memory.md`, and `4_verify.md` too whenever the spec's Test/verification plan is not `N/A` (Feedback Loop enforcement).
+- **`/monorepo-self-improve`** — harvest recurring patterns from lessons and task memories, then propose durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`). Requires explicit approval before writing anything.
 - **`verifier` subagent** — an isolated, read-only subagent that runs the task's verification commands and reports pass/fail evidence for `4_verify.md`, without touching any files.
 
 ## Day-to-day commands
@@ -47,6 +48,14 @@ Run it once your plan is ready. It validates the whole chain via `task-state.sh 
 spec present, and the intent approved if the task is intent-seeded), then runs the implementation.
 On completion it writes `3_memory.md` (with `commits:` filled after the commits) and `4_verify.md`
 (whenever the spec's Test/verification plan is not `N/A`), and updates the index.
+
+### `/monorepo-self-improve` — Harvest patterns into project-owned rules and skills
+
+Run it when you have accumulated several tasks and want to turn repeated corrections or workflows
+into reusable instructions. It reads every workspace's `lessons.md`, `artifacts/index.md`, and recent
+`3_memory.md` files, detects recurring themes, and proposes `.agents/rules/<topic>.md` and
+`.agents/skills/<new-skill>/SKILL.md` files plus Reference Map updates. It **stops and asks** before
+writing anything; on approval it writes only consumer-owned files and reconciles root `AGENTS.md`.
 
 ### Checking for harness updates
 

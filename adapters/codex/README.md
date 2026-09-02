@@ -12,6 +12,7 @@ This adapter wires the harness into **Codex CLI**. Codex toggles plan mode with 
 - **`/monorepo-harness-build <2_plan.md>`** — run the implementation, gated on the full spec/plan/intent chain, then write `3_memory.md` + `4_verify.md`.
 - **Memory reminder + universal hard gate** — the `Stop` hook warns if `3_memory.md` or (when required) `4_verify.md` is missing; the git pre-commit / CI gate actually blocks commits.
 - **Automatic ADR capture** — the `adr-workflow` skill (symlinked into `.agents/skills/`, so it also appears in the slash list) fires automatically while `1_spec.md`/`2_plan.md` are written whenever the task makes an architecture-affecting decision, producing `adr/NNNN-<title>.md` records referenced from the spec's `## Architectural decisions` section.
+- **`/monorepo-self-improve`** — harvest recurring patterns from lessons and task memories, then propose durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`). Requires explicit approval before writing anything.
 - **Feedback Loop, without a dedicated subagent** — Codex has no subagent primitive, so run your verification commands inline in the main session before writing `4_verify.md`; the underlying instructions are the same ones a `verifier` subagent would follow on Claude Code (see `PORTABILITY.md`).
 
 ## Day-to-day commands
@@ -47,6 +48,14 @@ Run it once your plan is ready. It validates the whole chain via `task-state.sh 
 spec present, and the intent approved if the task is intent-seeded), then runs the implementation.
 On completion it writes `3_memory.md` (with `commits:` filled after the commits) and `4_verify.md`
 (whenever the spec's Test/verification plan is not `N/A`), and updates the index.
+
+### `/monorepo-self-improve` — Harvest patterns into project-owned rules and skills
+
+Run it when you have accumulated several tasks and want to turn repeated corrections or workflows
+into reusable instructions. It reads every workspace's `lessons.md`, `artifacts/index.md`, and recent
+`3_memory.md` files, detects recurring themes, and proposes `.agents/rules/<topic>.md` and
+`.agents/skills/<new-skill>/SKILL.md` files plus Reference Map updates. It **stops and asks** before
+writing anything; on approval it writes only consumer-owned files and reconciles root `AGENTS.md`.
 
 ### Checking for harness updates
 
