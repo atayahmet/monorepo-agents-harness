@@ -16,7 +16,7 @@ read it before scanning task directories, and keep it searchable (rules below).*
       AGENTS.md            <- pointer to these rules (seeded by the scaffold script)
       index.md             <- task index for the workspace (MANDATORY, seeded empty)
       task_<YYYY_MM_DD>_<slug>/
-        0_intent.md        <- optional, only if an approved core/governance/intents/ entry seeded this task
+        0_intent.md        <- optional, reference stub (not a copy) if an approved core/governance/intents/ entry seeded this task
         1_spec.md          <- always present (the "what" — written first)
         2_plan.md          <- optional (the "how"; research-only tasks skip implementation phases)
         adr/               <- optional — architecture decisions the spec's "## Architectural

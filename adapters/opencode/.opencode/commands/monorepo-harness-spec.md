@@ -11,7 +11,8 @@ with `core/scripts/task-state.sh`:
    - If a path was given, run
      `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved <intent.md>`.
    - If it exits non-zero, do **not** write anything; report the reason and stop.
-   - If it passes, copy the approved intent into the task dir as `0_intent.md`.
+   - If it passes, write a reference stub linking to the approved intent as `0_intent.md` (per
+     SKILL.md Phase 1) — never copy its content.
 3. Create the task directory and write `1_spec.md` (the "what": contract, acceptance criteria) per
    Phase 1.
 4. Update `<workspace>/.agents/artifacts/index.md` with a new row for this task.

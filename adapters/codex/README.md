@@ -20,9 +20,9 @@ This adapter wires the harness into **Codex CLI**. Codex toggles plan mode with 
 
 Use it right after plan approval (or whenever the plan/spec reminder did not fire) and **before the
 first Edit/Write**. It resolves the target workspace, and if you pass an intent path it verifies via
-`core/scripts/task-state.sh` that the intent is `approved` (refusing to write otherwise) and copies it
-as `0_intent.md`; then writes `1_spec.md` and adds a row to the workspace index. With no path, it
-creates a normal ad-hoc spec.
+`core/scripts/task-state.sh` that the intent is `approved` (refusing to write otherwise) and links it
+as `0_intent.md` (a reference stub, not a copy); then writes `1_spec.md` and adds a row to the
+workspace index. With no path, it creates a normal ad-hoc spec.
 
 Example:
 ```

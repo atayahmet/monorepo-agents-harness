@@ -68,15 +68,16 @@ input (see `core/scripts/task-state.sh` for the read-only checks):
 | Command | Validates | Writes |
 | ------- | --------- | ------ |
 | `/monorepo-harness-intent [review]` | — | `<workspace>/.agents/intents/intent_*.md` (`status: pending`, then `approved`) |
-| `/monorepo-harness-spec <intent.md?>` | intent **approved** (only when a path is given) | `1_spec.md` (+ `0_intent.md` = copy of the approved intent) |
+| `/monorepo-harness-spec <intent.md?>` | intent **approved** (only when a path is given) | `1_spec.md` (+ `0_intent.md` = reference stub linking the approved intent) |
 | `/monorepo-harness-plan <spec.md>` | spec present (`phase: spec`) + plan-mode consent | `2_plan.md` |
 | `/monorepo-harness-build <plan.md>` | chain: plan + spec present; intent approved **if** the task is intent-seeded | implementation + `3_memory.md` + `4_verify.md` |
 
 **Intent-approval policy:** an approved intent is mandatory only when a task was seeded by one (i.e.
 its directory contains a `0_intent.md`). Ad-hoc tasks (no intent behind them) are exempt — this is
 the common case, and `check-chain` treats the absence of `0_intent.md` as valid. `-spec` enforces an
-approved intent whenever an intent path is passed to it, and copies that approved intent into the
-task dir as `0_intent.md`, so the chain has the evidence it needs downstream.
+approved intent whenever an intent path is passed to it, and writes a reference stub linking to that
+approved intent as `0_intent.md`, so the chain has the evidence it needs downstream — the intent
+file itself stays the single source of truth, never copied.
 
 Each command stub lives in your agent adapter (`.claude/commands/`, `.opencode/commands/`, or a
 codex skill) and is purposely thin: it calls the relevant `task-state.sh` check, handles the only
@@ -99,14 +100,30 @@ precedes Build); `2_plan.md` (the "how") then builds against this spec in Phase 
    and keep its relevance ready to cite in `2_plan.md`'s `## Related prior work` (Phase 2).
 2. **Approved intent (via `-spec`, else best-effort)** — when `/monorepo-harness-spec <intent.md>`
    is used, it runs `task-state.sh check-intent-approved`, refuses to write if the intent is not
-   approved, and copies the approved intent into the task dir as `0_intent.md`. When the spec is
-   written without `-spec` (plan-mode exit), fall back to the best-effort check below: if
+   approved, and writes a reference stub linking to the approved intent as `0_intent.md` (template
+   below) — never a copy of its content, so the intent file stays the single source of truth. When
+   the spec is written without `-spec` (plan-mode exit), fall back to the best-effort check below: if
    `<workspace>/.agents/intents/` exists, check
    whether an `approved` intent plausibly matches this task (by slug, keywords, or affected files).
-   On a match, copy it into the task directory as `0_intent.md`, include `intent: 0_intent.md` in
-   the spec frontmatter, and reference it from `2_plan.md`'s `## Problem` (Phase 2). Most ad-hoc
-   tasks have no intent behind them — omit the `intent:` frontmatter line and skip silently if none
-   matches or the directory doesn't exist. See `core/skills/intent-workflow/SKILL.md`.
+   On a match, write the same reference stub into the task directory as `0_intent.md`, include
+   `intent: 0_intent.md` in the spec frontmatter, and reference it from `2_plan.md`'s `## Problem`
+   (Phase 2). Most ad-hoc tasks have no intent behind them — omit the `intent:` frontmatter line and
+   skip silently if none matches or the directory doesn't exist. See
+   `core/skills/intent-workflow/SKILL.md`.
+
+   ```markdown
+   ---
+   phase: intent-ref
+   date: <YYYY-MM-DD>
+   source: <relative path from this task dir to the approved intent file>
+   ---
+
+   # Intent reference
+
+   Seeded by the approved intent at [<source>](<source>) — see that file for the full problem
+   statement, proposed outcome, constraints, and review decision. This stub only records where the
+   source of truth lives; it is never a copy.
+   ```
 3. **Architecture decisions (via the `adr-workflow` skill)** — while writing `1_spec.md`, fill its
    `## Architectural decisions` section. When it lists one or more decisions, immediately apply
    `core/skills/adr-workflow/SKILL.md` and write the matching `adr/NNNN-<title>.md` files in the

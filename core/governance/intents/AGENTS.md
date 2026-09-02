@@ -93,10 +93,12 @@ connection stays traceable.
 
 An **approved** intent is optional input to `core/skills/agent-workflow/SKILL.md`'s Phase 1: before
 writing `1_spec.md`, the agent may find an approved intent in
-`<workspace>/.agents/intents/` matching the task at hand. If found, it is copied into the task's own
-directory as `0_intent.md`, included in `1_spec.md` frontmatter as `intent: 0_intent.md`, and
-cited in `2_plan.md`'s `## Problem` section with an explanatory link such as
-`problem originally captured and approved in [0_intent.md](0_intent.md)`. This is a best-effort
-match, not a mandatory search like the artifact-index prior-art check
+`<workspace>/.agents/intents/` matching the task at hand. If found, a reference stub linking to it
+is written into the task's own directory as `0_intent.md` — **never a copy of its content**, so the
+intent file itself stays the single source of truth (a later `## Review` addendum or status change
+on the original is never shadowed by a stale duplicate). `1_spec.md` frontmatter still gets
+`intent: 0_intent.md`, and `2_plan.md`'s `## Problem` section still cites it with an explanatory link
+such as `problem originally captured and approved in [0_intent.md](0_intent.md)`. This is a
+best-effort match, not a mandatory search like the artifact-index prior-art check
 (`core/governance/artifacts/AGENTS.md`) — most ad-hoc engineering tasks have no intent behind them
 and omit both the frontmatter line and the trailing clause.

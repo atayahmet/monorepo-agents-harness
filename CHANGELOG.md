@@ -23,6 +23,40 @@ Release procedure (harness maintainers):
 
 ### Changed
 
+### Removed
+
+### Upgrade Notes
+
+## [0.1.0-rc.10] - 2026-09-02
+
+### Added
+
+### Changed
+
+- **`0_intent.md` is now a reference stub, not a copy.** Task directories seeded by an approved
+  intent no longer duplicate the intent's content into `0_intent.md`; instead it's a small stub with
+  a `source:` frontmatter link pointing back to the real intent file under
+  `<workspace>/.agents/intents/`, which stays the single source of truth. `core/scripts/task-state.sh`
+  `check-chain` now resolves that `source:` link and checks approval on the **original** intent file
+  rather than on the local copy — so an intent rejected after a task was seeded is now caught too.
+  Updated in `core/skills/agent-workflow/SKILL.md`, `core/governance/intents/AGENTS.md`,
+  `core/scripts/task-state.sh`, the three adapters' `/monorepo-harness-spec` stubs, their READMEs,
+  `adapters/AGENTS.md`, `core/governance/artifacts/AGENTS.md`, and the root `README.md`.
+
+### Removed
+
+### Upgrade Notes
+
+- **No manual follow-up required.** Prompt/script change only — no manifest rows, no artifact
+  migration (no existing task directory contains a `0_intent.md` yet). Installed projects pick it up
+  on the normal harness-update path.
+
+## [0.1.0-rc.9] - 2026-09-02
+
+### Added
+
+### Changed
+
 - **Spec and plan artifacts now explicitly reference the seeding intent.** Intent-seeded tasks must
   include `intent: 0_intent.md` in `1_spec.md` frontmatter and cite the intent in `2_plan.md`'s
   `## Problem` section (e.g. `problem originally captured and approved in [0_intent.md](0_intent.md)`).

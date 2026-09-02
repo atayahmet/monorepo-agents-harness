@@ -41,8 +41,9 @@ Claude Code, opencode, Cursor, Codex, and more.
   Important/Nit findings; never posts to a PR platform or merges anything.
 - **Intent capture** — `/monorepo-harness-intent` lets any stakeholder file a problem description
   before it's scoped into a task, and a product owner/manager approve or reject it explicitly. An
-  approved intent optionally seeds a later task's plan as `0_intent.md`; rejected ones are kept, not
-  deleted, as an audit trail.
+  approved intent optionally seeds a later task's plan via `0_intent.md` — a reference stub linking
+  back, never a copy, so the intent file stays the single source of truth; rejected ones are kept,
+  not deleted, as an audit trail.
 
 ## How it works
 
@@ -53,7 +54,7 @@ searchable index:
 <workspace>/.agents/artifacts/
 ├── index.md                          # searchable task index (entry point)
 └── task_<YYYY_MM_DD>_<slug>/
-    ├── 0_intent.md                   # optional — copied in if an approved intent seeded this task
+    ├── 0_intent.md                   # optional — reference stub (not a copy) linking back if an approved intent seeded this task
     ├── 1_spec.md                     # the "what" (contract, acceptance criteria) — written first
     ├── 2_plan.md                     # the "how" (implementation plan) — written after the spec
     ├── adr/                          # optional — architecture decisions the spec's
@@ -141,7 +142,7 @@ A developer picks it up. Entering plan mode, `core/skills/agent-workflow/SKILL.m
 two pre-plan checks: it greps `apps/api/.agents/artifacts/index.md` for prior art (finds
 `webhook_signature_verification`, cites it as related — kept ready for the plan's `## Related prior
 work`), and separately checks `apps/api/.agents/intents/` for an approved intent matching this task
-— finds `webhook_retry`, copies it in as `0_intent.md`. Then, matching the playbook's
+— finds `webhook_retry`, links it in as `0_intent.md` (a reference stub, not a copy). Then, matching the playbook's
 `intent → spec → plan` order, it writes the **spec first** — the "what" (`1_spec.md`):
 
 ```markdown

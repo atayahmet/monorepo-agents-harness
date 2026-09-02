@@ -56,8 +56,9 @@ enforcement layer must support exactly these expectations (native mechanism or f
    written first), `2_plan.md` (the "how"), `3_memory.md`, `4_verify.md` (required whenever the
    spec's Test/verification plan is not `N/A`), optionally an `adr/` directory (architecture
    decisions the spec's `## Architectural decisions` section links, per the `adr-workflow` skill),
-   and optionally `0_intent.md` (only when an approved entry under `<workspace>/.agents/intents/`
-   seeded the task — see `core/governance/intents/AGENTS.md`). `<slug>` is `snake_case`,
+   and optionally `0_intent.md` (a reference stub, not a copy — only when an approved entry under
+   `<workspace>/.agents/intents/` seeded the task — see `core/governance/intents/AGENTS.md`).
+   `<slug>` is `snake_case`,
    `[a-z0-9_]`, 3–5 words, decided in the plan phase and never renamed; dashes in the date become
    `_` (`2026-06-03` → `task_2026_06_03_<slug>`). The gate discovers tasks by scanning
    `apps/*/.agents/artifacts/` + `packages/*/.agents/artifacts/` — placement is load-bearing, do

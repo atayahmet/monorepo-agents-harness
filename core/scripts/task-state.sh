@@ -10,9 +10,11 @@
 #   check-spec <spec.md>               — file exists AND frontmatter has `phase: spec`.
 #   check-plan <plan.md>               — file exists AND frontmatter has `phase: plan`.
 #   check-chain <plan.md>              — the plan's task dir also has a `1_spec.md`; and, when the
-#                                        task was seeded by an intent (a `0_intent.md` is present),
-#                                        that intent is approved. Ad-hoc tasks (no `0_intent.md`)
-#                                        are exempt from the intent requirement.
+#                                        task was seeded by an intent (a `0_intent.md` reference stub
+#                                        is present), that stub's `source:` link resolves to a real
+#                                        file and THAT file (the actual intent, never a local copy)
+#                                        is approved. Ad-hoc tasks (no `0_intent.md`) are exempt from
+#                                        the intent requirement.
 #   check-adr <spec.md>                — advisory (no gate): validates the ADRs the spec's
 #                                        `## Architectural decisions` section references — each
 #                                        linked `adr/NNNN-<title>.md` must exist and carry
@@ -78,10 +80,16 @@ case "$cmd" in
     [ "$value" = "plan" ] || fail "'$path' is not a plan (phase: '${value:-<none>}')"
     [ -f "$dir/1_spec.md" ] || fail "task dir '$dir' is missing 1_spec.md"
     if [ -f "$dir/0_intent.md" ]; then
-      ival="$(frontmatter_field "$dir/0_intent.md" status || true)"
+      src="$(frontmatter_field "$dir/0_intent.md" source || true)"
+      [ -n "$src" ] || \
+        fail "task '$dir' has 0_intent.md but it has no 'source:' frontmatter pointing at the original intent"
+      srcpath="$dir/$src"
+      [ -f "$srcpath" ] || \
+        fail "task '$dir' is intent-seeded but its 0_intent.md source '$src' does not exist"
+      ival="$(frontmatter_field "$srcpath" status || true)"
       [ "$ival" = "approved" ] || \
-        fail "task '$dir' is intent-seeded (0_intent.md) but that intent is not approved (status: '${ival:-<none>}')"
-      echo "task-state: chain valid — spec + plan present, intent approved — $dir"
+        fail "task '$dir' is intent-seeded (0_intent.md → $src) but that intent is not approved (status: '${ival:-<none>}')"
+      echo "task-state: chain valid — spec + plan present, intent approved ($src) — $dir"
     else
       echo "task-state: chain valid — spec + plan present, ad-hoc (no intent required) — $dir"
     fi
