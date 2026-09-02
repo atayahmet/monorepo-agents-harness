@@ -103,8 +103,9 @@ precedes Build); `2_plan.md` (the "how") then builds against this spec in Phase 
    written without `-spec` (plan-mode exit), fall back to the best-effort check below: if
    `<workspace>/.agents/intents/` exists, check
    whether an `approved` intent plausibly matches this task (by slug, keywords, or affected files).
-   On a match, copy it into the task directory as `0_intent.md` and reference it from `2_plan.md`'s
-   `## Problem` (Phase 2). Most ad-hoc tasks have no intent behind them — skip silently if none
+   On a match, copy it into the task directory as `0_intent.md`, include `intent: 0_intent.md` in
+   the spec frontmatter, and reference it from `2_plan.md`'s `## Problem` (Phase 2). Most ad-hoc
+   tasks have no intent behind them — omit the `intent:` frontmatter line and skip silently if none
    matches or the directory doesn't exist. See `core/skills/intent-workflow/SKILL.md`.
 3. **Architecture decisions (via the `adr-workflow` skill)** — while writing `1_spec.md`, fill its
    `## Architectural decisions` section. When it lists one or more decisions, immediately apply
@@ -119,6 +120,7 @@ precedes Build); `2_plan.md` (the "how") then builds against this spec in Phase 
 phase: spec
 date: <YYYY-MM-DD>
 slug: <slug>
+intent: 0_intent.md   # only when task is seeded by an approved intent; omit for ad-hoc tasks
 ---
 
 # Spec: <Task title>
@@ -188,7 +190,8 @@ status: approved
 # Plan: <Task title>
 
 ## Problem
-<The problem being solved, 1–3 sentences — reference `0_intent.md` when one seeded the task>
+<The problem being solved, 1–3 sentences> — problem originally captured and approved in [0_intent.md](0_intent.md).
+Omit the trailing clause for ad-hoc tasks with no `0_intent.md`.
 
 ## Approach
 <High-level strategy, 2–5 sentences>

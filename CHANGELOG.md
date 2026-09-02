@@ -23,9 +23,18 @@ Release procedure (harness maintainers):
 
 ### Changed
 
+- **Spec and plan artifacts now explicitly reference the seeding intent.** Intent-seeded tasks must
+  include `intent: 0_intent.md` in `1_spec.md` frontmatter and cite the intent in `2_plan.md`'s
+  `## Problem` section (e.g. `problem originally captured and approved in [0_intent.md](0_intent.md)`).
+  Ad-hoc tasks with no `0_intent.md` omit the frontmatter line and the trailing clause. Updated in
+  `core/skills/agent-workflow/SKILL.md` and `core/governance/intents/AGENTS.md`.
+
 ### Removed
 
 ### Upgrade Notes
+
+- **No manual follow-up required.** Prompt/rule change only — no manifest rows, no gate changes, no
+  migration. Installed projects pick it up on the normal harness-update path.
 
 ## [0.1.0-rc.8] - 2026-08-28
 
