@@ -62,13 +62,39 @@ Release procedure (harness maintainers):
   `## Problem` section (e.g. `problem originally captured and approved in [0_intent.md](0_intent.md)`).
   Ad-hoc tasks with no `0_intent.md` omit the frontmatter line and the trailing clause. Updated in
   `core/skills/agent-workflow/SKILL.md` and `core/governance/intents/AGENTS.md`.
+- **No manual follow-up required yet.**
+
+## [0.2.0-rc.0] - 2026-09-02
+
+### Added
+
+- **Self-improvement workflow (`/monorepo-self-improve`).** A new harness capability lets consumer
+  projects harvest recurring patterns from their own agent working state — `<workspace>/.agents/lessons.md`,
+  `<workspace>/.agents/artifacts/index.md`, and recent `3_memory.md` files — and turn them into
+  durable, project-owned artifacts:
+  - `.agents/rules/<topic>.md` for simple guidelines and constraints.
+  - `.agents/skills/<new-skill>/SKILL.md` for multi-step, project-specific workflows.
+  - Root `AGENTS.md` Reference Map updates so agents discover the new rules and skills.
+- **`core/skills/self-improvement-workflow/SKILL.md`** — shared instructions for pattern detection,
+  proposal reporting, and (only after explicit approval) writing consumer-owned files. It explicitly
+  forbids modifying `.agents/monorepo-agents-harness/` at runtime.
+- **`adapters/opencode/.opencode/commands/monorepo-self-improve.md`** — thin slash command that
+  delegates to the shared skill.
+- **`core/governance/rules/rule-template.md`** — template for generated `.agents/rules/*.md` files.
+- **Reference Map guidance in `core/root-AGENTS.md`** — documents `.agents/rules/*.md` and
+  `.agents/skills/*/SKILL.md` as project-owned instruction locations.
+
+### Changed
 
 ### Removed
 
 ### Upgrade Notes
 
-- **No manual follow-up required.** Prompt/rule change only — no manifest rows, no gate changes, no
-  migration. Installed projects pick it up on the normal harness-update path.
+- **Reconcile your root `AGENTS.md`.** This release adds Reference Map rows for `.agents/rules/*.md`
+  and `.agents/skills/*/SKILL.md`. The normal harness-update flow will propose the merge via
+  `agents-md-merge`; accept it so future agents know where project-owned rules and skills live.
+- **No gate or artifact-layout migration.** Existing task directories and the memory-gate are
+  unchanged.
 
 ## [0.1.0-rc.8] - 2026-08-28
 

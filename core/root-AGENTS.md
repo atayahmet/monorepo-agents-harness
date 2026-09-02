@@ -99,7 +99,7 @@ This is a {{MONOREPO_FRAMEWORK}} monorepo. Default context is the repository roo
 1. **Load Context** — Prioritize technical specs, architecture docs, recent sessions (`<target-workspace>/.agents/session-log.md`), and prior task artifacts (`<target-workspace>/.agents/artifacts/index.md`).
 2. **Plan Mode** — Enter for any non-trivial task. Write specs upfront. If something goes sideways, stop and re-plan. The `agent-workflow` skill (`.agents/monorepo-agents-harness/core/skills/agent-workflow/SKILL.md`) produces the plan/spec/memory artifacts.
 3. **Subagent Strategy** — Offload research and exploration to subagents. One task per subagent.
-4. **Self-Improvement** — After any user correction: (1) update `<target-workspace>/.agents/lessons.md`; (2) if the correction reveals a module-specific rule, update the relevant workspace instruction file so the mistake is not repeated.
+4. **Self-Improvement** — After any user correction: (1) update `<target-workspace>/.agents/lessons.md`; (2) if the correction reveals a module-specific rule, update the relevant workspace instruction file so the mistake is not repeated. Periodically run `/monorepo-self-improve` to harvest recurring patterns into durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`).
 5. **Verification Before Done** — Never mark complete without proof. Prefer narrowest scope first.
 6. **Demand Elegance** — For non-trivial changes, pause and ask "is there a more elegant way?" Don't over-engineer obvious fixes.
 7. **Autonomous Bug Fixing** — Treat bugs as execution tasks: investigate, fix root cause, verify.
@@ -110,11 +110,16 @@ This is a {{MONOREPO_FRAMEWORK}} monorepo. Default context is the repository roo
 ## Reference Map
 
 Team-specific rule files are optional. Create them under `.agents/rules/*.md` and add a row here for
-each one you add. This template ships none — do not link a rule file that does not exist.
+each one you add. Project-specific skills live under `.agents/skills/<name>/SKILL.md`; add them to
+the Reference Map as well. This template ships none — do not link a rule file or skill that does not
+exist.
 
 | Topic | Rule File |
 | ----- | --------- |
-| _(add your own rows as you create `.agents/rules/*.md`)_ | |
+| Self-improvement workflow | `.agents/monorepo-agents-harness/core/skills/self-improvement-workflow/SKILL.md` |
+| Project rules directory | `.agents/rules/*.md` |
+| Project skills directory | `.agents/skills/*/SKILL.md` |
+| _(add your own rows as you create `.agents/rules/*.md` and `.agents/skills/*`)_ | |
 
 ## Additional Context Locations
 
@@ -127,3 +132,6 @@ each one you add. This template ships none — do not link a rule file that does
 - `.agents/monorepo-agents-harness/` — Installed harness bundle: skill templates (`core/skills/`),
   enforcement scripts (`core/scripts/`), workspace seeds (`core/workspace-agents-template/`),
   governance docs (`core/governance/`), and per-agent adapters (`adapters/`).
+- `.agents/rules/*.md` — Project-owned rule files created by `/monorepo-self-improve` or by hand.
+- `.agents/skills/<name>/SKILL.md` — Project-owned skills created by `/monorepo-self-improve` or by
+  hand.
