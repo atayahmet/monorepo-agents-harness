@@ -90,6 +90,9 @@ throwaway dir afterwards.
 - **CI** — ask your agent `/monorepo-harness-ci`; it detects the provider and wires
   `memory-gate.sh` in (`core/skills/ci-integration/SKILL.md`).
 - **Intent inbox** — `/monorepo-harness-intent` (`core/governance/intents/AGENTS.md`).
+- **Self-improvement** — `/monorepo-self-improve` harvests recurring patterns from lessons and task
+  memories and proposes durable project-owned rules and skills
+  (`core/skills/self-improvement-workflow/SKILL.md`).
 
 ## 7. Updating
 

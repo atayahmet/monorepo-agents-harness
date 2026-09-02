@@ -43,6 +43,10 @@ Claude Code, opencode, Cursor, Codex, and more.
   before it's scoped into a task, and a product owner/manager approve or reject it explicitly. An
   approved intent optionally seeds a later task's plan as `0_intent.md`; rejected ones are kept, not
   deleted, as an audit trail.
+- **Self-improvement** — `/monorepo-self-improve` harvests recurring patterns from `lessons.md`,
+  task memories, and the workspace index, then proposes durable project-owned rules
+  (`.agents/rules/*.md`) and project-specific skills (`.agents/skills/<new-skill>/SKILL.md`). It asks
+  before writing anything and never modifies the installed harness bundle.
 
 ## How it works
 
@@ -418,7 +422,8 @@ per-agent notes: [claude-code](adapters/claude-code/INSTALL.md) ·
 another agent: [PORTABILITY.md](PORTABILITY.md).
 
 Then, as needed: `/monorepo-harness-ci` to wire CI (Scenario 3), `/monorepo-harness-intent` to open
-the intent inbox (Scenario 1), `/monorepo-harness-review` before merging a PR (Scenario 4).
+the intent inbox (Scenario 1), `/monorepo-harness-review` before merging a PR (Scenario 4),
+`/monorepo-self-improve` to turn accumulated lessons and memories into reusable rules and skills.
 
 ### Or hand it to your agent
 
@@ -495,9 +500,9 @@ Rules while you do this:
 
 | Adapter       | Enforcement provided                                                                                                                                                               |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `verifier` subagent  |
-| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture                                                        |
-| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-spec` · `-plan` · `-build`, `/monorepo-harness-ci`, `/monorepo-harness-review`, and `/monorepo-harness-intent` skills |
+| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-self-improve` pattern harvesting, `verifier` subagent  |
+| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-self-improve` pattern harvesting                                                        |
+| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-spec` · `-plan` · `-build`, `/monorepo-harness-ci`, `/monorepo-harness-review`, `/monorepo-harness-intent`, and `/monorepo-self-improve` skills |
 | yours         | Follow the capability matrix in [PORTABILITY.md](PORTABILITY.md) — new adapters are the intended growth path                                                                       |
 
 ## Documentation map
@@ -518,6 +523,7 @@ Rules while you do this:
 | [core/skills/pr-review/SKILL.md](core/skills/pr-review/SKILL.md)           | Reviews a diff against `REVIEW.md` policy and a task's plan/spec/verify artifacts (Scenario 4) |
 | [core/root-REVIEW.md](core/root-REVIEW.md) | Review-policy template — installed to target repo roots as `REVIEW.md` |
 | [core/skills/intent-workflow/SKILL.md](core/skills/intent-workflow/SKILL.md) | Captures stakeholder intents and lets a product owner approve/reject them (Scenario 1)     |
+| [core/skills/self-improvement-workflow/SKILL.md](core/skills/self-improvement-workflow/SKILL.md) | Harvests recurring patterns into project-owned rules and skills |
 | [core/governance/intents/AGENTS.md](core/governance/intents/AGENTS.md) | Intent file format and status-lifecycle rules for every `<workspace>/.agents/intents/` |
 | [core/governance/artifacts/AGENTS.md](core/governance/artifacts/AGENTS.md) | Task-index format & searchability rules for every `<workspace>/.agents/artifacts/index.md` |
 | [changelogs/README.md](changelogs/README.md)                              | Format of the per-release upgrade prompts the update workflow reads                        |
