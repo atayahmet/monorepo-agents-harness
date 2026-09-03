@@ -135,3 +135,6 @@ exist.
 - `.agents/rules/*.md` — Project-owned rule files created by `/monorepo-self-improve` or by hand.
 - `.agents/skills/<name>/SKILL.md` — Project-owned skills created by `/monorepo-self-improve` or by
   hand.
+- `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md` — Self-improvement proposals the user
+  declined, deferred, or only partly approved. Read before running `/monorepo-self-improve` again:
+  cite an existing report instead of re-proposing the same pattern.

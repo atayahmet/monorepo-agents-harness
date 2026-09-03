@@ -32,6 +32,11 @@ adapter's version is written as `opencode.jsonc.harness-proposed` and reported. 
 git diff --no-index opencode.jsonc opencode.jsonc.harness-proposed
 ```
 
+**This merge is also the one thing an upgrade cannot do for you.** Because `opencode.jsonc` is never
+overwritten, a harness release that adds a new shared skill leaves your `instructions` array one
+entry short, and the command still works while the skill never reaches the agent's context. The
+audit (below) reports each missing entry by exact path, so run it after every upgrade.
+
 `AGENTS.md` is loaded by opencode natively — no extra wiring for rules.
 
 ## What maps to what
@@ -55,8 +60,11 @@ opencode --help >/dev/null 2>&1 && echo "opencode present"
 ```
 
 The audit reports every missing or stale command file by exact path (it reads the same
-`manifest.txt`), so it is the authoritative check. Then start opencode and type
-`/monorepo-harness-spec` — the harness commands must register.
+`manifest.txt`), so it is the authoritative check. It additionally compares your root
+`opencode.jsonc` (or `opencode.json`) `instructions` array against the adapter's, and reports any
+`core/skills/*/SKILL.md` entry you are missing — the drift a `merge` row cannot prevent. Matching is
+on the `core/skills/<name>/SKILL.md` suffix, so vendoring the bundle under a different prefix is
+fine. Then start opencode and type `/monorepo-harness-spec` — the harness commands must register.
 
 For the end-to-end memory-gate smoke test see `../../INSTALL.md` §5.
 
@@ -67,6 +75,8 @@ For the end-to-end memory-gate smoke test see `../../INSTALL.md` §5.
   `install-harness.sh`) *is* the enforcement. If that slot was already taken, the installer says so
   in its `Needs you:` list — act on it, or the gate is unenforced.
 - **No skill symlinks.** opencode reads the shared `SKILL.md` files through `opencode.jsonc`
-  `instructions`, so there is nothing to link into a skills directory.
+  `instructions`, so there is nothing to link into a skills directory. The trade-off is that new
+  shared skills are a manual merge on every upgrade instead of an automatic symlink — `audit-install.sh`
+  Check 6 is what keeps that honest.
 - **`--refresh`** re-applies only the copy rows and never touches `opencode.jsonc` — the mode a
   harness update runs (`core/skills/harness-update/SKILL.md` step 7.5).

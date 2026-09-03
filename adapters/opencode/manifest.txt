@@ -11,6 +11,11 @@
 #
 # No skill symlinks here: opencode reads the shared SKILL.md files through the `instructions`
 # entries in opencode.jsonc instead (see adapters/opencode/README.md).
+#
+# Consequence: `merge opencode.jsonc` is written once and never overwritten, so an upgrade that adds
+# a new core/skills/*/SKILL.md CANNOT wire it in — you merge the new `instructions` line by hand.
+# core/scripts/audit-install.sh Check 6 reports any entry the project's config is missing, so this
+# is an audited gap, not a prose-only follow-up.
 
 copy  .opencode/commands/monorepo-harness-build.md
 copy  .opencode/commands/monorepo-harness-spec.md

@@ -14,5 +14,8 @@ Follow the shared instructions in
 5. Ask "Apply these changes?" and wait for an explicit answer in the current turn.
 6. On yes: write consumer-owned files only and reconcile root `AGENTS.md` via
    `core/skills/agents-md-merge/SKILL.md`.
+7. On no / deferred / partly applied: offer to save the report as
+   `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md` with a `Status:` line, so the finding is
+   not lost. Never write it unasked.
 
 Do **not** modify `.agents/monorepo-agents-harness/` or any harness bundle files.

@@ -56,6 +56,8 @@ into reusable instructions. It reads every workspace's `lessons.md`, `artifacts/
 `3_memory.md` files, detects recurring themes, and proposes `.agents/rules/<topic>.md` and
 `.agents/skills/<new-skill>/SKILL.md` files plus Reference Map updates. It **stops and asks** before
 writing anything; on approval it writes only consumer-owned files and reconciles root `AGENTS.md`.
+A declined, deferred, or partly applied proposal is saved as
+`.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md` so the finding survives the turn.
 
 ### Checking for harness updates
 

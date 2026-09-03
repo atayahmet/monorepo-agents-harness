@@ -17,6 +17,8 @@ This workflow is **read-analyze-propose-apply**:
 - **Propose** concrete `.agents/rules/*.md` files, `.agents/skills/<new-skill>/SKILL.md` files, and
   root `AGENTS.md` Reference Map updates.
 - **Apply** only after explicit user approval in the same turn.
+- **Record** a declined, deferred, or partly applied proposal in
+  `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md`, on offer, so the finding is not lost.
 
 **First-iteration limits (by design):**
 - Source code is not scanned.
@@ -87,6 +89,28 @@ A project-owned skill must:
 Propose adding one row per new rule/skill topic. Do not rewrite the file; use
 `core/skills/agents-md-merge/SKILL.md` to produce a consent-gated proposal.
 
+### 4. `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md` (declined or deferred proposals)
+
+The one durable output this workflow may write **without** applying anything. A proposal the user
+declined, deferred, or only partly approved is still a finding — it must not evaporate with the
+turn — so it is saved here as a report instead of being silently dropped.
+
+- **Path** — `<repo-root>/.agents/self-improve-proposals/`, one file per run:
+  `<YYYY_MM_DD>-<short-slug>.md` (e.g. `2026_09_03-api-input-validation.md`). Multiple runs on the
+  same day get distinct slugs; never overwrite an existing report.
+- **Contents** — the exact proposal report shown at the approval gate (patterns, confidence,
+  sources, proposed file paths and snippets), plus a `Status:` line recording the outcome:
+  `declined`, `deferred`, or `partially applied — <what landed>`.
+- **Ownership** — project-owned working state, like `lessons.md` and `todo.md`. The harness never
+  reads it back automatically and never prunes it; the next run should cite an existing report
+  rather than re-deriving the same pattern from scratch.
+- **Git** — the harness ships no `.gitignore` (each monorepo owns that). Treat these reports the
+  same way the project treats `.agents/todo.md`: track them if declined proposals are worth a
+  history, ignore them if they are scratch.
+
+Write nothing here unless the user declined, deferred, or partly approved — a fully applied
+proposal needs no report, because the rule/skill files themselves are the record.
+
 ## Approval gate
 
 Before writing anything, present a structured report:
@@ -107,7 +131,9 @@ Apply these changes? (yes / no / edit)
 ```
 
 - **yes** — write the files and reconcile root `AGENTS.md`.
-- **no** — write nothing. Optionally offer to save the report to `.agents/self-improve-proposals/`.
+- **no** — write no rule or skill files. Offer to save the report to
+  `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md` (Outputs §4) with `Status: declined`, so
+  the finding survives the turn. If the user declines that too, write nothing at all.
 - **edit** — take the user's instructions, regenerate the proposal, and ask again.
 
 Never change `AGENTS.md` without going through `agents-md-merge`.
@@ -125,13 +151,17 @@ Never change `AGENTS.md` without going through `agents-md-merge`.
    - Draft the Reference Map row(s).
 7. Present the proposal report.
 8. On approval, write files and reconcile root `AGENTS.md`.
-9. Confirm what was written and where.
+9. If anything was declined, deferred, or only partly applied, offer to save the report to
+   `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md`; write it only if the user agrees.
+10. Confirm what was written and where — rule/skill files, Reference Map rows, and the report path
+    if one was saved.
 
 ## Hard constraints
 
 - **Never modify `.agents/monorepo-agents-harness/` at runtime.** This includes `core/`, `adapters/`,
   scripts, manifests, and installed skill files.
-- **No writes without explicit user approval.** The proposal report must be shown first.
+- **No writes without explicit user approval.** The proposal report must be shown first. This
+  covers the `.agents/self-improve-proposals/` report too: it is offered, never written unasked.
 - **Do not overwrite existing project-owned rules/skills silently.** If a file already exists,
   propose an update or a new file with a disambiguating suffix.
 - **Keep adapters thin.** This skill contains all logic; the opencode command is only a pointer.
@@ -145,7 +175,10 @@ Never change `AGENTS.md` without going through `agents-md-merge`.
 - **No root `AGENTS.md`.** This is unexpected in an installed project. Report it and do not create
   one silently.
 - **Root `AGENTS.md` merge declined.** Write the rule/skill files if the user approved those, but do
-  not modify `AGENTS.md`. Surface the declined proposal path as a follow-up.
+  not modify `AGENTS.md`. Save the report to `.agents/self-improve-proposals/` with
+  `Status: partially applied — rules/skills written, Reference Map rows pending`, and name the
+  `AGENTS.md.harness-proposed` path left behind by `agents-md-merge` as the follow-up. A rule or
+  skill nobody can discover from the Reference Map is the failure this report exists to prevent.
 - **Mixed confidence.** Present high/medium items as "Proposed"; low items as "Possible — review
   separately". Do not auto-apply low-confidence items.
 

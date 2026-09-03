@@ -121,6 +121,9 @@ The upgrade also reconciles the project's root `AGENTS.md` against the new `core
     - A non-zero exit names the rows that could not be satisfied. Report them; do not claim success.
     - If the project has a harness-plumbing file the current adapter no longer ships
       (renamed/removed), report it as a follow-up — do not delete it silently.
+    - **opencode specifically:** a release that adds a new `core/skills/*/SKILL.md` also needs a new
+      `instructions` entry in the project's root `opencode.jsonc`, which is a `merge` row and so is
+      skipped here. Do not guess — step 9.5's audit names each missing entry by exact path.
 
 8. **Confirm the installed version advanced** (step 7 already copied it as a manifest row):
     ```bash
@@ -160,6 +163,11 @@ The upgrade also reconciles the project's root `AGENTS.md` against the new `core
       customizations. Re-run step 9 (`agents-md-merge`) instead; if it was already declined on
       purpose, the `.harness-proposed` sibling makes this a non-issue in the first place.
     - **Workspace scaffold gap**: re-run `core/scripts/scaffold-workspace-agents.sh` (idempotent).
+    - **opencode `instructions` gap**: the project's `opencode.jsonc` is missing a shared skill the
+      adapter ships. No installer can fix this — the file is user-owned. Show the user the one line
+      to add (or the `git diff --no-index` against `opencode.jsonc.harness-proposed`), ask, and add
+      it only on approval. Until it is added the slash command still works but the skill never
+      reaches opencode's context, so carry it into the step 11 follow-ups if declined.
     - If a re-run still reports the same gap, **stop** — do not proceed to step 10 or report the
       upgrade complete.
 

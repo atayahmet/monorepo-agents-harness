@@ -183,6 +183,35 @@ check_workspace_scaffold() {
   done
 }
 
+# --- Check 6: opencode `instructions` coverage (the one merge-row gap nothing else can see) ---
+# opencode installs no skill symlinks: the shared SKILL.md files reach the agent ONLY through the
+# `instructions` array of the project's own root opencode.jsonc, which is a `merge` manifest row —
+# written once at install, never overwritten afterwards. So a harness upgrade that adds a new shared
+# skill physically cannot wire it in; the user must add the line by hand from the
+# opencode.jsonc.harness-proposed the installer leaves behind. Check 2 cannot catch that, because
+# merge rows are existence-checked only (their content is the project's to customize).
+#
+# Matching is on the `core/skills/<name>/SKILL.md` suffix, not the full path, so a bundle vendored
+# under a non-default prefix is not reported as a gap.
+check_opencode_instructions() {
+  local proposed="$against/adapters/opencode/opencode.jsonc" project="" c rel entry suffix
+  [ -f "$proposed" ] || return 0
+  for c in opencode.jsonc opencode.json; do
+    if [ -f "$ROOT/$c" ]; then project="$ROOT/$c"; break; fi
+  done
+  if [ -z "$project" ]; then
+    add_gap "opencode: no root opencode.jsonc/opencode.json — the harness \`instructions\` entries have nowhere to live"
+    return
+  fi
+  rel="${project#"$ROOT"/}"
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    suffix="core/skills/${entry#*core/skills/}"
+    grep -qF "$suffix" "$project" \
+      || add_gap "opencode: \`instructions\` in $rel is missing \"$suffix\" (merge it from opencode.jsonc.harness-proposed; the manifest \`merge\` row is always opencode.jsonc)"
+  done < <(grep -oE '"[^"]*core/skills/[^"]*SKILL\.md"' "$proposed" | tr -d '"')
+}
+
 # An adapter counts as installed once any of its manifest copy rows exists in the project. Derived
 # from the manifest rather than a per-agent directory guess, so a project that merely happens to
 # have a .claude/ or .agents/skills/ dir is never audited against an adapter it never installed.
@@ -201,6 +230,7 @@ check_bundle_sync
 for agent in claude-code opencode codex; do
   adapter_installed "$agent" || continue
   check_adapter_entrypoints "$agent"
+  [ "$agent" = "opencode" ] && check_opencode_instructions
 done
 
 check_agents_md

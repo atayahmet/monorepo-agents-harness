@@ -13,6 +13,7 @@ This adapter wires the harness into **opencode**. Because opencode has no `ExitP
 - **Automatic ADR capture** — the `adr-workflow` SKILL.md (listed in `opencode.jsonc` `instructions`) fires automatically while `1_spec.md`/`2_plan.md` are written whenever the task makes an architecture-affecting decision, producing `adr/NNNN-<title>.md` records referenced from the spec's `## Architectural decisions` section.
 - **`/monorepo-self-improve`** — harvest recurring patterns from lessons and task memories, then propose durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`). Requires explicit approval before writing anything.
 - **Feedback Loop, without a dedicated subagent** — opencode has no subagent primitive, so run your verification commands inline in the main session before writing `4_verify.md`; the underlying instructions are the same ones a `verifier` subagent would follow on Claude Code (see `PORTABILITY.md`).
+- **Shared skills arrive via `instructions`, not symlinks** — every `core/skills/*/SKILL.md` reaches opencode through the `instructions` array in *your* root `opencode.jsonc`. That file is never overwritten, so a harness upgrade that adds a skill leaves the array one entry short: the slash command still works, but the skill never enters context. Run `core/scripts/audit-install.sh` after every upgrade — it names each missing entry by exact path.
 
 ## Day-to-day commands
 
@@ -55,6 +56,8 @@ into reusable instructions. It reads every workspace's `lessons.md`, `artifacts/
 `3_memory.md` files, detects recurring themes, and proposes `.agents/rules/<topic>.md` and
 `.agents/skills/<new-skill>/SKILL.md` files plus Reference Map updates. It **stops and asks** before
 writing anything; on approval it writes only consumer-owned files and reconciles root `AGENTS.md`.
+A declined, deferred, or partly applied proposal is saved as
+`.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md` so the finding survives the turn.
 
 ### Checking for harness updates
 

@@ -92,7 +92,9 @@ throwaway dir afterwards.
 - **Intent inbox** — `/monorepo-harness-intent` (`core/governance/intents/AGENTS.md`).
 - **Self-improvement** — `/monorepo-self-improve` harvests recurring patterns from lessons and task
   memories and proposes durable project-owned rules and skills
-  (`core/skills/self-improvement-workflow/SKILL.md`).
+  (`core/skills/self-improvement-workflow/SKILL.md`). Declined or deferred proposals are kept under
+  `.agents/self-improve-proposals/` — project-owned working state, like `.agents/todo.md`, so decide
+  yourself whether to track or ignore it in git.
 
 ## 7. Updating
 

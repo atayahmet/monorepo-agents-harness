@@ -47,7 +47,9 @@ Claude Code, opencode, Cursor, Codex, and more.
 - **Self-improvement** — `/monorepo-self-improve` harvests recurring patterns from `lessons.md`,
   task memories, and the workspace index, then proposes durable project-owned rules
   (`.agents/rules/*.md`) and project-specific skills (`.agents/skills/<new-skill>/SKILL.md`). It asks
-  before writing anything and never modifies the installed harness bundle.
+  before writing anything and never modifies the installed harness bundle. A proposal you decline or
+  defer is kept as a report under `.agents/self-improve-proposals/`, so the finding is not lost and
+  the next run cites it instead of re-deriving it.
 
 ## How it works
 

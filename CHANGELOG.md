@@ -27,6 +27,70 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.2.0-rc.2] - 2026-09-03
+
+Closes the two loose ends left by the `/monorepo-self-improve` release: an output directory that was
+referenced but never defined, and an opencode wiring step that existed only as prose in a release
+prompt.
+
+### Added
+
+- **`.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md` is now a defined output.**
+  `core/skills/self-improvement-workflow/SKILL.md` previously mentioned this path once, in the "no"
+  branch of its approval gate, with no naming convention, no stated contents, and no entry in root
+  `AGENTS.md` — so an agent that saved a report there produced a file nothing else in the harness
+  knew how to find. It is now Outputs §4: one file per run, the exact proposal report plus a
+  `Status:` line (`declined` / `deferred` / `partially applied — <what landed>`), never overwritten,
+  offered rather than written unasked. It is listed in `core/root-AGENTS.md` under Additional
+  Context Locations with an instruction to read it *before* re-running the workflow, so a pattern
+  the user already declined is cited instead of re-proposed.
+- **`audit-install.sh` Check 6 — opencode `instructions` coverage.** opencode installs no skill
+  symlinks: shared `SKILL.md` files reach the agent only through the `instructions` array of the
+  project's own root `opencode.jsonc`, which is a `merge` manifest row — written once, never
+  overwritten. A release that adds a shared skill therefore *cannot* wire it in, and Check 2 could
+  not see the gap because merge rows are existence-checked only. The audit now compares the
+  project's `opencode.jsonc` (or `opencode.json`) against the adapter's and reports each missing
+  `core/skills/*/SKILL.md` entry by exact path. Matching is on the `core/skills/<name>/SKILL.md`
+  suffix, so a bundle vendored under a non-default prefix is not a false positive.
+
+### Changed
+
+- **`core/skills/self-improvement-workflow/SKILL.md`** — Scope gains a `Record` step; the approval
+  gate's `no` branch and the declined-`AGENTS.md`-merge edge case both point at the now-defined
+  report convention (the latter with `Status: partially applied` and the `AGENTS.md.harness-proposed`
+  path as the named follow-up); the "no writes without approval" constraint explicitly covers the
+  report itself.
+- **All three `/monorepo-self-improve` entry points** (claude-code command, codex skill, opencode
+  command) gain an identical step 7 for the declined/deferred report, preserving byte-for-byte
+  parity below the frontmatter.
+- **`core/skills/harness-update/SKILL.md`** — step 7.5 now names the opencode `instructions` case as
+  something `--refresh` structurally cannot cover and defers to the audit rather than to guesswork;
+  step 9.5 gains an "opencode `instructions` gap" resolution branch (show the line, ask, add only on
+  approval, carry to step 11 follow-ups if declined).
+- **`adapters/opencode/manifest.txt`, `INSTALL.md`, `README.md`** — the "no skill symlinks" note now
+  states the consequence (new shared skills are a manual merge on every upgrade) and names Check 6
+  as what keeps it honest, instead of leaving it to a per-release prompt.
+- **Docs** — `README.md`, `INSTALL.md`, `PORTABILITY.md` and the three adapter READMEs describe where
+  declined proposals land; `PORTABILITY.md`'s opencode column records the `instructions` merge-row
+  constraint.
+- **`.gitignore`** (this repo's own, dogfooding) ignores `/.agents/self-improve-proposals/`, next to
+  `/.agents/artifacts/`. The harness itself still ships no `.gitignore` — whether to track these
+  reports stays the consuming monorepo's decision, and the skill says so.
+
+### Upgrade Notes
+
+- **No changelog prompt ships for this release, by design.** The one manual follow-up it touches —
+  the opencode `instructions` entry — is exactly what Check 6 now audits and what
+  `harness-update` step 9.5 now resolves. Shipping it as prose again would undo the fix
+  (`changelogs/README.md`: prompts never carry what the workflow already does).
+- **opencode projects may see a new gap on the next audit.** If you upgraded to `0.2.0-rc.0`/`-rc.1`
+  and never merged `opencode.jsonc.harness-proposed`, `audit-install.sh` will now report the missing
+  `core/skills/self-improvement-workflow/SKILL.md` entry. That is the previously-silent gap becoming
+  visible, not a regression: add the line to your `instructions` array. The slash command worked
+  without it; the skill was never auto-loaded.
+- **Root `AGENTS.md` gains one Additional Context Locations bullet.** The normal step 9
+  `agents-md-merge` reconciliation proposes it — no manual diffing.
+
 ## [0.2.0-rc.1] - 2026-09-03
 
 ### Added
