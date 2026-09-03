@@ -52,10 +52,14 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
-- **No manual follow-up required.** The new helper lives under `core/scripts/`, which is already
-  covered by `core/install-manifest.txt`. Installed projects receive it on the normal update path.
-  Existing task directories with a copied `0_intent.md` will fail `check-chain` and should be
-  converted to reference stubs.
+- **Refresh installed adapters.** The updated `/monorepo-harness-spec` command files must reach your
+  project. The harness-update workflow does this in step 7.5; otherwise run
+  `install-adapter.sh <agent> --refresh` once per installed adapter (`claude-code`, `opencode`,
+  `codex`).
+- **Copied `0_intent.md` files need conversion.** Any existing task directory that contains a full
+  copy of an intent instead of the `phase: intent-ref` stub will now fail `check-chain`. Convert
+  such files with
+  `write-intent-ref.sh <task_dir> <workspace>/.agents/intents/intent_<YYYY_MM_DD>_<slug>.md`.
 
 ## [0.1.0-rc.10] - 2026-09-02
 
