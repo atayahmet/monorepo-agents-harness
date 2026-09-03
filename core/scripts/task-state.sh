@@ -80,6 +80,9 @@ case "$cmd" in
     [ "$value" = "plan" ] || fail "'$path' is not a plan (phase: '${value:-<none>}')"
     [ -f "$dir/1_spec.md" ] || fail "task dir '$dir' is missing 1_spec.md"
     if [ -f "$dir/0_intent.md" ]; then
+      ref_phase="$(frontmatter_field "$dir/0_intent.md" phase || true)"
+      [ "$ref_phase" = "intent-ref" ] || \
+        fail "task '$dir' has 0_intent.md but its 'phase:' is not 'intent-ref' (found: '${ref_phase:-<none>}') — it must be a reference stub, never a copy of the intent"
       src="$(frontmatter_field "$dir/0_intent.md" source || true)"
       [ -n "$src" ] || \
         fail "task '$dir' has 0_intent.md but it has no 'source:' frontmatter pointing at the original intent"

@@ -27,6 +27,36 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.2.0-rc.1] - 2026-09-03
+
+### Added
+
+- **`core/scripts/write-intent-ref.sh`** — a helper script that mechanically creates the
+  `0_intent.md` reference stub for intent-seeded tasks. It validates that the referenced intent is
+  `status: approved`, computes the relative `source:` path from the task directory, and writes the
+  stub with `phase: intent-ref`. This removes the agent's discretion at the exact step where the
+  intent file was sometimes copied in full.
+
+### Changed
+
+- **`task-state.sh check-chain` now rejects non-stub `0_intent.md` files.** When a task directory
+  contains `0_intent.md`, its frontmatter `phase:` must be `intent-ref`; otherwise the chain check
+  fails with a clear error. The existing `source:` resolution and original-intent approval checks
+  remain in place.
+- **All three `/monorepo-harness-spec` adapter commands** now instruct the agent to call
+  `write-intent-ref.sh` instead of asking it to hand-write the reference stub.
+- **`core/skills/agent-workflow/SKILL.md`** documents the helper script in the reference-stub
+  section.
+
+### Removed
+
+### Upgrade Notes
+
+- **No manual follow-up required.** The new helper lives under `core/scripts/`, which is already
+  covered by `core/install-manifest.txt`. Installed projects receive it on the normal update path.
+  Existing task directories with a copied `0_intent.md` will fail `check-chain` and should be
+  converted to reference stubs.
+
 ## [0.1.0-rc.10] - 2026-09-02
 
 ### Added

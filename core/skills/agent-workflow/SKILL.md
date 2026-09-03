@@ -124,6 +124,10 @@ precedes Build); `2_plan.md` (the "how") then builds against this spec in Phase 
    statement, proposed outcome, constraints, and review decision. This stub only records where the
    source of truth lives; it is never a copy.
    ```
+
+   To avoid copying the intent by mistake, generate this stub mechanically with
+   `bash <bundle>/core/scripts/write-intent-ref.sh <task_dir> <intent.md>`. The script validates that
+   the intent is approved, computes the relative `source:` path, and writes the file above.
 3. **Architecture decisions (via the `adr-workflow` skill)** — while writing `1_spec.md`, fill its
    `## Architectural decisions` section. When it lists one or more decisions, immediately apply
    `core/skills/adr-workflow/SKILL.md` and write the matching `adr/NNNN-<title>.md` files in the
