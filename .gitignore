@@ -27,3 +27,6 @@ todo.md
 
 # Declined/deferred /monorepo-self-improve proposal reports (working state, like todo.md)
 /.agents/self-improve-proposals/
+
+# Intent inbox (working state; host project decides whether to track these)
+/.agents/intents/

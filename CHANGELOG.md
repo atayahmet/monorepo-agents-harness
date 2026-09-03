@@ -27,6 +27,42 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.2.0-rc.3] - 2026-09-03
+
+### Added
+
+- **`.agents/.harness-map.json` component map.** The self-improvement workflow (`/monorepo-self-improve`)
+  now records every project-owned rule, skill, agent, and command it creates in a machine-readable
+  JSON inventory at the consuming project's root.
+- **`core/scripts/update-harness-map.sh`.** A deterministic helper that adds or updates map entries,
+  prevents duplicates via the `name` + `type` unique key, preserves `createdAt`, and refreshes
+  `updatedAt` / `lastUpdated`.
+
+### Changed
+
+- **`core/skills/self-improvement-workflow/SKILL.md`** now reads `.agents/.harness-map.json` before
+  proposing components, marks each proposal as `new` or `update`, and invokes
+  `update-harness-map.sh` after writing files.
+- **`core/governance/rules/rule-template.md`** reminds agents to register each rule in the map.
+- **`core/root-AGENTS.md`** documents `.agents/.harness-map.json` in the Reference Map and Additional
+  Context.
+- **Adapter `/monorepo-self-improve` entry points** (claude-code, codex, opencode) instruct the agent
+  to read the map first and update it on apply.
+
+### Removed
+
+### Upgrade Notes
+
+- **Reconcile your root `AGENTS.md`.** This release adds a Reference Map row for
+  `.agents/.harness-map.json`. The normal harness-update flow will propose the merge via
+  `agents-md-merge`; accept it so future agents know about the component map.
+- **Re-install installed adapters.** The updated `/monorepo-self-improve` command files must reach
+  your project. The harness-update workflow does this in step 7.5; otherwise run
+  `install-adapter.sh <agent> --refresh` once per installed adapter (`claude-code`, `opencode`,
+  `codex`).
+- **No manual migration of existing components.** Components created before this release are not
+  backfilled; only newly created components are recorded.
+
 ## [0.2.0-rc.2] - 2026-09-03
 
 Closes the two loose ends left by the `/monorepo-self-improve` release: an output directory that was

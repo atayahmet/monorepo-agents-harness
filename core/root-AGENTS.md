@@ -119,6 +119,7 @@ exist.
 | Self-improvement workflow | `.agents/monorepo-agents-harness/core/skills/self-improvement-workflow/SKILL.md` |
 | Project rules directory | `.agents/rules/*.md` |
 | Project skills directory | `.agents/skills/*/SKILL.md` |
+| Project component map | `.agents/.harness-map.json` |
 | _(add your own rows as you create `.agents/rules/*.md` and `.agents/skills/*`)_ | |
 
 ## Additional Context Locations
@@ -132,6 +133,9 @@ exist.
 - `.agents/monorepo-agents-harness/` — Installed harness bundle: skill templates (`core/skills/`),
   enforcement scripts (`core/scripts/`), workspace seeds (`core/workspace-agents-template/`),
   governance docs (`core/governance/`), and per-agent adapters (`adapters/`).
+- `.agents/.harness-map.json` — Machine-readable inventory of project-owned rules, skills, agents,
+  and commands created by `/monorepo-self-improve`. Maintained by
+  `.agents/monorepo-agents-harness/core/scripts/update-harness-map.sh`; do not hand-edit.
 - `.agents/rules/*.md` — Project-owned rule files created by `/monorepo-self-improve` or by hand.
 - `.agents/skills/<name>/SKILL.md` — Project-owned skills created by `/monorepo-self-improve` or by
   hand.

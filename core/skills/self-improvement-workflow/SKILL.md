@@ -1,6 +1,6 @@
 ---
 name: self-improvement-workflow
-description: Harvest recurring patterns from a project's agent working state (lessons, task memories, index) and propose durable project-owned rules (.agents/rules/*.md) and project-specific skills (.agents/skills/<new-skill>/SKILL.md). Use when the user runs /monorepo-self-improve or asks to turn repeated corrections and workflows into reusable agent instructions. Never modifies the installed harness bundle.
+description: Harvest recurring patterns from a project's agent working state (lessons, task memories, index) and propose durable project-owned rules (.agents/rules/*.md), project-specific skills (.agents/skills/<new-skill>/SKILL.md), agents, and commands. Every created component is recorded in .agents/.harness-map.json. Use when the user runs /monorepo-self-improve or asks to turn repeated corrections and workflows into reusable agent instructions. Never modifies the installed harness bundle.
 ---
 
 # Self-Improvement Workflow
@@ -14,8 +14,10 @@ This workflow is **read-analyze-propose-apply**:
 - **Read** `<workspace>/.agents/lessons.md`, `<workspace>/.agents/artifacts/index.md`, and recent
   `3_memory.md` files.
 - **Analyze** them for recurring themes, repeated corrections, and recurring workflows.
-- **Propose** concrete `.agents/rules/*.md` files, `.agents/skills/<new-skill>/SKILL.md` files, and
-  root `AGENTS.md` Reference Map updates.
+- **Propose** concrete `.agents/rules/*.md` files, `.agents/skills/<new-skill>/SKILL.md` files,
+  agents, commands, and root `AGENTS.md` Reference Map updates.
+- **Record** every accepted component in `.agents/.harness-map.json` via the helper script
+  `core/scripts/update-harness-map.sh`.
 - **Apply** only after explicit user approval in the same turn.
 - **Record** a declined, deferred, or partly applied proposal in
   `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md`, on offer, so the finding is not lost.
@@ -35,6 +37,7 @@ owns its own `.agents/`):
 3. The most recent `N` `3_memory.md` files per workspace, default `N = 10`. Resolve them from the
    index rows or by listing `task_<YYYY_MM_DD>_<slug>/3_memory.md`.
 4. Existing project-owned instructions:
+   - `.agents/.harness-map.json` — the machine-readable inventory of existing components.
    - `.agents/rules/*.md`
    - `.agents/skills/*/SKILL.md`
    - root `AGENTS.md` Reference Map
@@ -84,12 +87,28 @@ A project-owned skill must:
 - Bundle deterministic scripts under `<skill>/scripts/` when useful.
 - Never import or modify files under `.agents/monorepo-agents-harness/`.
 
-### 3. Root `AGENTS.md` Reference Map update
+### 3. `.agents/.harness-map.json`
+
+Maintain the machine-readable component inventory. On every new or updated component, run:
+
+```bash
+bash .agents/monorepo-agents-harness/core/scripts/update-harness-map.sh add \
+  --name <kebab-case-name> \
+  --type <rule|skill|agent|command> \
+  --path <repo-root-relative-path> \
+  --description "<short description>" \
+  --source <workspace>/.agents/artifacts/task_YYYY_MM_DD_slug/3_memory.md
+```
+
+The script prevents duplicates by using `name` + `type` as the unique key. If the file does not
+exist, the script creates it.
+
+### 4. Root `AGENTS.md` Reference Map update
 
 Propose adding one row per new rule/skill topic. Do not rewrite the file; use
 `core/skills/agents-md-merge/SKILL.md` to produce a consent-gated proposal.
 
-### 4. `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md` (declined or deferred proposals)
+### 5. `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md` (declined or deferred proposals)
 
 The one durable output this workflow may write **without** applying anything. A proposal the user
 declined, deferred, or only partly approved is still a finding — it must not evaporate with the
@@ -113,16 +132,21 @@ proposal needs no report, because the rule/skill files themselves are the record
 
 ## Approval gate
 
-Before writing anything, present a structured report:
+Before writing anything, read `.agents/.harness-map.json` (if it exists) and present a structured
+report that marks each component as `new` or `update`:
 
 ```
 Detected N pattern(s):
 
+Existing components in .agents/.harness-map.json: M
+
 1. <Pattern title> (confidence: high/medium/low)
    Sources: <list>
    Proposed files:
-   - .agents/rules/<topic>.md
-   - .agents/skills/<new-skill>/SKILL.md  (if applicable)
+   - .agents/rules/<topic>.md  (new | update)
+   - .agents/skills/<new-skill>/SKILL.md  (new | update)
+   Map action:
+   - name: <name>, type: <rule|skill|agent|command>, path: <path>  (new | update)
    Root AGENTS.md rows to add: <list>
 
 [Show a short snippet of each proposed file.]
@@ -130,9 +154,13 @@ Detected N pattern(s):
 Apply these changes? (yes / no / edit)
 ```
 
+A component is an **update** when `.agents/.harness-map.json` already contains the same `name` +
+`type`. In that case, do not create a second file with a disambiguating suffix unless the topic has
+genuinely changed scope.
+
 - **yes** — write the files and reconcile root `AGENTS.md`.
 - **no** — write no rule or skill files. Offer to save the report to
-  `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md` (Outputs §4) with `Status: declined`, so
+  `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md` (Outputs §5) with `Status: declined`, so
   the finding survives the turn. If the user declines that too, write nothing at all.
 - **edit** — take the user's instructions, regenerate the proposal, and ask again.
 
@@ -143,18 +171,21 @@ Never change `AGENTS.md` without going through `agents-md-merge`.
 1. Inventory all workspaces and their `.agents/lessons.md` files.
 2. Inventory all workspace artifact indexes.
 3. Read recent `3_memory.md` files (default 10 per workspace).
-4. Inventory existing `.agents/rules/*.md` and `.agents/skills/*/SKILL.md`.
+4. Inventory existing `.agents/rules/*.md`, `.agents/skills/*/SKILL.md`, and `.agents/.harness-map.json`.
 5. Cluster patterns and score confidence.
 6. For each high/medium confidence pattern:
-   - Decide: rule file, skill file, or both.
+   - Decide: rule file, skill file, agent, command, or a combination.
+   - Check `.agents/.harness-map.json` for an existing entry with the same `name` + `type`; mark
+     the proposal as `new` or `update`.
    - Draft the file(s) using the templates.
-   - Draft the Reference Map row(s).
+   - Draft the map entry and the Reference Map row(s).
 7. Present the proposal report.
-8. On approval, write files and reconcile root `AGENTS.md`.
+8. On approval, write files, run `core/scripts/update-harness-map.sh` for every component, and
+   reconcile root `AGENTS.md`.
 9. If anything was declined, deferred, or only partly applied, offer to save the report to
-   `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md`; write it only if the user agrees.
-10. Confirm what was written and where — rule/skill files, Reference Map rows, and the report path
-    if one was saved.
+   `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md` (Outputs §5); write it only if the user agrees.
+10. Confirm what was written and where — rule/skill/agent/command files, `.harness-map.json`
+    entries, Reference Map rows, and the report path if one was saved.
 
 ## Hard constraints
 
@@ -164,21 +195,26 @@ Never change `AGENTS.md` without going through `agents-md-merge`.
   covers the `.agents/self-improve-proposals/` report too: it is offered, never written unasked.
 - **Do not overwrite existing project-owned rules/skills silently.** If a file already exists,
   propose an update or a new file with a disambiguating suffix.
+- **Always update `.agents/.harness-map.json` via `core/scripts/update-harness-map.sh`.** Never hand-edit
+  the map; the script enforces the schema and prevents duplicates.
 - **Keep adapters thin.** This skill contains all logic; the opencode command is only a pointer.
 
 ## Edge cases
 
 - **No patterns detected.** Report "No strong patterns found" and suggest running again after more
   tasks or lessons accumulate.
-- **Pattern matches an existing rule/skill.** Cite the existing file and propose an update instead of
-  a duplicate.
+- **Pattern matches an existing rule/skill/agent/command.** Cite the existing file and propose an
+  update instead of a duplicate. Verify the match against `.agents/.harness-map.json`.
+- **No `.agents/.harness-map.json`.** Create it on the first accepted component by invoking
+  `core/scripts/update-harness-map.sh`. Do not create it if nothing is approved.
 - **No root `AGENTS.md`.** This is unexpected in an installed project. Report it and do not create
   one silently.
-- **Root `AGENTS.md` merge declined.** Write the rule/skill files if the user approved those, but do
-  not modify `AGENTS.md`. Save the report to `.agents/self-improve-proposals/` with
-  `Status: partially applied — rules/skills written, Reference Map rows pending`, and name the
-  `AGENTS.md.harness-proposed` path left behind by `agents-md-merge` as the follow-up. A rule or
-  skill nobody can discover from the Reference Map is the failure this report exists to prevent.
+- **Root `AGENTS.md` merge declined.** Write the rule/skill/agent/command files and update
+  `.agents/.harness-map.json` if the user approved those, but do not modify `AGENTS.md`. Save the
+  report to `.agents/self-improve-proposals/` with
+  `Status: partially applied — components written, Reference Map rows pending`, and name the
+  `AGENTS.md.harness-proposed` path left behind by `agents-md-merge` as the follow-up. A component
+  nobody can discover from the Reference Map is the failure this report exists to prevent.
 - **Mixed confidence.** Present high/medium items as "Proposed"; low items as "Possible — review
   separately". Do not auto-apply low-confidence items.
 
