@@ -58,6 +58,10 @@ slug: <slug>
 
 ## Open questions
 <Anything unresolved that the reviewer, or a future plan, should address>
+
+## Visual summary (optional)
+<If a diagram clarifies the problem or proposed flow better than text alone, add a mermaid diagram
+here. Do not add a diagram just for the sake of having one.>
 ```
 
 **`status`** is the lifecycle field: `pending` (awaiting review) → `approved` or `rejected`. On

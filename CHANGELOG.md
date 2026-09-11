@@ -23,6 +23,9 @@ Release procedure (harness maintainers):
 
 ### Changed
 
+- **`core/skills/intent-workflow/SKILL.md`** now authorizes the agent to add an optional `## Visual summary` section with a mermaid diagram to generated intent files when it would clarify the content; diagrams must not be added if they feel forced.
+- **`core/governance/intents/AGENTS.md`** intent template now includes the optional `## Visual summary` section for mermaid diagrams.
+
 ### Removed
 
 ### Upgrade Notes

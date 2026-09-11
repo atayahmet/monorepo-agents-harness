@@ -41,7 +41,9 @@ intent.
    intent is still `pending` and the author decides whether it lives on a dedicated commit or just in
    the working tree.
 5. Write `<workspace>/.agents/intents/intent_<YYYY_MM_DD>_<slug>.md` following the template in
-   `core/governance/intents/AGENTS.md`, frontmatter `status: pending`.
+   `core/governance/intents/AGENTS.md`, frontmatter `status: pending`. If a diagram would clarify the
+   intent better than text alone, add an optional `## Visual summary` section with a mermaid diagram;
+   do not add a diagram if it feels forced.
 6. Confirm to the author what was recorded (workspace, branch, commit status) and that it now awaits
    review — do not imply it has been approved or that work will start.
 
