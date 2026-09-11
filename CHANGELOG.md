@@ -23,12 +23,24 @@ Release procedure (harness maintainers):
 
 ### Changed
 
+### Removed
+
+### Upgrade Notes
+
+## [0.2.0-rc.4] - 2026-09-11
+
+### Added
+
+### Changed
+
 - **`core/skills/intent-workflow/SKILL.md`** now authorizes the agent to add an optional `## Visual summary` section with a mermaid diagram to generated intent files when it would clarify the content; diagrams must not be added if they feel forced.
 - **`core/governance/intents/AGENTS.md`** intent template now includes the optional `## Visual summary` section for mermaid diagrams.
 
 ### Removed
 
 ### Upgrade Notes
+
+- **No manual follow-up required.** The intent template and skill instruction change ships with the normal harness-update path; intent files created before this release are unaffected.
 
 ## [0.2.0-rc.3] - 2026-09-03
 
@@ -507,7 +519,12 @@ First release candidate. Versioning starts here.
 - While on `-rc.*`, treat the artifact layout and the manifest format as still settling: a breaking
   change may land in a later `rc` without a MAJOR bump.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.1.0-rc.8...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.4...HEAD
+[0.2.0-rc.4]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.3...v0.2.0-rc.4
+[0.2.0-rc.3]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.2.0-rc.3
+[0.2.0-rc.2]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.2.0-rc.2
+[0.2.0-rc.1]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.2.0-rc.1
+[0.2.0-rc.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.2.0-rc.0
 [0.1.0-rc.8]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.8
 [0.1.0-rc.7]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.7
 [0.1.0-rc.6]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.6
