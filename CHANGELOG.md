@@ -27,6 +27,43 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.2.0-rc.6] - 2026-09-21
+
+### Added
+
+### Changed
+
+- **`-build` implementation is now strictly confined to the approved spec/plan scope.** In consumer
+  monorepos the implementation started by `/monorepo-harness-build <2_plan.md>` has sometimes built
+  applications that are not named in the task's `1_spec.md` and `2_plan.md` (unplanned workspaces/
+  apps scaffolded on the agent's own initiative). The guardrail "change only what the task requires"
+  was too vague. The harness now enforces a hard boundary at every instruction layer:
+  - **`core/skills/agent-workflow/SKILL.md`** gains a **Build scope** rule before Phase 3: the
+    implementation touches only what `1_spec.md`'s `## Scope` / `## Acceptance criteria` and
+    `2_plan.md`'s `## Affected files / modules` declare; creating any file, app, package, or workspace
+    the plan does not name is forbidden; and when scope must genuinely grow the agent must **stop
+    implementing**, report, and extend spec+plan (append a `revisions:` log entry) on approval before
+    resuming. The stage-command table's `/monorepo-harness-build` row now names the confinement.
+  - **`core/root-AGENTS.md`** gains Critical Gotcha 5 — the same boundary, installed into every
+    consumer project's root `AGENTS.md`.
+  - **All three `/monorepo-harness-build` entry points** (claude-code command, opencode command,
+    codex skill) tighten step 3 with byte-identical text pointing at the two artifact sections and
+    forbidding unlisted apps/packages/files.
+
+### Removed
+
+### Upgrade Notes
+
+- **Reconcile your root `AGENTS.md`.** This release adds Critical Gotcha 5 to `core/root-AGENTS.md`.
+  The normal harness-update flow proposes the merge via `agents-md-merge`; accept it so consumer
+  agents enforce build-scope confinement.
+- **Re-install installed adapters.** The updated `/monorepo-harness-build` entry point files must
+  reach your project. The harness-update workflow does this in step 7.5; otherwise run
+  `install-adapter.sh <agent> --refresh` once per installed adapter (`claude-code`, `opencode`,
+  `codex`).
+- **No artifact or gate migration.** This is an instruction change only — task directories, the
+  artifact format, and the `task-state.sh` gates are unchanged.
+
 ## [0.2.0-rc.5] - 2026-09-21
 
 ### Added
@@ -539,7 +576,8 @@ First release candidate. Versioning starts here.
 - While on `-rc.*`, treat the artifact layout and the manifest format as still settling: a breaking
   change may land in a later `rc` without a MAJOR bump.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.5...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.6...HEAD
+[0.2.0-rc.6]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.5...v0.2.0-rc.6
 [0.2.0-rc.5]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.4...v0.2.0-rc.5
 [0.2.0-rc.4]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.3...v0.2.0-rc.4
 [0.2.0-rc.3]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.2.0-rc.3

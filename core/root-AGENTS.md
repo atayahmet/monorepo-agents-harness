@@ -43,6 +43,13 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
    workspace's artifacts dir and blocks until today's task dir has `3_memory.md` and (when
    required) `4_verify.md`.
 
+5. **Build within the approved scope only.** During implementation (`/monorepo-harness-build`), touch
+   only what `1_spec.md` (`## Scope`, `## Acceptance criteria`) and `2_plan.md`
+   (`## Affected files / modules`) already name. Never create a new app, package, or workspace the
+   plan does not list. If a step needs anything outside that scope, stop and extend the spec and plan
+   (approved by the user) before resuming — build implements the approved plan, it never invents new
+   scope.
+
 ## Before You Start — Mandatory Checklist
 
 - [ ] Resolve the **target workspace** (`apps/<name>`, `packages/<name>`, or the equivalent for the detected framework) — see Workspace Routing below.

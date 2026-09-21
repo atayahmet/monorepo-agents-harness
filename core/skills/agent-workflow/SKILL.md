@@ -75,7 +75,7 @@ input (see `core/scripts/task-state.sh` for the read-only checks):
 | `/monorepo-harness-intent [review]` | — | `<workspace>/.agents/intents/intent_*.md` (`status: pending`, then `approved`) |
 | `/monorepo-harness-spec <intent.md?>` | intent **approved** (only when a path is given) | `1_spec.md` (+ `0_intent.md` = reference stub linking the approved intent) |
 | `/monorepo-harness-plan <spec.md>` | spec present (`phase: spec`) + plan-mode consent | `2_plan.md` |
-| `/monorepo-harness-build <plan.md>` | chain: plan + spec present; intent approved **if** the task is intent-seeded | implementation + `3_memory.md` + `4_verify.md` |
+| `/monorepo-harness-build <plan.md>` | chain: plan + spec present; intent approved **if** the task is intent-seeded | implementation (**confined to the spec/plan scope**, see Build scope below) + `3_memory.md` + `4_verify.md` |
 
 **Intent-approval policy:** an approved intent is mandatory only when a task was seeded by one (i.e.
 its directory contains a `0_intent.md`). Ad-hoc tasks (no intent behind them) are exempt — this is
@@ -251,6 +251,25 @@ Omit the trailing clause for ad-hoc tasks with no `0_intent.md`.
 the index updated, **do not** start implementation on your own. Report that the plan is approved and
 that the user must run `/monorepo-harness-build <task_dir>/2_plan.md` next. Implementation only
 begins when that command gates the plan/spec chain (`task-state.sh check-chain`) successfully.
+
+## Build scope — `-build` implements the approved artifacts, nothing else
+
+`/monorepo-harness-build <2_plan.md>` runs the implementation for the approved task. The
+implementation is **confined to the boundaries the approved artifacts already declare**:
+
+- `1_spec.md` — `## Scope` and `## Acceptance criteria`
+- `2_plan.md` — `## Affected files / modules` (and its `## Steps` sketch)
+
+Hard rules:
+
+1. Create or modify **only** the files, apps, and packages those sections list. Never scaffold a new
+   workspace, app, package, or file that the plan does not name — `-build` implements the approved
+   plan, it does not invent scope.
+2. If a step reveals that something outside that scope is genuinely required, **stop implementing**
+   and report to the user. Only after approval, extend `1_spec.md`'s `## Scope` and `2_plan.md`'s
+   `## Affected files / modules` (append a `revisions:` log entry to the plan) and resume.
+3. Any file, app, or package touched that is not in those lists is a scope violation — treat it like a
+   broken gate: do not paper it over, surface it and stop.
 
 ## Phase 3 — `3_memory.md` (task end / via `/monorepo-harness-build`)
 
