@@ -66,7 +66,8 @@ enforcement layer must support exactly these expectations (native mechanism or f
 2. **Plan/spec reminder at plan-mode exit** — when the agent exits plan mode, *before the first
    implementation Edit/Write*, it must be nudged to create the task dir and write `1_spec.md`
    (`phase: spec`) then `2_plan.md` (frontmatter `phase: plan`, `status: approved`) in the same
-   directory. Templates come from the SKILL.md — never redefined per adapter.
+   directory. Templates come from the agent-workflow skill (`SKILL.md` + `templates/`) — never
+   redefined per adapter.
 3. **Memory-gate at task end** — a task may not close until today's task dir contains
    `3_memory.md` (`phase: memory`, `commits:` listing SHAs written *after* committing), plus
    `4_verify.md` whenever the spec's Test/verification plan section is not `N/A` (Feedback Loop

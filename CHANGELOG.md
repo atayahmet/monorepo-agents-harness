@@ -27,6 +27,36 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.2.0-rc.7] - 2026-09-21
+
+### Added
+
+- **`core/skills/agent-workflow/templates/`** — the five fill-in artifact templates (`0_intent_ref.md`,
+  `1_spec.md`, `2_plan.md`, `3_memory.md`, `4_verify.md`) now live as separate files next to the
+  skill, byte-identical to the blocks they replace. Agents read the phase's template file, then
+  create the artifact in the task directory; the skill points to each template inline.
+
+### Changed
+
+- **`core/skills/agent-workflow/SKILL.md` reduced from 371 to 240 lines with no capability loss.** The
+  inline template blocks were extracted to `templates/` (one pointer line each), the two ASCII
+  directory diagrams were consolidated into one tree plus a packages note, and the duplicated
+  research-only explanation was collapsed to the Stage-commands paragraph with the edge case pointing
+  back. All normative prose is preserved: phase timing, stage-command gates, stop-and-wait,
+  Build-scope confinement, edge cases, slug/naming rules, and every script/skill cross-reference.
+- `adapters/AGENTS.md` wording corrected: "Templates come from the agent-workflow skill"
+  (`SKILL.md` + `templates/`), not "from the SKILL.md" alone (repo-internal guidance, not installed).
+
+### Removed
+
+### Upgrade Notes
+
+- **No manual follow-up required.** The `core` manifest row already installs the whole skill
+  directory, and adapter skills are linked wholesale, so `templates/` reaches every consumer with
+  the normal harness-update sync — no commands, no re-install, no artifact/gate change. The
+  extracted templates are byte-identical to the previous inline blocks, so plan/spec/memory/verify
+  artifacts produced before and after this release are interchangeable.
+
 ## [0.2.0-rc.6] - 2026-09-21
 
 ### Added
@@ -576,7 +606,8 @@ First release candidate. Versioning starts here.
 - While on `-rc.*`, treat the artifact layout and the manifest format as still settling: a breaking
   change may land in a later `rc` without a MAJOR bump.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.6...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.7...HEAD
+[0.2.0-rc.7]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.6...v0.2.0-rc.7
 [0.2.0-rc.6]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.5...v0.2.0-rc.6
 [0.2.0-rc.5]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.4...v0.2.0-rc.5
 [0.2.0-rc.4]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.3...v0.2.0-rc.4

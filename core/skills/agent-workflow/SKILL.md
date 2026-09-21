@@ -7,7 +7,9 @@ description: 4-phase plan/spec/memory/verify agent workflow — opens one direct
 
 This skill requires you to open a separate directory for every plan-mode task and produce the four
 artifacts — the spec, plan, memory, and (when applicable) verify files. Your agent adapter's
-enforcement layer (hooks, plugins, or the git/CI gate) reminds you; you write the contents.
+enforcement layer (hooks, plugins, or the git/CI gate) reminds you; you write the contents. The
+five fill-in templates live in `templates/` next to this file — read the one for the phase you are
+writing, then create the artifact in the task directory.
 
 ## Directory layout
 
@@ -18,30 +20,20 @@ its artifacts **inside its own `.agents/` directory**, next to its working-state
 ```
 apps/api/
 └── .agents/
-    ├── session-log.md                       # working state (per-workspace)
-    ├── lessons.md / todo.md
-    └── artifacts/                           # ★ task history for this workspace
-        ├── index.md                         # task index for the workspace
+    ├── session-log.md / lessons.md / todo.md   # working state (per-workspace)
+    └── artifacts/                              # ★ task history for this workspace
+        ├── index.md                            # task index for the workspace
         └── task_<YYYY_MM_DD>_<slug>/
-            ├── 0_intent.md                  # optional — only if an approved intent seeded this task
-            ├── 1_spec.md                    # the "what" (contract, acceptance criteria) — written first
-            ├── 2_plan.md                    # the "how" (implementation plan) — written after the spec
-            ├── adr/                         # optional — architecture decisions the spec's
-            │   └── NNNN-<title>.md          #   "## Architectural decisions" section links
-            ├── 3_memory.md
-            └── 4_verify.md
+            ├── 0_intent.md     # optional — approved-intent reference stub (never a copy)
+            ├── 1_spec.md       # the "what" (contract, acceptance criteria) — written first
+            ├── 2_plan.md       # the "how" (implementation plan) — written after the spec
+            ├── adr/            # optional — decisions the spec's ## Architectural
+            │   └── NNNN-<title>.md   #   decisions section links (adr-workflow skill, Phase 1)
+            ├── 3_memory.md     # task end
+            └── 4_verify.md     # task end, unless the spec's Test/verification plan is N/A
 ```
 
-```
-packages/example-pkg/.agents/artifacts/
-└── task_<YYYY_MM_DD>_<slug>/
-    ├── 0_intent.md   # optional — see Phase 1
-    ├── 1_spec.md     # the "what" (contract) — written first
-    ├── 2_plan.md     # the "how" (implementation plan) — written after the spec
-    ├── adr/          # optional — see the adr-workflow skill (Phase 1)
-    ├── 3_memory.md
-    └── 4_verify.md
-```
+`packages/<name>` workspaces use the identical layout under `packages/<name>/.agents/`.
 
 **`<workspace>`** — the target app or package name. Apps use their `apps/<name>` directory name; named
 packages under `packages/` use their package directory name. Any existing `apps/*` or `packages/*`
@@ -94,16 +86,15 @@ gates never see a missing spec — see Edge cases.
 Each command stub lives in your agent adapter (`.claude/commands/`, `.opencode/commands/`, or a
 codex skill) and is purposely thin: it calls the relevant `task-state.sh` check, handles the only
 adapter-specific concern (plan-mode detection in `-plan`), then runs the phase below. The writing
-templates live here — they are never duplicated into an adapter.
+templates live here in `templates/` — they are never duplicated into an adapter.
 
 ## Phase 1 — `1_spec.md` (via `/monorepo-harness-spec`, or on plan-mode exit)
 
 When plan mode is approved (e.g., `ExitPlanMode` is invoked on Claude Code, or the user runs
 `/monorepo-harness-spec <intent.md?>` on any agent), **before the first implementation tool call**,
-create the
-directory and write `1_spec.md` — the "what": the contract and acceptance criteria. The spec is
-written **before** the plan, matching the AI-native SDLC order (`intent → spec → plan`: Design
-precedes Build); `2_plan.md` (the "how") then builds against this spec in Phase 2.
+create the directory and write `1_spec.md` — the "what": the contract and acceptance criteria. The
+spec is written **before** the plan, matching the AI-native SDLC order (`intent → spec → plan`:
+Design precedes Build); `2_plan.md` (the "how") then builds against this spec in Phase 2.
 
 **Before writing it**, three checks:
 
@@ -112,34 +103,20 @@ precedes Build); `2_plan.md` (the "how") then builds against this spec in Phase 
    and keep its relevance ready to cite in `2_plan.md`'s `## Related prior work` (Phase 2).
 2. **Approved intent (via `-spec`, else best-effort)** — when `/monorepo-harness-spec <intent.md>`
    is used, it runs `task-state.sh check-intent-approved`, refuses to write if the intent is not
-   approved, and writes a reference stub linking to the approved intent as `0_intent.md` (template
-   below) — never a copy of its content, so the intent file stays the single source of truth. When
-   the spec is written without `-spec` (plan-mode exit), fall back to the best-effort check below: if
-   `<workspace>/.agents/intents/` exists, check
-   whether an `approved` intent plausibly matches this task (by slug, keywords, or affected files).
-   On a match, write the same reference stub into the task directory as `0_intent.md`, include
-   `intent: 0_intent.md` in the spec frontmatter, and reference it from `2_plan.md`'s `## Problem`
-   (Phase 2). Most ad-hoc tasks have no intent behind them — omit the `intent:` frontmatter line and
-   skip silently if none matches or the directory doesn't exist. See
-   `core/skills/intent-workflow/SKILL.md`.
-
-   ```markdown
-   ---
-   phase: intent-ref
-   date: <YYYY-MM-DD>
-   source: <relative path from this task dir to the approved intent file>
-   ---
-
-   # Intent reference
-
-   Seeded by the approved intent at [<source>](<source>) — see that file for the full problem
-   statement, proposed outcome, constraints, and review decision. This stub only records where the
-   source of truth lives; it is never a copy.
-   ```
+   approved, and writes a reference stub linking to the approved intent as `0_intent.md` — never a
+   copy of its content, so the intent file stays the single source of truth. When the spec is
+   written without `-spec` (plan-mode exit), fall back to the best-effort check below: if
+   `<workspace>/.agents/intents/` exists, check whether an `approved` intent plausibly matches this
+   task (by slug, keywords, or affected files). On a match, write the same reference stub into the
+   task directory as `0_intent.md`, include `intent: 0_intent.md` in the spec frontmatter, and
+   reference it from `2_plan.md`'s `## Problem` (Phase 2). Most ad-hoc tasks have no intent behind
+   them — omit the `intent:` frontmatter line and skip silently if none matches or the directory
+   doesn't exist. See `core/skills/intent-workflow/SKILL.md`.
 
    To avoid copying the intent by mistake, generate this stub mechanically with
    `bash <bundle>/core/scripts/write-intent-ref.sh <task_dir> <intent.md>`. The script validates that
-   the intent is approved, computes the relative `source:` path, and writes the file above.
+   the intent is approved, computes the relative `source:` path, and writes `0_intent.md` (pattern:
+   `templates/0_intent_ref.md`).
 3. **Architecture decisions (via the `adr-workflow` skill)** — while writing `1_spec.md`, fill its
    `## Architectural decisions` section. When it lists one or more decisions, immediately apply
    `core/skills/adr-workflow/SKILL.md` and write the matching `adr/NNNN-<title>.md` files in the
@@ -148,49 +125,8 @@ precedes Build); `2_plan.md` (the "how") then builds against this spec in Phase 
    `bash <bundle>/core/scripts/task-state.sh check-adr <task>/1_spec.md` to confirm every referenced
    ADR exists.
 
-```markdown
----
-phase: spec
-date: <YYYY-MM-DD>
-slug: <slug>
-intent: 0_intent.md   # only when task is seeded by an approved intent; omit for ad-hoc tasks
----
-
-# Spec: <Task title>
-
-## Scope
-<The boundaries of this change — what is included, what is excluded>
-
-## Behavioral contract
-- Input: ...
-- Output: ...
-- Side effects: ...
-
-## API / contracts
-<Endpoints, function signatures, event payloads — changing contracts>
-
-## Data model
-<Fields/types/structure of any persisted or transmitted data this task reads or writes —
-table/column names, JSON payload shape, event schema. Write "N/A" if no data model is touched.>
-
-## Acceptance criteria
-- [ ] ...
-
-## Test / verification plan
-<How each acceptance criterion above is checked — command, test file, or manual repro steps.
-Write "N/A" only for research-only tasks with no verifiable behavior change.>
-
-## Architectural constraints
-<Layer rules, module boundaries, and non-functional requirements (performance, security,
-compatibility) — consistent with root AGENTS.md gotchas>
-
-## Architectural decisions
-<Architecture-affecting decisions this task makes — one bullet per decision, linking the record the
-`adr-workflow` skill writes into this task's `adr/` directory (Phase 1, below):
-- [0001 - <Title>](adr/0001-<title>.md) — <one-line rationale>
-Write "N/A" when the task makes no architecture-affecting decision (see
-`core/skills/adr-workflow/SKILL.md` for the threshold).>
-```
+**Template:** `templates/1_spec.md` — fill it into `<task_dir>/1_spec.md`. The guide text inside
+each section is normative; the `intent:` frontmatter line only when the task is intent-seeded.
 
 **After Phase 1, stop and wait.** Once `1_spec.md` is written (and the index updated), **do not**
 proceed to Phase 2 or start implementation on your own. Report that the spec is ready and that the
@@ -212,40 +148,7 @@ could follow.
 `adr-workflow` skill and write/amend the `adr/NNNN-*.md` file(s) then, citing them from
 `## Approach` — do not defer them to task end.
 
-```markdown
----
-phase: plan
-date: <YYYY-MM-DD>
-slug: <slug>
-status: approved
----
-
-# Plan: <Task title>
-
-## Problem
-<The problem being solved, 1–3 sentences> — problem originally captured and approved in [0_intent.md](0_intent.md).
-Omit the trailing clause for ad-hoc tasks with no `0_intent.md`.
-
-## Approach
-<High-level strategy, 2–5 sentences>
-
-## Related prior work
-<Cite matches from the Phase 1 prior-art grep as
-`- [slug](task_YYYY_MM_DD_slug/1_spec.md) — why relevant`, or `- none found`.>
-
-## Steps
-1. ...
-2. ...
-
-## Affected files / modules
-- ...
-
-## Risks & assumptions
-- ...
-
-## Definition of done
-- [ ] ...
-```
+**Template:** `templates/2_plan.md` — fill it into `<task_dir>/2_plan.md` with `status: approved`.
 
 **After Phase 2, stop and wait.** Once `2_plan.md` is written (frontmatter `status: approved`) and
 the index updated, **do not** start implementation on your own. Report that the plan is approved and
@@ -273,32 +176,17 @@ Hard rules:
 
 ## Phase 3 — `3_memory.md` (task end / via `/monorepo-harness-build`)
 
-When the task ends, write `3_memory.md` **in the same task directory**. Without it, the memory-gate (agent stop-hook, editor plugin, or git/CI check — depending on your adapter) will not let the task close. `/monorepo-harness-build <plan.md>` runs `task-state.sh check-chain`, then on completion of the implementation **automatically** writes `3_memory.md` (below) and `4_verify.md` (Phase 4) and updates the workspace index — so the memory/verify stages need no separate command.
+When the task ends, write `3_memory.md` **in the same task directory**. Without it, the memory-gate
+(agent stop-hook, editor plugin, or git/CI check — depending on your adapter) will not let the task
+close. `/monorepo-harness-build <plan.md>` runs `task-state.sh check-chain`, then on completion of
+the implementation **automatically** writes `3_memory.md` (below) and `4_verify.md` (Phase 4) and
+updates the workspace index — so the memory/verify stages need no separate command.
 
-```markdown
----
-phase: memory
-date: <YYYY-MM-DD>
-slug: <slug>
-commits: [<sha1>, <sha2>]
----
+**Template:** `templates/3_memory.md` — filled into `<task_dir>/3_memory.md` by `-build`, or by hand
+on other paths.
 
-# Memory: <Task title>
-
-## What was done (single paragraph)
-<Outcome, 2–4 sentences>
-
-## Surprising findings
-<Facts not foreseen during planning — code, system, behavior>
-
-## If I did it again
-<What you would do differently, or an approach worth repeating. Knowledge worth preserving.>
-
-## Related decisions
-<Decisions made and their reasons — so future readers know why it was done this way>
-```
-
-**Do not write**: what the code does (the code already says so), summaries derivable from the commit list, ephemeral task details.
+**Do not write**: what the code does (the code already says so), summaries derivable from the commit
+list, ephemeral task details.
 
 **Index update (mandatory, same commit):** every task-dir change must be reflected in
 `<workspace>/.agents/artifacts/index.md` — new dir → new row; `3_memory.md` written → append `◆`.
@@ -319,24 +207,7 @@ If a dedicated `verifier` subagent is available (see `adapters/claude-code/.clau
 for Claude Code; other agents run the same commands inline in the main session — no capability is
 lost, see `PORTABILITY.md`), delegate the verification run to it and transcribe its findings here.
 
-```markdown
----
-phase: verify
-date: <YYYY-MM-DD>
-slug: <slug>
----
-
-# Verify: <Task title>
-
-## Verification run
-<Command(s) actually executed, verbatim, plus their real output/exit code — evidence, not narration>
-
-## Acceptance criteria results
-- [x]/[ ] <criterion copied from 1_spec.md> — <how it was confirmed>
-
-## Deviations
-<Any acceptance criterion not met, or verification steps skipped and why>
-```
+**Template:** `templates/4_verify.md` — filled into `<task_dir>/4_verify.md`.
 
 ## Slug & directory naming rules
 
@@ -348,10 +219,9 @@ slug: <slug>
 
 - **Implementation without plan mode**: Skill is inactive; hooks do not warn. If you are writing the
   plan via `/monorepo-harness-plan`, it will have asked about plan mode first.
-- **Plan exists, no implementation (research only)**: the `-plan`/`-build` commands require a spec,
-  so a research-only plan is written **by hand** with `status: approved`, outside those commands;
-  spec, memory, and verify are skipped (nothing verifiable was ever claimed). The gates are never
-  invoked because there is no build step — nothing gets blocked.
+- **Plan exists, no implementation (research only)**: see "Research-only tasks" in Stage commands —
+  plan written **by hand** (`status: approved`) outside `-plan`/`-build`; spec, memory, and verify
+  are skipped (nothing verifiable was ever claimed), so the gates are never invoked.
 - **Un-approved intent or broken chain via the commands**: `-spec`/`-plan`/`-build` refuse to write
   and print the reason from `task-state.sh`; they never silently proceed on a stale input.
 - **Spec's verification plan is `N/A`**: `4_verify.md` is not required (mirrors the research-only
