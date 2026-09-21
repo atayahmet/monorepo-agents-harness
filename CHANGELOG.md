@@ -27,6 +27,26 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.2.0-rc.5] - 2026-09-21
+
+### Added
+
+### Changed
+
+- **`core/skills/agent-workflow/SKILL.md`** docs tightened: the frontmatter `description` now counts
+  the actual four artifacts (spec, plan, memory, verify), names all driving triggers (stage commands
+  plus the plan-mode approval signal), and drops the project-specific example workspace names; the
+  `<workspace>` definition now derives from the project's `apps/*` / `packages/*` directories instead
+  of a hardcoded list; and the research-only path (hand-written plan, no spec/memory/verify) is
+  documented consistently with the `-plan`/`-build` gates.
+
+### Removed
+
+### Upgrade Notes
+
+- **No manual follow-up required.** Docs-only change to an installed skill; it ships with the normal
+  harness-update sync and does not change any artifact format or gate behavior.
+
 ## [0.2.0-rc.4] - 2026-09-11
 
 ### Added
@@ -519,7 +539,8 @@ First release candidate. Versioning starts here.
 - While on `-rc.*`, treat the artifact layout and the manifest format as still settling: a breaking
   change may land in a later `rc` without a MAJOR bump.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.4...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.5...HEAD
+[0.2.0-rc.5]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.4...v0.2.0-rc.5
 [0.2.0-rc.4]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.3...v0.2.0-rc.4
 [0.2.0-rc.3]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.2.0-rc.3
 [0.2.0-rc.2]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.2.0-rc.2

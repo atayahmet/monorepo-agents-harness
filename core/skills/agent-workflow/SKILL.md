@@ -1,11 +1,13 @@
 ---
 name: agent-workflow
-description: 4-phase agent workflow — opens a dedicated task directory per task; writes 1_spec.md then 2_plan.md (spec = what/Design before plan = how/Build, per the AI-native SDLC order), and 3_memory.md plus 4_verify.md on task completion (verify only when the spec's Test/verification plan is not N/A), under <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ where <workspace> is the target app or package (api, web, example-pkg, ...). Driven manually via the stage commands /monorepo-harness-spec, -plan and -build, before implementation starts; also used when the task ends. Each stage stops and waits for the user before the next; implementation never begins before an approved plan.
+description: 4-phase plan/spec/memory/verify agent workflow — opens one directory per plan-mode task at <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ and writes 1_spec.md ("what", Design) before 2_plan.md ("how", Build) per the AI-native SDLC order, then 3_memory.md plus 4_verify.md on task completion (verify only when the spec's Test/verification plan is not N/A); <workspace> is the target app or package the task touches. Active on every plan-mode task, entered via the agent's plan-mode approval signal or the stage commands /monorepo-harness-spec, /monorepo-harness-plan, /monorepo-harness-build, optionally seeded via /monorepo-harness-intent. Each stage stops and waits for the user before the next; implementation never begins before an approved plan.
 ---
 
 # Agent Workflow — Per-Task Plan / Spec / Memory Artifacts
 
-This skill requires you to open a separate directory for every plan-mode task and produce three markdown files. Your agent adapter's enforcement layer (hooks, plugins, or the git/CI gate) reminds you; you write the contents.
+This skill requires you to open a separate directory for every plan-mode task and produce the four
+artifacts — the spec, plan, memory, and (when applicable) verify files. Your agent adapter's
+enforcement layer (hooks, plugins, or the git/CI gate) reminds you; you write the contents.
 
 ## Directory layout
 
@@ -41,7 +43,10 @@ packages/example-pkg/.agents/artifacts/
     └── 4_verify.md
 ```
 
-**`<workspace>`** — the target app or package name. Apps use their `apps/<name>` directory name; named packages under `packages/` use their package directory name. Current workspaces: `api`, `web`, `example-pkg`.
+**`<workspace>`** — the target app or package name. Apps use their `apps/<name>` directory name; named
+packages under `packages/` use their package directory name. Any existing `apps/*` or `packages/*`
+directory in the project is a valid `<workspace>` — resolve it from the files the task actually
+touches (see the selection rule below), never from a fixed list.
 
 **`<slug>`** — a `snake_case` (underscored) identifier of 3–5 words summarizing the task. Example directory name: `task_2026_06_03_huawei_webhook_handler/`.
 
@@ -78,6 +83,13 @@ the common case, and `check-chain` treats the absence of `0_intent.md` as valid.
 approved intent whenever an intent path is passed to it, and writes a reference stub linking to that
 approved intent as `0_intent.md`, so the chain has the evidence it needs downstream — the intent
 file itself stays the single source of truth, never copied.
+
+**Research-only tasks (plan, no implementation):** the `-plan`/`-build` gates above chain a
+verifiable implementation (spec → plan → code → memory/verify), so they do **not** apply to
+research-only work. A research-only task writes `2_plan.md` **by hand** (`status: approved`) without
+`/monorepo-harness-plan` or `/monorepo-harness-build`; it is exempt from `1_spec.md`, `3_memory.md`,
+and `4_verify.md` (nothing verifiable was ever claimed). Because the commands are never invoked, the
+gates never see a missing spec — see Edge cases.
 
 Each command stub lives in your agent adapter (`.claude/commands/`, `.opencode/commands/`, or a
 codex skill) and is purposely thin: it calls the relevant `task-state.sh` check, handles the only
@@ -317,7 +329,10 @@ slug: <slug>
 
 - **Implementation without plan mode**: Skill is inactive; hooks do not warn. If you are writing the
   plan via `/monorepo-harness-plan`, it will have asked about plan mode first.
-- **Plan exists, no implementation (research only)**: Spec and memory can be skipped; plan stays.
+- **Plan exists, no implementation (research only)**: the `-plan`/`-build` commands require a spec,
+  so a research-only plan is written **by hand** with `status: approved`, outside those commands;
+  spec, memory, and verify are skipped (nothing verifiable was ever claimed). The gates are never
+  invoked because there is no build step — nothing gets blocked.
 - **Un-approved intent or broken chain via the commands**: `-spec`/`-plan`/`-build` refuse to write
   and print the reason from `task-state.sh`; they never silently proceed on a stale input.
 - **Spec's verification plan is `N/A`**: `4_verify.md` is not required (mirrors the research-only
