@@ -50,6 +50,11 @@ Claude Code, opencode, Cursor, Codex, and more.
   before writing anything and never modifies the installed harness bundle. A proposal you decline or
   defer is kept as a report under `.agents/self-improve-proposals/`, so the finding is not lost and
   the next run cites it instead of re-deriving it.
+- **Changeset release entries** — `/monorepo-harness-changeset` drafts a changesets-compatible
+  `.changeset/*.md` entry for a finished task straight from its spec/plan/memory artifacts, with a
+  deterministic filename and a revision number so a long-lived plan can emit one changeset per merged
+  revision (`v1.0.0-alpha.0`, `v1.0.0-alpha.1`, … via your own `changeset pre`+`version`). No
+  `@changesets/cli` dependency is added; packages and bump levels are always user-confirmed policy.
 
 ## How it works
 
@@ -503,9 +508,9 @@ Rules while you do this:
 
 | Adapter       | Enforcement provided                                                                                                                                                               |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-self-improve` pattern harvesting, `verifier` subagent  |
-| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-self-improve` pattern harvesting                                                        |
-| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-spec` · `-plan` · `-build`, `/monorepo-harness-ci`, `/monorepo-harness-review`, `/monorepo-harness-intent`, and `/monorepo-self-improve` skills |
+| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-changeset` changeset draft, `/monorepo-self-improve` pattern harvesting, `verifier` subagent  |
+| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-changeset` changeset draft, `/monorepo-self-improve` pattern harvesting                                                        |
+| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-spec` · `-plan` · `-build`, `/monorepo-harness-ci`, `/monorepo-harness-review`, `/monorepo-harness-intent`, `/monorepo-harness-changeset`, and `/monorepo-self-improve` skills |
 | yours         | Follow the capability matrix in [PORTABILITY.md](PORTABILITY.md) — new adapters are the intended growth path                                                                       |
 
 ## Documentation map

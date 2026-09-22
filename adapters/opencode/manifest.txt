@@ -18,6 +18,7 @@
 # is an audited gap, not a prose-only follow-up.
 
 copy  .opencode/commands/monorepo-harness-build.md
+copy  .opencode/commands/monorepo-harness-changeset.md
 copy  .opencode/commands/monorepo-harness-spec.md
 copy  .opencode/commands/monorepo-harness-plan.md
 copy  .opencode/commands/monorepo-harness-ci.md

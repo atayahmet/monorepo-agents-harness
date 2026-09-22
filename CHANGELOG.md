@@ -27,6 +27,53 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.3.0-rc.0] - 2026-09-22
+
+### Added
+
+- **`/monorepo-harness-changeset <2_plan.md>`** — drafts a changesets-compatible release entry
+  (`.changeset/monorepo-harness-<YYYYMMDD>-<slug>-r<N>.md`) for a finished task, derived from its
+  artifacts, without adding `@changesets/cli` as a dependency:
+  - `core/scripts/draft-changeset.sh` — deterministic generator + guards: `task-state.sh check-plan`
+    gate, `.changeset/` preflight (absent → refuse, point at `changeset init`), explicit
+    `--package`/`--bump` pairs (packages and bump levels are user-confirmed policy, never
+    machine-decided), a duplicate guard keyed on the deterministic filename, and a summary
+    auto-derived from `3_memory.md` → `1_spec.md` → `2_plan.md` with `--summary` override.
+  - `core/skills/changeset-workflow/SKILL.md` (78 lines) — the proposal + consent workflow, the bump
+    heuristic table, the multi-changeset/revision flow, and the hard never-do list (never run
+    `changeset`, never create `config.json`, never pick bumps unilaterally). A changeset carries bump
+    types only — the `v1.0.0-alpha.0 → v1.0.0-alpha.1` sequence stays the job of the consumer's own
+    `changeset pre` + `changeset version`.
+  - Adapter entry points on all three adapters (`adapters/{claude-code,opencode,codex}`) gated on
+    `check-plan` and user confirmation; skill symlinked for claude-code/codex, `instructions` entry
+    added to the opencode template.
+- **One plan → many changesets.** Each merged revision of a long-lived plan gets its own changeset via
+  `--revision N`, so a pre-release train (`alpha.0`, `alpha.1`, …) accumulates pending entries the
+  way stock changesets does.
+
+### Changed
+
+- `adapters/AGENTS.md` Rule 7 whitelist now includes the changeset-draft trigger; `PORTABILITY.md`
+  gains a capability-matrix row and a semantic-difference bullet (bumps are user policy identically
+  on every agent; file production is script-driven and agent-neutral).
+
+### Removed
+
+### Upgrade Notes
+
+- **Changeset feature auto-installs with the normal sync** — the script and skill ship under the
+  existing `core` manifest row; the three adapter stubs are new `copy`/`link` rows that reach the
+  project when the installed adapters are refreshed.
+- **Commands to run:** re-apply every installed adapter so the new `/monorepo-harness-changeset`
+  entry points reach the project. From upgrade runs this is the usual
+  `bash .agents/monorepo-agents-harness/core/scripts/install-adapter.sh <agent> --refresh` (see
+  `changelogs/version-0.3.0-rc.0.md`).
+- **Manual follow-up (opencode only):** the new shared `changeset-workflow` skill reaches opencode
+  only through your root `opencode.jsonc` `instructions` array (a `merge` row that is never
+  rewritten). Add `.agents/monorepo-agents-harness/core/skills/changeset-workflow/SKILL.md` to it, or
+  follow the `opencode.jsonc.harness-proposed` the installer leaves; `audit-install.sh` reports the
+  missing entry until you do.
+
 ## [0.2.0-rc.7] - 2026-09-21
 
 ### Added
@@ -606,7 +653,8 @@ First release candidate. Versioning starts here.
 - While on `-rc.*`, treat the artifact layout and the manifest format as still settling: a breaking
   change may land in a later `rc` without a MAJOR bump.
 
-[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.7...HEAD
+[Unreleased]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.3.0-rc.0...HEAD
+[0.3.0-rc.0]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.7...v0.3.0-rc.0
 [0.2.0-rc.7]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.6...v0.2.0-rc.7
 [0.2.0-rc.6]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.5...v0.2.0-rc.6
 [0.2.0-rc.5]: https://github.com/atayahmet/monorepo-agents-harness/compare/v0.2.0-rc.4...v0.2.0-rc.5

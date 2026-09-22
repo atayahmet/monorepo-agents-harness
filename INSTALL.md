@@ -95,6 +95,10 @@ throwaway dir afterwards.
   (`core/skills/self-improvement-workflow/SKILL.md`). Declined or deferred proposals are kept under
   `.agents/self-improve-proposals/` — project-owned working state, like `.agents/todo.md`, so decide
   yourself whether to track or ignore it in git.
+- **Changeset release entries** — `/monorepo-harness-changeset` drafts a changesets-compatible
+  `.changeset/*.md` entry from a finished task's artifacts, without adding `@changesets/cli`
+  (`core/skills/changeset-workflow/SKILL.md`). Bumps are user-confirmed policy; `changeset pre`/
+  `version` still do the versioning.
 
 ## 7. Updating
 

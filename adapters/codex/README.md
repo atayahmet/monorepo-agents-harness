@@ -10,6 +10,7 @@ This adapter wires the harness into **Codex CLI**. Codex toggles plan mode with 
 - **`/monorepo-harness-spec <intent.md?>`** — create the task directory and write `1_spec.md`, gated on an approved intent when a path is given.
 - **`/monorepo-harness-plan <spec.md>`** — write `2_plan.md`, gated on a valid spec, asking about plan mode first.
 - **`/monorepo-harness-build <2_plan.md>`** — run the implementation, gated on the full spec/plan/intent chain, then write `3_memory.md` + `4_verify.md`.
+- **`/monorepo-harness-changeset <2_plan.md>`** — draft a changesets-compatible release entry into `.changeset/` from the task's spec/plan/memory (deterministic filename, revision-based multi-changeset flow), gated on `check-plan` and user-confirmed bumps. No `@changesets/cli` dependency — it consumes your project's own `changeset` CLI later.
 - **Memory reminder + universal hard gate** — the `Stop` hook warns if `3_memory.md` or (when required) `4_verify.md` is missing; the git pre-commit / CI gate actually blocks commits.
 - **Automatic ADR capture** — the `adr-workflow` skill (symlinked into `.agents/skills/`, so it also appears in the slash list) fires automatically while `1_spec.md`/`2_plan.md` are written whenever the task makes an architecture-affecting decision, producing `adr/NNNN-<title>.md` records referenced from the spec's `## Architectural decisions` section.
 - **`/monorepo-self-improve`** — harvest recurring patterns from lessons and task memories, then propose durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`). Requires explicit approval before writing anything.
@@ -49,6 +50,15 @@ spec present, and the intent approved if the task is intent-seeded), then runs t
 On completion it writes `3_memory.md` (with `commits:` filled after the commits) and `4_verify.md`
 (whenever the spec's Test/verification plan is not `N/A`), and updates the index.
 
+### `/monorepo-harness-changeset <2_plan.md>` — Draft a changeset release entry
+
+Run it after `-build` when the project uses `changeset` for releases. It validates the plan
+(`check-plan`), confirms `.changeset/` exists, proposes packages + bump levels (heuristics only — you
+confirm each), shows the draft, and writes it only on your explicit OK. Use `--revision N` for the
+second and later changesets from the same plan: each merge of a long-lived plan gets its own changeset
+(see the `revisions:` log), and the `v…-alpha.0`/`alpha.1` sequencing is done by the consumer's
+`changeset pre` + `changeset version`, never by this command.
+
 ### `/monorepo-self-improve` — Harvest patterns into project-owned rules and skills
 
 Run it when you have accumulated several tasks and want to turn repeated corrections or workflows
@@ -77,7 +87,8 @@ follow the "Update from the repo" prompt in the project README, or run the share
 4. Type `/monorepo-harness-build <2_plan.md>` to implement the task.
 5. `/monorepo-harness-build` writes `3_memory.md` and `4_verify.md` (unless the verification plan is
    `N/A`) and updates the index as it finishes.
-6. Commit your changes. If you try to end the turn without `3_memory.md`/`4_verify.md`, the `Stop`
+6. If the project uses `changeset`, type `/monorepo-harness-changeset <2_plan.md>` to draft the release entry.
+7. Commit your changes. If you try to end the turn without `3_memory.md`/`4_verify.md`, the `Stop`
    hook warns you; the git pre-commit hook blocks the commit until they are written.
 
 ## Notes
