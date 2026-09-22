@@ -7,7 +7,8 @@
   reconciled against, so future upgrades can three-way merge instead of asking you to diff by
   hand (core/skills/agents-md-merge/SKILL.md).
   The {{PROJECT_GOTCHAS}} region below is yours — the harness never overwrites it.
-  Add "Reference Map" rows only for `.agents/rules/*.md` files you actually create.
+  The installer seeds one starter rule into `.agents/rules/` (reference-map'd below); add further
+  "Reference Map" rows only for `.agents/rules/*.md` files you actually create.
 -->
 
 # {{PROJECT_NAME}} — Agent Guidelines
@@ -116,13 +117,15 @@ This is a {{MONOREPO_FRAMEWORK}} monorepo. Default context is the repository roo
 
 ## Reference Map
 
-Team-specific rule files are optional. Create them under `.agents/rules/*.md` and add a row here for
-each one you add. Project-specific skills live under `.agents/skills/<name>/SKILL.md`; add them to
-the Reference Map as well. This template ships none — do not link a rule file or skill that does not
-exist.
+Team-specific rule files are optional. The installer seeds one starter rule into `.agents/rules/`
+at install time (`local-agents-md.md` — see below); create further `.agents/rules/*.md` as needed
+and add a row here for each one you add. Project-specific skills live under
+`.agents/skills/<name>/SKILL.md`; add them to the Reference Map as well. Do not link a rule file or
+skill that does not exist.
 
 | Topic | Rule File |
 | ----- | --------- |
+| AGENTS.md upkeep in workspace directories | `.agents/rules/local-agents-md.md` |
 | Self-improvement workflow | `.agents/monorepo-agents-harness/core/skills/self-improvement-workflow/SKILL.md` |
 | Project rules directory | `.agents/rules/*.md` |
 | Project skills directory | `.agents/skills/*/SKILL.md` |
@@ -143,7 +146,8 @@ exist.
 - `.agents/.harness-map.json` — Machine-readable inventory of project-owned rules, skills, agents,
   and commands created by `/monorepo-self-improve`. Maintained by
   `.agents/monorepo-agents-harness/core/scripts/update-harness-map.sh`; do not hand-edit.
-- `.agents/rules/*.md` — Project-owned rule files created by `/monorepo-self-improve` or by hand.
+- `.agents/rules/*.md` — Project-owned rule files: one starter rule seeded by the installer, plus
+  further ones created by `/monorepo-self-improve` or by hand.
 - `.agents/skills/<name>/SKILL.md` — Project-owned skills created by `/monorepo-self-improve` or by
   hand.
 - `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md` — Self-improvement proposals the user

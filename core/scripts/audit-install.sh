@@ -183,6 +183,21 @@ check_workspace_scaffold() {
   done
 }
 
+# --- Check 5b: project-root starter-rules seed ---
+# The bundle manifest cannot express a destination outside .agents/monorepo-agents-harness/, so the
+# starter rules under core/project-rules-template/ get their own bespoke presence check. Only a
+# missing file is a gap — content is never compared, because rules are the project's to edit.
+check_project_rules() {
+  local tdir="$against/core/project-rules-template" f base
+  [ -d "$tdir" ] || return 0
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    base="$(basename "$f")"
+    [ -e "$ROOT/.agents/rules/$base" ] \
+      || add_gap "project rules seed missing: .agents/rules/$base (run core/scripts/scaffold-project-agents.sh)"
+  done < <(find "$tdir" -maxdepth 1 -type f -name '*.md' | sort)
+}
+
 # --- Check 6: opencode `instructions` coverage (the one merge-row gap nothing else can see) ---
 # opencode installs no skill symlinks: the shared SKILL.md files reach the agent ONLY through the
 # `instructions` array of the project's own root opencode.jsonc, which is a `merge` manifest row —
@@ -236,6 +251,7 @@ done
 check_agents_md
 check_review_md
 check_workspace_scaffold
+check_project_rules
 
 if [ "$json" -eq 1 ]; then
   printf '{"status":"%s","gaps":[' "$([ "${#gaps[@]}" -eq 0 ] && echo clean || echo incomplete)"

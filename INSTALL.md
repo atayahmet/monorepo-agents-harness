@@ -23,7 +23,8 @@ bash .agents/.harness-install/core/scripts/install-harness.sh
 
 That copies every `core/install-manifest.txt` row into `.agents/monorepo-agents-harness/`, verifies
 each one landed, writes your root `AGENTS.md` and `REVIEW.md` (each with its provenance marker and
-project name filled in) unless you already have them, scaffolds `.agents/` state for every
+project name filled in) unless you already have them, seeds a starter rule into `.agents/rules/`,
+scaffolds `.agents/` state for every
 workspace, wires `memory-gate.sh` as `.git/hooks/pre-commit` if that slot is free, and moves the
 clone away when it's done.
 

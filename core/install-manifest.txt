@@ -16,6 +16,11 @@
 #   .gitignore, .github/            this repo's own tooling
 
 core
+# Starter project-rule template for the consumer's .agents/rules/ — copied into the bundle here,
+# then seeded into <repo-root>/.agents/rules/ by core/scripts/scaffold-project-agents.sh (never
+# overwrites an existing rule). Listed explicitly, not just via the `core` directory row above, so
+# the consumer-facing seed artifact is a first-class, audited install row.
+core/project-rules-template/local-agents-md.md
 adapters/claude-code
 adapters/codex
 adapters/opencode

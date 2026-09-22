@@ -27,6 +27,48 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+## [0.3.0-rc.1] - 2026-09-22
+
+### Added
+
+- **A starter project rule for local `AGENTS.md` upkeep ships with the harness.** The installer now
+  seeds `.agents/rules/local-agents-md.md` into every consumer project: when an agent works in any
+  directory inside a workspace — the workspace root (`apps/<name>/`, `packages/<name>/`) **or a
+  nested subdirectory at any depth** (`apps/<name>/src/components/**`, `packages/<name>/lib/**`) —
+  whose current state needs agent instructions, it MUST create an `AGENTS.md` there or update the
+  existing one.
+  - `core/project-rules-template/local-agents-md.md` — the seed rule (new `core/project-rules-template/`
+    directory), shipped to the bundle as an **explicit `core/install-manifest.txt` row** (not just
+    inside the `core` directory row) so the consumer-facing seed artifact is a first-class, audited
+    install row.
+  - `core/scripts/scaffold-project-agents.sh` — seeds `.agents/rules/` from the template, never
+    overwrites existing files, and registers each newly created rule in `.agents/.harness-map.json`
+    (via `update-harness-map.sh`, best-effort when `jq` is available) so `/monorepo-self-improve`
+    inventories it instead of proposing a duplicate.
+  - `core/scripts/install-harness.sh` runs the seed as step 4b of a full install; `--sync-only`
+    (updates) skips it by design — the update path reaches it through the release prompt below.
+  - `core/scripts/audit-install.sh` gains Check 5b: a project-rules seed missing from
+    `.agents/rules/` is reported as a gap (presence only — a rule file the project edited is never
+    compared).
+
+### Changed
+
+- **`core/root-AGENTS.md` Reference Map now ships one rule.** The "template ships none" wording is
+  replaced by the seed explanation, and a `.agents/rules/local-agents-md.md` row is added so agents
+  discover the rule; the `.agents/rules/*.md` "Additional Context Locations" bullet now notes the
+  seeded starter.
+
+### Removed
+
+### Upgrade Notes
+
+- **Backwards-compatible.** Existing consumers keep all their `.agents/rules/`; the seed step only
+  creates files that do not exist yet. The reference-map row lands via the normal `AGENTS.md`
+  reconciliation (step 9), which runs after the seed, so it never points at a missing file.
+- **Commands to run (updates):** seed the new starter rule with
+  `bash .agents/monorepo-agents-harness/core/scripts/scaffold-project-agents.sh` (see
+  `changelogs/version-0.3.0-rc.1.md`). Fresh installs do this automatically.
+
 ## [0.3.0-rc.0] - 2026-09-22
 
 ### Added

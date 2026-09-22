@@ -44,6 +44,11 @@ Claude Code, opencode, Cursor, Codex, and more.
   approved intent optionally seeds a later task's plan via `0_intent.md` — a reference stub linking
   back, never a copy, so the intent file stays the single source of truth; rejected ones are kept,
   not deleted, as an audit trail.
+- **Starter project rules** — the installer seeds `.agents/rules/local-agents-md.md` into every
+  project: when an agent works in any directory inside a workspace (the workspace root or a nested
+  subdirectory at any depth) whose current state needs agent instructions, it must add or update
+  `AGENTS.md` there. The rule is yours to edit or delete; the
+  harness never re-seeds an existing file.
 - **Self-improvement** — `/monorepo-self-improve` harvests recurring patterns from `lessons.md`,
   task memories, and the workspace index, then proposes durable project-owned rules
   (`.agents/rules/*.md`) and project-specific skills (`.agents/skills/<new-skill>/SKILL.md`). It asks

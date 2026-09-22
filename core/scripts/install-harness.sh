@@ -16,8 +16,8 @@
 #   --from <dir>        bundle source to install from (default: this script's own bundle root)
 #   --project-name <n>  value for {{PROJECT_NAME}} (default: package.json .name, else repo dir name)
 #   --no-git-hook       do not wire core/scripts/memory-gate.sh as .git/hooks/pre-commit
-#   --sync-only         sync the bundle files only; skip AGENTS.md, workspace scaffolding and the
-#                       git hook. This is the mode a harness UPDATE uses.
+#   --sync-only         sync the bundle files only; skip AGENTS.md, workspace scaffolding, project
+#                       rules and the git hook. This is the mode a harness UPDATE uses.
 #
 # Exit codes: 0 = installed and verified, 1 = something did not land (never claims success),
 # 2 = usage error. Dependencies: git + coreutils.
@@ -140,6 +140,9 @@ fi
 
 # --- 4. Per-workspace state -----------------------------------------------------------------
 bash "$DEST/core/scripts/scaffold-workspace-agents.sh" || fail "workspace scaffolding failed"
+
+# --- 4b. Project-root starter rules ---------------------------------------------------------
+bash "$DEST/core/scripts/scaffold-project-agents.sh" || fail "project rules seed failed"
 
 # --- 5. Universal hard gate -----------------------------------------------------------------
 if [ "$WIRE_GIT_HOOK" -eq 1 ]; then
