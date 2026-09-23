@@ -13,6 +13,7 @@ link  .claude/skills/agent-workflow          core/skills/agent-workflow
 link  .claude/skills/adr-workflow            core/skills/adr-workflow
 link  .claude/skills/monorepo                core/skills/monorepo
 link  .claude/skills/self-improvement-workflow core/skills/self-improvement-workflow
+link  .claude/skills/knowledge-base          core/skills/knowledge-base
 link  .claude/skills/changeset-workflow      core/skills/changeset-workflow
 
 copy  .claude/commands/monorepo-harness-build.md

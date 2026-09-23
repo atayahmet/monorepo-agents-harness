@@ -166,6 +166,10 @@ The upgrade also reconciles the project's root `AGENTS.md` against the new `core
     - **Project-rules seed gap**: re-run `core/scripts/scaffold-project-agents.sh` (idempotent) —
       it (re)seeds any missing starter rule into `.agents/rules/` without touching the files the
       project already owns.
+    - **Knowledge-base seed gap**: re-run `core/scripts/scaffold-knowledge.sh` (idempotent) — it
+      creates any missing `knowledge/` skeleton file (index/log/overview/schema + section READMEs)
+      without touching pages the project already maintains. New installs seed automatically via
+      `install-harness.sh` step 4c; updates reach it through this audit backstop.
     - **opencode `instructions` gap**: the project's `opencode.jsonc` is missing a shared skill the
       adapter ships. No installer can fix this — the file is user-owned. Show the user the one line
       to add (or the `git diff --no-index` against `opencode.jsonc.harness-proposed`), ask, and add

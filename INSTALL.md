@@ -25,7 +25,8 @@ That copies every `core/install-manifest.txt` row into `.agents/monorepo-agents-
 each one landed, writes your root `AGENTS.md` and `REVIEW.md` (each with its provenance marker and
 project name filled in) unless you already have them, seeds a starter rule into `.agents/rules/`,
 scaffolds `.agents/` state for every
-workspace, wires `memory-gate.sh` as `.git/hooks/pre-commit` if that slot is free, and moves the
+workspace, seeds the repo-root `knowledge/` base (Karpathy "LLM Wiki": the compiled layer agents query
+first), wires `memory-gate.sh` as `.git/hooks/pre-commit` if that slot is free, and moves the
 clone away when it's done.
 
 Useful flags: `--project-name <name>`, `--no-git-hook`, `--from <dir>` (install from a bundle you
@@ -100,6 +101,9 @@ throwaway dir afterwards.
   `.changeset/*.md` entry from a finished task's artifacts, without adding `@changesets/cli`
   (`core/skills/changeset-workflow/SKILL.md`). Bumps are user-confirmed policy; `changeset pre`/
   `version` still do the versioning.
+- **Knowledge base** — every finished task is ingested into the repo-root `knowledge/` compiled
+  layer (`core/skills/knowledge-base/SKILL.md`, `core/scripts/kb-ingest.sh`), so agents answer
+  questions against indexed, interlinked markdown instead of re-scanning artifact trees per query.
 
 ## 7. Updating
 

@@ -20,6 +20,14 @@
 #                                        linked `adr/NNNN-<title>.md` must exist and carry
 #                                        `phase: adr` frontmatter. `N/A` and specs without the
 #                                        section pass (backcompat, no ADRs expected).
+#   check-kb <task_dir> [--path <kb>]   — gates a task's knowledge-base coverage: when the task has
+#                                        `3_memory.md`, the KB must be seeded (knowledge/index.md +
+#                                        schema.md present) and the pages the task's memory/verify/ADR
+#                                        imply must be cataloged in knowledge/index.md (sources/<slug>,
+#                                        decision-records/NNNN-* for each adr, verified-facts/<slug>
+#                                        when 4_verify.md exists). Exit 0 when nothing to gate
+#                                        (research-only / N/A task, no memory) or fully covered;
+#                                        exit 1 (in non-advisory mode) on gaps.
 #
 # Web usage (from the shared bundle root in a consumer project):
 #   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved \
@@ -32,7 +40,7 @@
 set -euo pipefail
 
 cmd="${1:-}"
-[ -n "$cmd" ] || { echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr> <path>" >&2; exit 2; }
+[ -n "$cmd" ] || { echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb> <path>" >&2; exit 2; }
 path="${2:-}"
 [ -n "$path" ] || { echo "usage: task-state.sh $cmd <path>" >&2; exit 2; }
 
@@ -97,6 +105,57 @@ case "$cmd" in
       echo "task-state: chain valid — spec + plan present, ad-hoc (no intent required) — $dir"
     fi
     ;;
+  check-kb)
+    dir="$path"
+    [ -d "$dir" ] || fail "task dir '$dir' does not exist"
+    # Research-only / N/A tasks have no 3_memory.md — nothing to gate.
+    [ -f "$dir/3_memory.md" ] || {
+      echo "task-state: check-kb — no 3_memory.md (research-only / N/A task), nothing to gate — $dir"
+      exit 0
+    }
+    # Optional --path <kb> shifts the remaining args; default: <git toplevel>/knowledge
+    KB_OVERRIDE=""
+    shift 2 2>/dev/null || true
+    if [ "${1:-}" = "--path" ] && [ -n "${2:-}" ]; then KB_OVERRIDE="$2"; fi
+    if [ -n "$KB_OVERRIDE" ]; then
+      kb="$KB_OVERRIDE"
+    else
+      top="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+      kb="$top/knowledge"
+    fi
+    # The KB must be seeded and structurally sound before coverage is claimed.
+    [ -f "$kb/index.md" ] || fail "knowledge-base '$kb/index.md' missing — seed it first (core/scripts/scaffold-knowledge.sh)"
+    [ -f "$kb/schema.md" ] || fail "knowledge-base '$kb/schema.md' missing — seed it first (core/scripts/scaffold-knowledge.sh)"
+    slug="$(basename "$dir")"
+    gaps=""
+    # Sources synopsis must be cataloged.
+    if ! grep -qF "sources/$slug.md" "$kb/index.md"; then
+      gaps="$gaps sources/$slug.md not in knowledge/index.md"
+    fi
+    # One decision-record row per raw adr/NNNN-*.md.
+    if [ -d "$dir/adr" ]; then
+      for adr in "$dir"/adr/*.md; do
+        [ -f "$adr" ] || continue
+        base="$(basename "$adr")"
+        if ! grep -qF "$base" "$kb/index.md"; then
+          gaps="$gaps decision-records/$base not in knowledge/index.md"
+        fi
+      done
+    fi
+    # Verified-facts page when 4_verify.md exists.
+    if [ -f "$dir/4_verify.md" ]; then
+      if ! grep -qF "verified-facts/$slug.md" "$kb/index.md"; then
+        gaps="$gaps verified-facts/$slug.md not in knowledge/index.md"
+      fi
+      if [ ! -f "$kb/verified-facts/$slug.md" ]; then
+        gaps="$gaps verified-facts/$slug.md missing"
+      fi
+    fi
+    if [ -n "$gaps" ]; then
+      fail "knowledge-base coverage incomplete for '$dir':$gaps — run core/scripts/kb-ingest.sh $dir after the agent adds the pages"
+    fi
+    echo "task-state: check-kb — knowledge-base coverage complete — $dir → $kb"
+    ;;
   check-adr)
     [ -f "$path" ] || fail "spec file '$path' missing"
     value="$(frontmatter_field "$path" phase || true)"
@@ -131,7 +190,7 @@ case "$cmd" in
     ;;
   *)
     echo "task-state: unknown subcommand '$cmd'" >&2
-    echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr> <path>" >&2
+    echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb> <path>" >&2
     exit 2
     ;;
 esac

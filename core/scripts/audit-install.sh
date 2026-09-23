@@ -198,6 +198,27 @@ check_project_rules() {
   done < <(find "$tdir" -maxdepth 1 -type f -name '*.md' | sort)
 }
 
+# --- Check 5c: repo-root knowledge base seed ---
+# The KB skeleton (core/knowledge-template/) seeds <repo-root>/knowledge/ for the Karpathy-style
+# compiled knowledge layer. Presence-only: content is the project's to maintain. A gap reports the
+# seed command. Also flags a missing bundle skill row (agent-neutral, shipped via the core row).
+check_knowledge_base() {
+  local tdir="$against/core/knowledge-template" kdir="$ROOT/knowledge" f rel
+  [ -d "$tdir" ] || return 0
+  [ -e "$kdir/schema.md" ] \
+    || add_gap "knowledge base seed missing: knowledge/ (run core/scripts/scaffold-knowledge.sh)"
+  [ -e "$kdir/index.md" ] \
+    || add_gap "knowledge base seed missing: knowledge/index.md (run core/scripts/scaffold-knowledge.sh)"
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    rel="${f#"$tdir"/}"
+    [ -e "$kdir/$rel" ] \
+      || add_gap "knowledge base seed missing: knowledge/$rel (run core/scripts/scaffold-knowledge.sh)"
+  done < <(find "$tdir" -type f -name '*.md' | sort)
+  [ -f "$against/core/skills/knowledge-base/SKILL.md" ] \
+    || add_gap "knowledge-base skill missing from bundle: core/skills/knowledge-base/SKILL.md"
+}
+
 # --- Check 6: opencode `instructions` coverage (the one merge-row gap nothing else can see) ---
 # opencode installs no skill symlinks: the shared SKILL.md files reach the agent ONLY through the
 # `instructions` array of the project's own root opencode.jsonc, which is a `merge` manifest row —
@@ -252,6 +273,7 @@ check_agents_md
 check_review_md
 check_workspace_scaffold
 check_project_rules
+check_knowledge_base
 
 if [ "$json" -eq 1 ]; then
   printf '{"status":"%s","gaps":[' "$([ "${#gaps[@]}" -eq 0 ] && echo clean || echo incomplete)"

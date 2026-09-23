@@ -437,6 +437,9 @@ another agent: [PORTABILITY.md](PORTABILITY.md).
 Then, as needed: `/monorepo-harness-ci` to wire CI (Scenario 3), `/monorepo-harness-intent` to open
 the intent inbox (Scenario 1), `/monorepo-harness-review` before merging a PR (Scenario 4),
 `/monorepo-self-improve` to turn accumulated lessons and memories into reusable rules and skills.
+Every finished task also compiles its durable outcomes into the repo-root `knowledge/` base
+(Karpathy "LLM Wiki" pattern) that agents query first — see
+[`core/skills/knowledge-base/SKILL.md`](core/skills/knowledge-base/SKILL.md).
 
 ### Or hand it to your agent
 
@@ -534,6 +537,7 @@ Rules while you do this:
 | [core/skills/monorepo/SKILL.md](core/skills/monorepo/SKILL.md)             | Monorepo guidance (framework-agnostic + Turborepo/Nx/Lerna/workspaces)                     |
 | [core/skills/ci-integration/SKILL.md](core/skills/ci-integration/SKILL.md) | Detects the target project's CI provider and wires `memory-gate.sh` into it (Scenario 3)   |
 | [core/skills/pr-review/SKILL.md](core/skills/pr-review/SKILL.md)           | Reviews a diff against `REVIEW.md` policy and a task's plan/spec/verify artifacts (Scenario 4) |
+| [core/skills/knowledge-base/SKILL.md](core/skills/knowledge-base/SKILL.md) | Maintains the repo-root compiled knowledge base (`knowledge/`) — task-end incremental ingest, query fast-path, lint (Karpathy "LLM Wiki" pattern) |
 | [core/root-REVIEW.md](core/root-REVIEW.md) | Review-policy template — installed to target repo roots as `REVIEW.md` |
 | [core/skills/intent-workflow/SKILL.md](core/skills/intent-workflow/SKILL.md) | Captures stakeholder intents and lets a product owner approve/reject them (Scenario 1)     |
 | [core/skills/self-improvement-workflow/SKILL.md](core/skills/self-improvement-workflow/SKILL.md) | Harvests recurring patterns into project-owned rules and skills |

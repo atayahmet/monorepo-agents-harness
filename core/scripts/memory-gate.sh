@@ -116,6 +116,15 @@ if verify_required "$LATEST" && [ ! -f "$LATEST/4_verify.md" ]; then
   missing+=("4_verify.md")
 fi
 
+# Knowledge-base coverage gate: once memory exists, the compiled knowledge/ must be current too
+# (kb-ingest.sh is driven by /monorepo-harness-build; task-state.sh check-kb validates the result).
+TASK_STATE="${TASK_STATE:-$RUNTIME_DIR/core/scripts/task-state.sh}"
+if [ -f "$LATEST/3_memory.md" ] && [ -f "$TASK_STATE" ]; then
+  if ! bash "$TASK_STATE" check-kb "$LATEST" >/dev/null 2>&1; then
+    missing+=("knowledge-base coverage (check-kb)")
+  fi
+fi
+
 if [ "${#missing[@]}" -gt 0 ]; then
   echo "agent-workflow gate: $rel is missing: ${missing[*]}" >&2
   echo "Write the missing artifact(s) following the agent-workflow skill templates, then retry." >&2

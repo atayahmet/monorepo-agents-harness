@@ -59,6 +59,8 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
 - [ ] Search `<target-workspace>/.agents/artifacts/index.md` for prior work related to this task
       (1–3 keyword grep). On a match, read that task's `1_spec.md` (and `3_memory.md` if marked ◆)
       before planning.
+- [ ] Query the repo-root knowledge base first: read `knowledge/index.md` and any pages matching this
+      task's keywords (compiled view — see Agent Lifecycle 9).
 - [ ] Write `<target-workspace>/.agents/todo.md` plan.
 - [ ] Enter plan mode if task has 3+ steps.
 - [ ] All `.md` files must be in English. Code comments and commit messages must be in English.
@@ -113,7 +115,11 @@ This is a {{MONOREPO_FRAMEWORK}} monorepo. Default context is the repository roo
 7. **Autonomous Bug Fixing** — Treat bugs as execution tasks: investigate, fix root cause, verify.
 8. **Memory / Knowledge Base** — Record durable outcomes in the task's `3_memory.md`; promote
    architecture-affecting decisions into ADRs (`core/skills/adr-workflow/SKILL.md`) and recurring
-   decisions/reusable patterns into specs and `lessons.md`.
+   decisions/reusable patterns into specs and `lessons.md`. On task end, `-build` also ingests the
+   task into the repo-root `knowledge/` (Karpathy "LLM Wiki" pattern, `core/skills/knowledge-base/SKILL.md`)
+   so durable knowledge compounds instead of staying buried in per-workspace artifact trees.
+9. **Query Knowledge First** — Before scanning per-workspace artifact trees, read `knowledge/index.md`
+   and the compiled pages it links; scan raw artifacts only when the KB lacks coverage.
 
 ## Reference Map
 
@@ -126,6 +132,7 @@ skill that does not exist.
 | Topic | Rule File |
 | ----- | --------- |
 | AGENTS.md upkeep in workspace directories | `.agents/rules/local-agents-md.md` |
+| Knowledge base (Karpathy-style compiled wiki) | `.agents/monorepo-agents-harness/core/skills/knowledge-base/SKILL.md` |
 | Self-improvement workflow | `.agents/monorepo-agents-harness/core/skills/self-improvement-workflow/SKILL.md` |
 | Project rules directory | `.agents/rules/*.md` |
 | Project skills directory | `.agents/skills/*/SKILL.md` |
@@ -153,3 +160,8 @@ skill that does not exist.
 - `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md` — Self-improvement proposals the user
   declined, deferred, or only partly approved. Read before running `/monorepo-self-improve` again:
   cite an existing report instead of re-proposing the same pattern.
+- `knowledge/` — The repo-root **compiled knowledge base** (Karpathy "LLM Wiki" pattern): indexed,
+  interlinked markdown (`index.md` catalog, `log.md` history, `schema.md` constitution, per-module /
+  per-concept / decision-record / verified-fact / per-source pages). Agents query it first
+  (Lifecycle 9) and `-build` ingests every finished task into it. Never a copy of the per-workspace
+  artifact trees — a compiled, regenerable view over them.

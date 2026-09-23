@@ -21,6 +21,14 @@ core
 # overwrites an existing rule). Listed explicitly, not just via the `core` directory row above, so
 # the consumer-facing seed artifact is a first-class, audited install row.
 core/project-rules-template/local-agents-md.md
+# Repo-root knowledge base seed (Karpathy "LLM Wiki": compiled layer agents query first) — copied
+# into the bundle here, then seeded into <repo-root>/knowledge/ by core/scripts/scaffold-knowledge.sh
+# (never overwrites consumer content). Listed explicitly so the seed is a first-class audited row.
+core/knowledge-template
+# The knowledge-base skill is agent-neutral and referenced from core/root-AGENTS.md — shipped via
+# the `core` row above through the manifest, and executed by the knowledge base's own seed/ingest
+# scripts rather than a per-agent copy.
+core/skills/knowledge-base/SKILL.md
 adapters/claude-code
 adapters/codex
 adapters/opencode

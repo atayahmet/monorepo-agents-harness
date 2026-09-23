@@ -67,7 +67,7 @@ input (see `core/scripts/task-state.sh` for the read-only checks):
 | `/monorepo-harness-intent [review]` | — | `<workspace>/.agents/intents/intent_*.md` (`status: pending`, then `approved`) |
 | `/monorepo-harness-spec <intent.md?>` | intent **approved** (only when a path is given) | `1_spec.md` (+ `0_intent.md` = reference stub linking the approved intent) |
 | `/monorepo-harness-plan <spec.md>` | spec present (`phase: spec`) + plan-mode consent | `2_plan.md` |
-| `/monorepo-harness-build <plan.md>` | chain: plan + spec present; intent approved **if** the task is intent-seeded | implementation (**confined to the spec/plan scope**, see Build scope below) + `3_memory.md` + `4_verify.md` |
+| `/monorepo-harness-build <plan.md>` | chain: plan + spec present; intent approved **if** the task is intent-seeded | implementation (**confined to the spec/plan scope**, see Build scope below) + `3_memory.md` + `4_verify.md` + `kb-ingest.sh <task_dir>` + `check-kb` |
 
 **Intent-approval policy:** an approved intent is mandatory only when a task was seeded by one (i.e.
 its directory contains a `0_intent.md`). Ad-hoc tasks (no intent behind them) are exempt — this is
@@ -184,6 +184,13 @@ updates the workspace index — so the memory/verify stages need no separate com
 
 **Template:** `templates/3_memory.md` — filled into `<task_dir>/3_memory.md` by `-build`, or by hand
 on other paths.
+
+**Knowledge-base ingest (same commit):** after `3_memory.md` / `4_verify.md` / `adr/` are written,
+`-build` runs `core/scripts/kb-ingest.sh <task_dir>` and verifies with `task-state.sh check-kb
+<task_dir>` so the task's durable outcomes land in the repo-root `knowledge/` layer in the same
+commit (Karpathy "LLM Wiki" pattern — see `core/skills/knowledge-base/SKILL.md`). Research-only /
+`N/A` tasks (no `3_memory.md`) skip this cleanly; `check-kb` requires the KB to be seeded first
+(`core/scripts/scaffold-knowledge.sh`).
 
 **Do not write**: what the code does (the code already says so), summaries derivable from the commit
 list, ephemeral task details.

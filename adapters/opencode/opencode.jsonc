@@ -12,7 +12,8 @@
     ".agents/monorepo-agents-harness/core/skills/adr-workflow/SKILL.md",
     ".agents/monorepo-agents-harness/core/skills/monorepo/SKILL.md",
     ".agents/monorepo-agents-harness/core/skills/self-improvement-workflow/SKILL.md",
-    ".agents/monorepo-agents-harness/core/skills/changeset-workflow/SKILL.md"
+    ".agents/monorepo-agents-harness/core/skills/changeset-workflow/SKILL.md",
+    ".agents/monorepo-agents-harness/core/skills/knowledge-base/SKILL.md"
   ]
 
   // opencode loads instruction files listed above automatically. There is no local

@@ -21,11 +21,47 @@ Release procedure (harness maintainers):
 
 ### Added
 
+- **Ship a repo-root knowledge base (Karpathy "LLM Wiki" pattern) compiled incrementally at task
+  end.** Agents answer questions against a compiled, interlinked markdown layer (`knowledge/` at the
+  consumer repo root) instead of re-deriving from per-workspace artifact trees on every query. Built
+  on the existing artifact machinery rather than new tooling — markdown + grep only, no vector DB.
+  - `core/knowledge-template/` — the seeded skeleton: `index.md` (master catalog), `log.md`
+    (append-only ingest history), `overview.md`, `schema.md` (the KB constitution: page types,
+    naming, link/citation rules), and `sources/`, `concepts/`, `modules/`, `decision-records/`,
+    `verified-facts/` subdirectories. Raw task artifacts stay immutable; `knowledge/` is
+    regenerable compiled output.
+  - `core/skills/knowledge-base/SKILL.md` — the Karpathy "schema" as a skill: the task-end ingest
+    workflow, the query fast-path (read `knowledge/index.md` + linked pages first), the periodic lint
+    workflow (contradiction / stale / orphan detection, two-position documents on conflict), and the
+    never-do floor.
+  - `core/scripts/kb-ingest.sh` — the mechanical task-end ingest (structure, catalog rows, log entry,
+    ADR copies, page skeletons); the agent authors the page prose per the skill and `knowledge/schema.md`.
+    `core/scripts/scaffold-knowledge.sh` seeds `knowledge/` idempotently, never overwriting consumer
+    content; `install-harness.sh` runs it in step 4c.
+  - `core/scripts/task-state.sh check-kb <task_dir>` — read-only coverage gate (source synopsis,
+    one decision-record per raw ADR, verified-facts when `4_verify.md` exists) plus a
+    `core/scripts/memory-gate.sh` scope extension so a task that wrote `3_memory.md` but left
+    `knowledge/` untouched fails the same universal gate as memory/verify.
+  - Adapter `-build` stubs gain step 5 (run `kb-ingest.sh` + verify `check-kb` in the same commit);
+    `core/root-AGENTS.md` gains Agent Lifecycle 9 (Query Knowledge First), a pre-plan checklist hit,
+    a Reference Map row, and an Additional Context bullet.
+  - New manifest rows (`core/knowledge-template`, `core/skills/knowledge-base/SKILL.md`), a
+    `.claude/skills/` + `.agents/skills/` symlink and `opencode.jsonc` `instructions` entry per
+    adapter, `audit-install.sh` Check 5c, `harness-update/SKILL.md` step 9.5 remediation, and
+    `PORTABILITY.md` capability + semantic-difference rows.
+
 ### Changed
 
 ### Removed
 
 ### Upgrade Notes
+
+- **Backwards-compatible.** Existing consumers keep their `.agents/` working state untouched; a
+  `knowledge/` dir is seeded only on a fresh full install or by running
+  `core/scripts/scaffold-knowledge.sh`. Research-only / `N/A` tasks (no `3_memory.md`) are skipped
+  by ingest and pass the gate. Tasks that wrote `3_memory.md` after this upgrade must land a
+  corresponding `knowledge/` update in the same commit (`check-kb`/memory-gate enforces it); the
+  `changelogs/version-0.4.0-rc.0.md` prompt gives the one command for existing installs.
 
 ## [0.3.0-rc.1] - 2026-09-22
 

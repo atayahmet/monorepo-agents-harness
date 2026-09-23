@@ -143,6 +143,7 @@ bash "$DEST/core/scripts/scaffold-workspace-agents.sh" || fail "workspace scaffo
 
 # --- 4b. Project-root starter rules ---------------------------------------------------------
 bash "$DEST/core/scripts/scaffold-project-agents.sh" || fail "project rules seed failed"
+bash "$DEST/core/scripts/scaffold-knowledge.sh" || fail "knowledge base seed failed"
 
 # --- 5. Universal hard gate -----------------------------------------------------------------
 if [ "$WIRE_GIT_HOOK" -eq 1 ]; then
