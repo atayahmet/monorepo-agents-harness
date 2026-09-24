@@ -16,6 +16,9 @@ and CircleCI each read exactly **one** pipeline file, so a separate file would n
 automatically without at least a one-line addition to that file — for those, this skill detects and
 guides, but does not write anything itself. This is a deliberate scope boundary, not an oversight.
 
+**Write in simple English.** Every file and developer message this skill produces follows
+`../../governance/rules/simple-english.md` — short sentences, common words, active voice.
+
 ## Workflow
 
 1. **Detect**:

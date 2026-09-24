@@ -11,6 +11,9 @@ enforcement layer (hooks, plugins, or the git/CI gate) reminds you; you write th
 five fill-in templates live in `templates/` next to this file — read the one for the phase you are
 writing, then create the artifact in the task directory.
 
+**Write in simple English.** Every file and developer message this skill produces follows
+`../../governance/rules/simple-english.md` — short sentences, common words, active voice.
+
 ## Directory layout
 
 This repo is a monorepo with multiple apps under `apps/` (optionally `packages/`). Artifacts are

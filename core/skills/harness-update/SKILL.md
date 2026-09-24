@@ -33,6 +33,9 @@ The upgrade also reconciles the project's root `AGENTS.md` against the new `core
 > prereleases, so `0.2.0-rc.1` is older than `0.2.0` — always compare via `harness-update.sh`, never
 > with `sort -V`.
 
+**Write in simple English.** Every file and developer message this skill produces follows
+`../../governance/rules/simple-english.md` — short sentences, common words, active voice.
+
 ## Workflow
 
 1. **Check** (from the repo root):

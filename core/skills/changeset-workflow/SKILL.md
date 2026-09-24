@@ -10,6 +10,9 @@ Turns a finished task's artifacts into a standard **changesets** entry the proje
 duplicate guard). This skill supplies the reading, the proposal, the consent gate, and the "never do"
 floor. No `changeset` dependency — compatibility is by file format only.
 
+**Write in simple English.** Every file and developer message this skill produces follows
+`../../governance/rules/simple-english.md` — short sentences, common words, active voice.
+
 ## Concepts
 
 1. **A changeset carries bump types, never a version.** `---` frontmatter maps package names to

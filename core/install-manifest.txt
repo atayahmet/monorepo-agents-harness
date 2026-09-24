@@ -21,6 +21,10 @@ core
 # overwrites an existing rule). Listed explicitly, not just via the `core` directory row above, so
 # the consumer-facing seed artifact is a first-class, audited install row.
 core/project-rules-template/local-agents-md.md
+# Shared "simple English" writing standard for all harness-generated content and developer messages —
+# referenced by every content-writing skill. Shipped via the `core` row above; listed explicitly so it
+# is a first-class, audited install row.
+core/governance/rules/simple-english.md
 # Repo-root knowledge base seed (Karpathy "LLM Wiki": compiled layer agents query first) — copied
 # into the bundle here, then seeded into <repo-root>/knowledge/ by core/scripts/scaffold-knowledge.sh
 # (never overwrites consumer content). Listed explicitly so the seed is a first-class audited row.

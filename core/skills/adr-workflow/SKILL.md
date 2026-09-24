@@ -23,6 +23,9 @@ are done — no empty `adr/` directory, no gate. The `3_memory.md` `## Related d
 the *session-level* summary; the ADR is the *durable, linked* record of the decision itself. Do not
 duplicate: put the full context/alternatives record in the ADR and only a one-line pointer in memory.
 
+**Write in simple English.** Every file and developer message this skill produces follows
+`../../governance/rules/simple-english.md` — short sentences, common words, active voice.
+
 ## When to write an ADR (triggers)
 
 Write at least one ADR when the task makes a decision that:
