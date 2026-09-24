@@ -7,6 +7,9 @@ description: Harvest recurring patterns from a project's agent working state (le
 
 Turn a project's accumulated agent working state into durable, discoverable instructions.
 
+**Write in simple English.** Every file and developer message this skill produces follows
+`../../governance/rules/simple-english.md` — short sentences, common words, active voice.
+
 ## Scope
 
 This workflow is **read-analyze-propose-apply**:

@@ -18,6 +18,9 @@ Guidance for JavaScript/TypeScript monorepos. The harness supports Turborepo, Nx
 and plain npm/yarn/pnpm workspaces. The active framework is detected at install time and
 recorded in the project's root `AGENTS.md`.
 
+**Write in simple English.** Every file and developer message this skill produces follows
+`../../governance/rules/simple-english.md` — short sentences, common words, active voice.
+
 ## Which framework is in use?
 
 The harness detects the framework from repo markers:

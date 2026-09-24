@@ -63,6 +63,40 @@ Release procedure (harness maintainers):
   corresponding `knowledge/` update in the same commit (`check-kb`/memory-gate enforces it); the
   `changelogs/version-0.4.0-rc.0.md` prompt gives the one command for existing installs.
 
+## [0.4.0-rc.1] - 2026-09-24
+
+### Added
+
+- **A shared "simple English" writing standard applies to every generated file and every developer
+  message.** The harness writes specs, plans, memory files, verify files, intents, ADRs,
+  changesets, knowledge-base pages, review reports, and commit messages, and it talks to the
+  developer during each step — all of that text must now be simple English (issue #1).
+  - `core/governance/rules/simple-english.md` — the shared rule: short sentences, one idea per
+    sentence, common words, active voice, lists over long paragraphs; technical terms (file names,
+    commands, paths) stay exact. Written in simple English itself, with bad vs good examples —
+    a spec paragraph and a developer question.
+  - All 11 content-writing skills (agent-workflow, adr-workflow, intent-workflow,
+    changeset-workflow, knowledge-base, pr-review, self-improvement-workflow, agents-md-merge,
+    harness-update, ci-integration, monorepo) carry one standard reference line that resolves to the
+    rule via the bundle-relative path `../../governance/rules/simple-english.md` — correct both in
+    this source tree and in an installed `.agents/monorepo-agents-harness/core/` copy.
+  - `core/root-AGENTS.md` gains Critical Gotcha 6 and a Reference Map row, so every consumer's
+    generated `AGENTS.md` tells its agents to follow the rule.
+  - Explicit `core/install-manifest.txt` row (the rule also ships via the `core` directory row).
+
+### Changed
+
+- No script, gate, adapter, or manifest-verb behavior changed; the rule is a writing standard that
+  agents apply when generating content and messages.
+
+### Removed
+
+### Upgrade Notes
+
+- **Backwards-compatible.** The rule auto-installs with the regular bundle sync (the `core` row);
+  no command needs to run. Each consumer's `AGENTS.md` picks up Gotcha 6 and the Reference Map row
+  through the normal step-9 reconciliation (`core/skills/agents-md-merge/SKILL.md`).
+
 ## [0.3.0-rc.1] - 2026-09-22
 
 ### Added

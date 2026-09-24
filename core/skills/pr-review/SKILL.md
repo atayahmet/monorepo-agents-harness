@@ -13,6 +13,9 @@ committed to build**, not just generic code-quality heuristics.
 This skill produces a report. It does not run as a service, does not post to any PR platform, and
 does not merge or approve anything — see "Out of scope" below.
 
+**Write in simple English.** Every file and developer message this skill produces follows
+`../../governance/rules/simple-english.md` — short sentences, common words, active voice.
+
 ## Workflow
 
 1. **Load the review policy.** Read `REVIEW.md` at the repo root if it exists. If absent, use these

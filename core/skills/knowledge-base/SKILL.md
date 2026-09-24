@@ -11,6 +11,9 @@ Wiki": compile once at task end, keep current, never re-derive per query). Raw t
 `core/scripts/kb-ingest.sh`; constitution: `knowledge/schema.md` (read it before ingesting or
 writing pages). No vector DB, no tooling — markdown + grep.
 
+**Write in simple English.** Every file and developer message this skill produces follows
+`../../governance/rules/simple-english.md` — short sentences, common words, active voice.
+
 ## Concepts
 
 1. **Compile once, query cheap.** Questions are answered from `knowledge/index.md` + linked pages,

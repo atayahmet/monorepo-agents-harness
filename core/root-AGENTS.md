@@ -51,6 +51,13 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
    (approved by the user) before resuming — build implements the approved plan, it never invents new
    scope.
 
+6. **Write in simple English.** Every file the harness generates — spec, plan, memory, verify,
+   intents, ADRs, changesets, knowledge-base pages, review reports, commit messages — and every
+   message to the developer (questions, summaries, reports) follows
+   `.agents/monorepo-agents-harness/core/governance/rules/simple-english.md`: short sentences,
+   common words, active voice, lists over long paragraphs. Technical terms (file names, commands,
+   paths) stay exact; explain a term when it is not common.
+
 ## Before You Start — Mandatory Checklist
 
 - [ ] Resolve the **target workspace** (`apps/<name>`, `packages/<name>`, or the equivalent for the detected framework) — see Workspace Routing below.
@@ -132,6 +139,7 @@ skill that does not exist.
 | Topic | Rule File |
 | ----- | --------- |
 | AGENTS.md upkeep in workspace directories | `.agents/rules/local-agents-md.md` |
+| Write everything in simple English | `.agents/monorepo-agents-harness/core/governance/rules/simple-english.md` |
 | Knowledge base (Karpathy-style compiled wiki) | `.agents/monorepo-agents-harness/core/skills/knowledge-base/SKILL.md` |
 | Self-improvement workflow | `.agents/monorepo-agents-harness/core/skills/self-improvement-workflow/SKILL.md` |
 | Project rules directory | `.agents/rules/*.md` |

@@ -13,6 +13,9 @@ an **approved** intent later, once someone actually starts the engineering work.
 
 Full format and lifecycle rules: `core/governance/intents/AGENTS.md`.
 
+**Write in simple English.** Every file and developer message this skill produces follows
+`../../governance/rules/simple-english.md` — short sentences, common words, active voice.
+
 ## Workflow — Capture
 
 Triggered when a stakeholder describes a new problem or feature idea, or explicitly asks to file an

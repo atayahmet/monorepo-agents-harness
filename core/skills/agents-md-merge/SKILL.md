@@ -20,6 +20,9 @@ There is no script behind this workflow — every step below is a plain `git`/co
 a judgment call for you (the active agent) to make directly, the same "engine does mechanical work,
 agent does everything else" split used by `harness-update`.
 
+**Write in simple English.** Every file and developer message this skill produces follows
+`../../governance/rules/simple-english.md` — short sentences, common words, active voice.
+
 ## Vocabulary
 
 | Term | Meaning |
