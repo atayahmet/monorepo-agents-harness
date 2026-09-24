@@ -10,8 +10,9 @@ change to a reusable template, not to a single application.
    Do not put project-specific secrets, names, or rules into files that are meant to be installed
    unchanged (e.g. `core/`, adapters, skills, scripts).
 
-2. **Version consistency is mandatory.** When changing the harness, update all of the following
-   together:
+2. **Version consistency is mandatory.** Never choose a version yourself: always ask the user for
+   the new version number as a prompt before bumping. When changing the harness, update all of the
+   following together:
    - `VERSION` (repo root; SemVer, prereleases allowed — `0.1.0-rc.0` ranks below `0.1.0`)
    - `CHANGELOG.md`
    - `changelogs/version-X.Y.Z.md` — **only** if the release needs commands run or manual
