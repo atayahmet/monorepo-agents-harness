@@ -14,17 +14,18 @@ Follow the shared instructions in
 3. Confirm the workspace scope (primary + secondary) and propose 3-5 phases — a phase is worth its
    own review. Ask "Start these N phases?" and write nothing before an explicit yes.
 4. For each approved phase write `0_intent.md` (reference stub), `1_spec.md` and `2_plan.md` under
-   `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<phase_slug>/`, add the index rows, then create the
-   issue with the `tracker` subagent:
+   `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<phase_slug>/`, add the index rows, then dispatch
+   the `tracker` subagent (`.claude/agents/tracker.md`) once per phase to create the issue. It runs
+   exactly this and returns the issue URL:
 
    ```
    bash .agents/monorepo-agents-harness/core/scripts/tracker-issue.sh \
      --plan <2_plan.md> --title "<issue title>" --body-file <file> --create
    ```
 
-   Record the returned URL in the plan's `## Tracker` section. On exit 3 (`gh` missing or
-   unauthenticated) keep the task directory, write "no issue yet", and tell the user to open it by
-   hand — never report an issue that does not exist.
+   Record the returned URL in the plan's `## Tracker` section. If the subagent reports exit 3 (`gh`
+   missing or unauthenticated) keep the task directory, write "no issue yet", and tell the user to
+   open it by hand — never report an issue that does not exist.
 5. Report the per-phase task directory, issue URL, and the next command
    (`/monorepo-harness-build <2_plan.md>`), then **stop**. This command does not implement: no
    source edits, no `3_memory.md` / `4_verify.md`.

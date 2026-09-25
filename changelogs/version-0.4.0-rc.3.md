@@ -22,7 +22,7 @@ tracker issues).
 
 - **opencode only, and only to check:** you do **not** need to add anything to the `instructions`
   array in your root `opencode.jsonc`. The new command reaches
-  `core/skills/intent-workflow/SKILL.md` by path, and that skill was already listed. Run
+  `core/skills/intent-workflow/SKILL.md` by path, so that array is unchanged on purpose. Run
   `bash .agents/monorepo-agents-harness/core/scripts/audit-install.sh` after the refresh to confirm
   Check 6 reports no missing entry.
 - **Optional, GitHub users:** `/monorepo-harness-intent-execute` creates GitHub issues through the
