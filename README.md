@@ -25,10 +25,12 @@ Claude Code, opencode, Cursor, Codex, and more.
   `adapters/<agent>/manifest.txt`), executed by scripts and verified against those same manifests.
   Nothing depends on an agent correctly following a prose checklist, and an update runs the very
   same installers a fresh install does, so the two can never disagree about what "complete" means.
-- **Updatable, reliably** — the bundle carries a version; a README "Update from the repo" prompt
-  compares your install against upstream and, with your consent, re-runs the new release's own
+- **Updatable, reliably** — the bundle carries a version; `/monorepo-harness-update` compares your
+  install against upstream and, with your consent, re-runs the new release's own
   installer and **self-heals already-installed adapters** — newly added commands/skills reach your
-  project automatically, without a manual copy step and without touching your config files.
+  project automatically, without a manual copy step and without touching your config files. No
+  adapter installed? Paste the same prompt from
+  [`core/prompts/harness-update.md`](core/prompts/harness-update.md).
 - **Agent portability** — an agent-neutral `core/` plus thin per-agent `adapters/`; switching or
   mixing agents never loses a capability (mandatory-parity rule).
 - **CI integration** — `/monorepo-harness-ci` detects your project's CI provider and wires
@@ -381,9 +383,11 @@ posts this to the PR platform or merges anything; it's a report for the human re
 
 ### Scenario 5 — Updating the harness itself, reliably
 
-Months later, upstream ships a new release. Someone pastes the README "Update from the repo" prompt,
-which directs the active agent to `core/skills/harness-update/SKILL.md`. It checks the installed
-version against upstream, reports what changed, and asks **"Upgrade now?"**. On consent:
+Months later, upstream ships a new release. Someone types `/monorepo-harness-update` (or, with no
+adapter installed, pastes the prompt in
+[`core/prompts/harness-update.md`](core/prompts/harness-update.md)), which directs the active agent
+to `core/skills/harness-update/SKILL.md`. It checks the installed version against upstream, reports
+what changed, and asks **"Upgrade now?"**. On consent:
 
 - The bundle is synced by **the new release's own installer** —
   `install-harness.sh --sync-only`, driven by `core/install-manifest.txt`, the very same code path a
@@ -436,6 +440,7 @@ another agent: [PORTABILITY.md](PORTABILITY.md).
 
 Then, as needed: `/monorepo-harness-ci` to wire CI (Scenario 3), `/monorepo-harness-intent` to open
 the intent inbox (Scenario 1), `/monorepo-harness-review` before merging a PR (Scenario 4),
+`/monorepo-harness-update` to check for a new harness release (Scenario 5),
 `/monorepo-self-improve` to turn accumulated lessons and memories into reusable rules and skills.
 Every finished task also compiles its durable outcomes into the repo-root `knowledge/` base
 (Karpathy "LLM Wiki" pattern) that agents query first — see
@@ -478,47 +483,27 @@ The prompt names no version on purpose — it always installs the current one.
 
 ### Or update from the repo
 
-Paste this into any agent (Claude Code, opencode, Codex CLI) from your monorepo root whenever a new
-harness release is announced, or you suspect your install is out of date. It checks the installed
-version against upstream and, on your consent, upgrades both the agent-neutral core and any already
-installed adapters:
+With an adapter installed, this is one command — no copy-paste:
 
-```text
-Update the monorepo-agents-harness in this repository.
-
-1. Check the installed version against upstream:
-
-     bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh check --json
-
-   - If it reports "current", say so and stop.
-   - If it reports "outdated", continue. If "unknown", show me the script's stderr and the
-     `git ls-remote --tags <upstream>` suggestion instead.
-
-2. Upgrading must follow the installed workflow exactly —
-   `.agents/monorepo-agents-harness/core/skills/harness-update/SKILL.md`. Read it and do what it
-   says end to end: clone the new release, apply its `changelogs/version-X.Y.Z.md` prompts in
-   order, run the new release's own `install-harness.sh --sync-only`, `--refresh` every adapter
-   whose manifest rows exist here, reconcile the root AGENTS.md via
-   `core/skills/agents-md-merge/SKILL.md` (its own consent gate), audit, and clean up. Do NOT
-   copy files by hand and do NOT shorten the workflow.
-
-Rules while you do this:
-- Ask me "Upgrade now?" before the bundle sync, and again before writing AGENTS.md — these are
-  two separate approvals.
-- Never overwrite a config file I already have; a `.harness-proposed` file means leave the
-  original and show me the diff.
-- If any script exits non-zero, stop and show me its output verbatim. Do not improvise a fix.
-- Report the manual follow-ups the prompts list, and the audit result, before anything else.
-  Do not commit without asking me.
 ```
+/monorepo-harness-update
+```
+
+Without one (or on any other agent), paste the same prompt from
+[`core/prompts/harness-update.md`](core/prompts/harness-update.md) into your agent from your
+monorepo root whenever a new harness release is announced, or you suspect your install is out of
+date. That file is the only copy of the prompt; the command above applies it verbatim. Either way
+the installed version is checked against upstream and, on your consent, both the agent-neutral core
+and any already installed adapters are upgraded. The prompt names no version on purpose — it always
+installs the current one.
 
 ## Adapters
 
 | Adapter       | Enforcement provided                                                                                                                                                               |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-changeset` changeset draft, `/monorepo-self-improve` pattern harvesting, `verifier` subagent  |
-| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-changeset` changeset draft, `/monorepo-self-improve` pattern harvesting                                                        |
-| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-spec` · `-plan` · `-build`, `/monorepo-harness-ci`, `/monorepo-harness-review`, `/monorepo-harness-intent`, `/monorepo-harness-changeset`, and `/monorepo-self-improve` skills |
+| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting, `verifier` subagent  |
+| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting                                                        |
+| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-spec` · `-plan` · `-build`, `/monorepo-harness-ci`, `/monorepo-harness-review`, `/monorepo-harness-intent`, `/monorepo-harness-changeset`, `/monorepo-harness-update`, and `/monorepo-self-improve` skills |
 | yours         | Follow the capability matrix in [PORTABILITY.md](PORTABILITY.md) — new adapters are the intended growth path                                                                       |
 
 ## Documentation map

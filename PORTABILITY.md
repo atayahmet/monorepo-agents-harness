@@ -36,7 +36,7 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 | Per-SDLC-stage commands (intent → spec → plan → build) | `core/skills/agent-workflow/SKILL.md` (stage entry points) + `core/scripts/task-state.sh` (read-only chain validation) | `.claude/commands/monorepo-harness-{spec,plan,build}.md` | `.opencode/commands/monorepo-harness-{spec,plan,build}.md` | `.agents/skills/monorepo-harness-{spec,plan,build}/SKILL.md` | run the `task-state.sh` checks and follow the stage phases by hand |
 | **Memory-gate** (no finish without `3_memory.md`, plus `4_verify.md` when the spec's Test/verification plan is not N/A) | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (**hard block**) | universal hard gate (git pre-commit / CI) | `Stop` hook → script `--json` (soft reminder) | **script default mode as git pre-commit / CI — hard block, universal** |
 | Verifier subagent (produces the `4_verify.md` evidence) | `core/skills/agent-workflow/SKILL.md` Phase 4 | `.claude/agents/verifier.md` (isolated context, read-only) | — main session runs the same verification commands inline | — same as opencode | Universal: verification commands run in the main session per the skill's Phase 4 instructions — no capability lost, just no isolated context |
-| Update check / upgrade | `.agents/monorepo-agents-harness/core/scripts/harness-update.sh` + `.agents/monorepo-agents-harness/core/skills/harness-update/SKILL.md` | no adapter command — follow the README "Update from the repo" prompt | same | same | run `.agents/monorepo-agents-harness/core/scripts/harness-update.sh check` directly, then follow the skill by hand |
+| Update check / upgrade | `.agents/monorepo-agents-harness/core/scripts/harness-update.sh` + `.agents/monorepo-agents-harness/core/skills/harness-update/SKILL.md` + `core/prompts/harness-update.md` (the paste-in prompt, single source) | `.claude/commands/monorepo-harness-update.md` → `/monorepo-harness-update` | `.opencode/commands/monorepo-harness-update.md` → `/monorepo-harness-update` | `.agents/skills/monorepo-harness-update/SKILL.md` → `/monorepo-harness-update` | paste the prompt in `core/prompts/harness-update.md`, or run `harness-update.sh check` directly and follow the skill by hand |
 | Root `AGENTS.md` reconciliation (install + upgrade) | `.agents/monorepo-agents-harness/core/skills/agents-md-merge/SKILL.md` | performed by the active agent — no adapter wiring needed | same | same | run the skill's `git merge-file` one-liners by hand |
 | CI provider detection + `memory-gate.sh` integration (`/monorepo-harness-ci`) | `core/scripts/detect-ci-provider.sh` + `core/skills/ci-integration/SKILL.md` | `.claude/commands/monorepo-harness-ci.md` → `/monorepo-harness-ci` | `.opencode/commands/monorepo-harness-ci.md` → `/monorepo-harness-ci` | `.agents/skills/monorepo-harness-ci/SKILL.md` → `/monorepo-harness-ci` | run `.agents/monorepo-agents-harness/core/scripts/detect-ci-provider.sh --provider` directly and follow `core/skills/ci-integration/SKILL.md` by hand |
 | PR review (`/monorepo-harness-review`) | `core/root-REVIEW.md` (installed policy) + `core/skills/pr-review/SKILL.md` | `.claude/commands/monorepo-harness-review.md` → `/monorepo-harness-review` | `.opencode/commands/monorepo-harness-review.md` → `/monorepo-harness-review` | `.agents/skills/monorepo-harness-review/SKILL.md` → `/monorepo-harness-review` | follow `core/skills/pr-review/SKILL.md` by hand — it's plain `git diff` + read/report, no agent-specific mechanism needed |
@@ -71,8 +71,10 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
   for the plan→spec reminder. The root `AGENTS.md` mandate remains the universal fallback.
 - **Codex slash commands come from skills.** Codex does not support user-defined slash commands
   directly; skills under `.agents/skills/` auto-register and appear in the slash list. The harness
-  update check no longer ships a per-adapter entry point on any agent — it is invoked from the
-  README's "Update from the repo" prompt or directly via `core/skills/harness-update/SKILL.md`.
+  update check therefore ships as the skill `.agents/skills/monorepo-harness-update/SKILL.md`, which
+  is why the same `/monorepo-harness-update` name works on all three agents. It applies the prompt
+  in `core/prompts/harness-update.md` and then defers to `core/skills/harness-update/SKILL.md`; an
+  agent with no adapter pastes that same prompt instead.
 - **CI integration is tiered by provider, not by agent.** GitHub Actions supports independent
   workflow files, so `/monorepo-harness-ci` writes a new, dedicated one after consent. GitLab,
   Bitbucket Pipelines, and CircleCI each read exactly one pipeline file, so the skill only shows the
@@ -120,8 +122,9 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 4. **Enforcement:** wire `core/scripts/memory-gate.sh` into the agent's hook/plugin API if it has
    one; otherwise install the git/CI gate. The script is fail-open and dependency-light (`git` +
    coreutils; `--json` output mode for agents needing structured hook output). The update check
-   needs no adapter entry point: point users at the README "Update from the repo" prompt or
-   `core/skills/harness-update/SKILL.md` directly.
+   needs only a thin entry point: copy a command/skill that applies
+   `core/prompts/harness-update.md` and defers to `core/skills/harness-update/SKILL.md` (see the
+   three existing ones), or point users at that prompt when the agent has no command mechanism.
 5. **Package it** as `adapters/<your-agent>/` with a `manifest.txt` — one `copy`/`link`/`merge`/`tmpl`
    row per file the adapter installs, which is what `core/scripts/install-adapter.sh` executes and
    `core/scripts/audit-install.sh` verifies. Never describe a copy step in prose (`adapters/AGENTS.md`

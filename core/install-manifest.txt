@@ -29,6 +29,10 @@ core/governance/rules/simple-english.md
 # into the bundle here, then seeded into <repo-root>/knowledge/ by core/scripts/scaffold-knowledge.sh
 # (never overwrites consumer content). Listed explicitly so the seed is a first-class audited row.
 core/knowledge-template
+# The paste-in harness update prompt (the single source the /monorepo-harness-update commands and the
+# project README both point at) — shipped via the `core` row above; listed explicitly so the
+# agent-facing update procedure is a first-class, audited install row.
+core/prompts/harness-update.md
 # The knowledge-base skill is agent-neutral and referenced from core/root-AGENTS.md — shipped via
 # the `core` row above through the manifest, and executed by the knowledge base's own seed/ingest
 # scripts rather than a per-agent copy.

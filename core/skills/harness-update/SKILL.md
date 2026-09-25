@@ -1,13 +1,16 @@
 ---
 name: harness-update
-description: Check whether the installed agent harness is up to date and, with user consent, upgrade it. Use when the user asks to check/update the harness (for example from the project README's update prompt), when a task touches .agents/monorepo-agents-harness/** and a version mismatch matters, or before starting work after a known harness release.
+description: Check whether the installed agent harness is up to date and, with user consent, upgrade it. Use when the user runs /monorepo-harness-update, asks to check/update the harness (for example from the prompt in core/prompts/harness-update.md), when a task touches .agents/monorepo-agents-harness/** and a version mismatch matters, or before starting work after a known harness release.
 ---
 
 # Harness Update Check
 
-Shared instructions backing the harness-update check and upgrade. There is no per-adapter
-`/monorepo-harness:update` slash command any more: run this workflow on request (e.g. from the
-project README's "update from the repo" prompt) or directly from a terminal.
+Shared instructions backing the harness-update check and upgrade. Every adapter ships this workflow
+as one entry point — `/monorepo-harness-update` — whose body applies the paste-in prompt at
+`core/prompts/harness-update.md` and then defers to this skill. Run it on request, from that prompt,
+or directly from a terminal. This skill is the workflow; the prompt holds only the user-facing rules
+(the two consent gates, "stop on a non-zero exit", "never hand-copy", "do not commit without
+asking") — it never restates the steps below.
 
 The version engine is `.agents/monorepo-agents-harness/core/scripts/harness-update.sh` (git + coreutils only; exit 0 = current, 1 = update available, 2 = unknown/unreachable). The script only performs version checks; it does **not** execute upgrades.
 
