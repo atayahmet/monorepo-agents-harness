@@ -63,6 +63,72 @@ Release procedure (harness maintainers):
   corresponding `knowledge/` update in the same commit (`check-kb`/memory-gate enforces it); the
   `changelogs/version-0.4.0-rc.0.md` prompt gives the one command for existing installs.
 
+## [0.4.0-rc.3] - 2026-09-25
+
+### Added
+
+- **`/monorepo-harness-intent-execute <intent.md>` — an approved intent now becomes real work**
+  (issue #5). `/monorepo-harness-intent` captures a problem and `/monorepo-harness-intent review`
+  approves it, and then the harness went quiet: choosing the workspaces, splitting the intent into
+  reviewable phases and recording the work in the team's tracker were all left to hand. The new
+  command does that part — and only that part.
+  - `core/skills/intent-workflow/SKILL.md` gains a third phase, `## Workflow — Execute`, next to
+    Capture and Review. It verifies the approval first (`task-state.sh check-intent-approved`; a
+    `pending` intent writes nothing), pushes the approval commit when the intent names a `pr:`
+    field, confirms the workspace scope, proposes 3-5 phases (a phase is worth its own review), and
+    records an explicit **"Start these N phases?"** sign-off before anything is written.
+  - One task directory **and** one tracker issue **per phase**:
+    `task_<YYYY_MM_DD>_<phase_slug>/` with `0_intent.md` (reference stub, never a copy), `1_spec.md`
+    and `2_plan.md`, plus an index row, and a `## Tracker` section holding the issue URL. Phases stay
+    independently buildable and independently closable, so a four-phase intent does not sit behind
+    one closing gate.
+  - `core/scripts/tracker-issue.sh` — creates the issue through tooling the developer already has
+    authenticated. `--dry-run` is the default and creates nothing; `--create` prints the URL. Only
+    GitHub Issues (the `gh` CLI) is implemented in this version, and the script is platform-dispatched
+    so Linear/Jira is a new branch, not a rewrite. When `gh` is missing or unauthenticated it exits
+    **3** with paste-ready issue text — the task directories still stand and the command reports "no
+    issue yet", so it never claims an issue that does not exist.
+  - `core/governance/intents/AGENTS.md` documents an optional `pr:` frontmatter field. An intent
+    without one is complete and valid.
+  - Three thin entry points — `.claude/commands/monorepo-harness-intent-execute.md` (claude-code),
+    `.opencode/commands/monorepo-harness-intent-execute.md` (opencode),
+    `.agents/skills/monorepo-harness-intent-execute/SKILL.md` (codex) — plus a claude-code
+    `.claude/agents/tracker.md` subagent that creates the issues and returns the URLs. opencode and
+    codex run the same script inline (no subagent primitive), so the capability is identical
+    everywhere; see `PORTABILITY.md`.
+  - Manifest rows: one `copy` per adapter entry point and one for the subagent. The resolved tracker
+    is recorded as `tracker:` in each phase's `2_plan.md`, so **no config file is installed and
+    nothing needs a `.gitignore` entry** — the plan is the cache, and `--tracker` overrides it.
+
+### Changed
+
+- `core/skills/intent-workflow/SKILL.md` — title, frontmatter `description`, the
+  "Connection to `agent-workflow`" note (Execute is the one phase that writes task directories) and
+  the edge-case list now cover execution. Capture and Review behavior is unchanged.
+- Docs updated to match: `PORTABILITY.md` (capability row + two semantic-difference notes),
+  `adapters/AGENTS.md` Rule 7 whitelist, `README.md` (feature bullet + all three adapter rows),
+  `INSTALL.md` §6, and every adapter `README.md` / `INSTALL.md`.
+
+### Removed
+
+### Upgrade Notes
+
+- **Backwards-compatible, and everything arrives by itself.** All additions are manifest rows, so the
+  normal update path delivers them: the bundle sync brings the extended skill, the new script and the
+  `pr:` documentation; `install-adapter.sh <agent> --refresh` places the entry point (and the
+  `tracker` subagent on claude-code). **No command to run and no manual follow-up** — see
+  `changelogs/version-0.4.0-rc.3.md`.
+- **opencode needs no `opencode.jsonc` edit.** The command reaches
+  `core/skills/intent-workflow/SKILL.md` by path, so the new Execute phase needs no new
+  `instructions` entry. `audit-install.sh` Check 6 stays clean — a new core skill would have left
+  that gap open on every upgrade.
+- **Nothing implements a phase.** After `-intent-execute` the work still starts with
+  `/monorepo-harness-build <2_plan.md>`, one phase at a time. A plan is never approved and executed
+  in the same turn.
+- **No credential is ever installed, asked for, or stored.** GitHub issues go through the `gh` CLI
+  the developer already authenticated; Linear and Jira need an MCP server or API token that the
+  **developer** installs. The harness ships neither, and the installer does not require `gh`.
+
 ## [0.4.0-rc.2] - 2026-09-25
 
 ### Added

@@ -50,6 +50,7 @@ audit (below) reports each missing entry by exact path, so run it after every up
 | Verifier | `core/skills/agent-workflow/SKILL.md` Phase 4 | — (no subagent primitive; run the same verification inline) |
 | Update check | `core/scripts/harness-update.sh` + `core/prompts/harness-update.md` + `core/skills/harness-update/SKILL.md` | `/monorepo-harness-update` → `.opencode/commands/monorepo-harness-update.md` |
 | CI wiring · PR review · intent capture | `core/skills/{ci-integration,pr-review,intent-workflow}/SKILL.md` | `/monorepo-harness-ci` · `/monorepo-harness-review` · `/monorepo-harness-intent` |
+| Intent execution (`/monorepo-harness-intent-execute`) | `core/skills/intent-workflow/SKILL.md` "Workflow — Execute" + `core/scripts/tracker-issue.sh` | `/monorepo-harness-intent-execute` (skill reached by path — no new `opencode.jsonc` entry) |
 | Self-improvement (`/monorepo-self-improve`) | `core/skills/self-improvement-workflow/SKILL.md` | `/monorepo-self-improve` command |
 
 ## Verify

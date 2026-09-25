@@ -14,6 +14,7 @@ This adapter wires the harness into **opencode**. Because opencode has no `ExitP
 - **`/monorepo-harness-update`** — check the installed harness version against upstream and, on your consent, upgrade the core and every installed adapter.
 - **Automatic ADR capture** — the `adr-workflow` SKILL.md (listed in `opencode.jsonc` `instructions`) fires automatically while `1_spec.md`/`2_plan.md` are written whenever the task makes an architecture-affecting decision, producing `adr/NNNN-<title>.md` records referenced from the spec's `## Architectural decisions` section.
 - **`/monorepo-self-improve`** — harvest recurring patterns from lessons and task memories, then propose durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`). Requires explicit approval before writing anything.
+- **`/monorepo-harness-intent-execute <intent.md>`** — turn an **approved** intent into scoped work: confirm the workspace scope, split it into 3-5 phases, record your sign-off, then write one task directory and one GitHub issue per phase (run inline — opencode has no subagent primitive). It stops there — each phase is built separately with `/monorepo-harness-build <2_plan.md>`. No credential is ever installed or stored; without `gh` you get paste-ready issue text instead.
 - **Feedback Loop, without a dedicated subagent** — opencode has no subagent primitive, so run your verification commands inline in the main session before writing `4_verify.md`; the underlying instructions are the same ones a `verifier` subagent would follow on Claude Code (see `PORTABILITY.md`).
 - **Shared skills arrive via `instructions`, not symlinks** — every `core/skills/*/SKILL.md` reaches opencode through the `instructions` array in *your* root `opencode.jsonc`. That file is never overwritten, so a harness upgrade that adds a skill leaves the array one entry short: the slash command still works, but the skill never enters context. Run `core/scripts/audit-install.sh` after every upgrade — it names each missing entry by exact path.
 
@@ -51,6 +52,22 @@ spec present, and the intent approved if the task is intent-seeded), then runs t
 On completion it writes `3_memory.md` (with `commits:` filled after the commits) and `4_verify.md`
 (whenever the spec's Test/verification plan is not `N/A`), and updates the index.
 
+### `/monorepo-harness-intent-execute <intent.md>` — Turn an approved intent into phases and issues
+
+Run it once the intent is `approved`. It checks the approval first (`task-state.sh check-intent-approved`)
+and stops on anything else; pushes the approval commit if the intent names a `pr:`; confirms the
+workspace scope; and proposes 3-5 phases, where a phase is worth its own review. After you answer
+**"Start these N phases?"** it writes one `task_<date>_<phase_slug>/` per phase (`0_intent.md`,
+`1_spec.md`, `2_plan.md` + an index row) and opens one GitHub issue per phase, recording the URL in
+the plan. The platform is resolved from `--tracker`, then the plan's `tracker:` frontmatter, then by
+asking you once — GitHub Issues via `gh` is the only platform this version implements, and Linear/Jira
+need an MCP server or token that you install yourself.
+
+Then build each phase on its own:
+```
+/monorepo-harness-build apps/api/.agents/artifacts/task_2026_09_25_auth_endpoint/2_plan.md
+```
+
 ### `/monorepo-harness-changeset <2_plan.md>` — Draft a changeset release entry
 
 Run it after `-build` when the project uses `changeset` for releases. It validates the plan
@@ -87,7 +104,9 @@ instead. The version check alone is
 ## Typical workflow
 
 1. Start a non-trivial task. Capture an intent (`/monorepo-harness-intent`) and approve it if the
-   work is intent-driven; most quick tasks are ad-hoc and skip this.
+   work is intent-driven; most quick tasks are ad-hoc and skip this. An approved intent that needs
+   planning becomes `/monorepo-harness-intent-execute <intent.md>`, which hands you one task
+   directory and one issue per phase.
 2. Type `/monorepo-harness-spec` (optionally `<intent.md>` to seed the spec from an approved intent).
    **It stops there** — do not write `2_plan.md` or start implementation until you run the next
    command.

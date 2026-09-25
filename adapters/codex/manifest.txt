@@ -23,6 +23,7 @@ copy  .agents/skills/monorepo-harness-plan/SKILL.md
 copy  .agents/skills/monorepo-harness-ci/SKILL.md
 copy  .agents/skills/monorepo-harness-review/SKILL.md
 copy  .agents/skills/monorepo-harness-intent/SKILL.md
+copy  .agents/skills/monorepo-harness-intent-execute/SKILL.md
 copy  .agents/skills/monorepo-harness-update/SKILL.md
 copy  .agents/skills/monorepo-self-improve/SKILL.md
 

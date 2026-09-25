@@ -15,6 +15,7 @@ This adapter wires the harness into **Claude Code**. It gives you an automatic p
 - **Hard memory-gate** — the `Stop` hook refuses to end the task until today's task directory contains `3_memory.md`, and `4_verify.md` too whenever the spec's Test/verification plan is not `N/A` (Feedback Loop enforcement).
 - **`/monorepo-harness-update`** — check the installed harness version against upstream and, on your consent, upgrade the core and every installed adapter.
 - **`/monorepo-self-improve`** — harvest recurring patterns from lessons and task memories, then propose durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`). Requires explicit approval before writing anything.
+- **`/monorepo-harness-intent-execute <intent.md>`** — turn an **approved** intent into scoped work: confirm the workspace scope, split it into 3-5 phases, record your sign-off, then write one task directory and one GitHub issue per phase (via the `tracker` subagent). It stops there — each phase is built separately with `/monorepo-harness-build <2_plan.md>`. No credential is ever installed or stored; without `gh` you get paste-ready issue text instead.
 - **`verifier` subagent** — an isolated, read-only subagent that runs the task's verification commands and reports pass/fail evidence for `4_verify.md`, without touching any files.
 
 ## Day-to-day commands
@@ -50,6 +51,22 @@ Run it once your plan is ready. It validates the whole chain via `task-state.sh 
 spec present, and the intent approved if the task is intent-seeded), then runs the implementation.
 On completion it writes `3_memory.md` (with `commits:` filled after the commits) and `4_verify.md`
 (whenever the spec's Test/verification plan is not `N/A`), and updates the index.
+
+### `/monorepo-harness-intent-execute <intent.md>` — Turn an approved intent into phases and issues
+
+Run it once the intent is `approved`. It checks the approval first (`task-state.sh check-intent-approved`)
+and stops on anything else; pushes the approval commit if the intent names a `pr:`; confirms the
+workspace scope; and proposes 3-5 phases, where a phase is worth its own review. After you answer
+**"Start these N phases?"** it writes one `task_<date>_<phase_slug>/` per phase (`0_intent.md`,
+`1_spec.md`, `2_plan.md` + an index row) and opens one GitHub issue per phase, recording the URL in
+the plan. The platform is resolved from `--tracker`, then the plan's `tracker:` frontmatter, then by
+asking you once — GitHub Issues via `gh` is the only platform this version implements, and Linear/Jira
+need an MCP server or token that you install yourself.
+
+Then build each phase on its own:
+```
+/monorepo-harness-build apps/api/.agents/artifacts/task_2026_09_25_auth_endpoint/2_plan.md
+```
 
 ### `/monorepo-harness-changeset <2_plan.md>` — Draft a changeset release entry
 
@@ -87,7 +104,9 @@ Code instead. The version check alone is
 ## Typical workflow
 
 1. Start a non-trivial task and enter plan mode. Optionally capture and approve an intent
-   (`/monorepo-harness-intent`) if the work is intent-driven.
+   (`/monorepo-harness-intent`) if the work is intent-driven — an approved intent that needs
+   planning becomes `/monorepo-harness-intent-execute <intent.md>`, which hands you one task
+   directory and one issue per phase.
 2. Type `/monorepo-harness-spec` (optionally `<intent.md>` to seed the spec). Claude Code also fires
    the plan/spec reminder automatically on plan-mode exit. **It stops there** — do not write
    `2_plan.md` or start implementation until you run the next command.
@@ -103,4 +122,7 @@ Code instead. The version check alone is
 
 - The automatic reminder and `/monorepo-harness-spec`/`-plan`/`-build` all share the same `core/skills/agent-workflow/SKILL.md` instructions and `core/scripts/task-state.sh` gates. ADRs are validated by `task-state.sh check-adr` before commit and re-checked by the PR-review skill.
 - The memory-gate is a **hard block** in Claude Code; you cannot end the task until `3_memory.md` exists, and until `4_verify.md` exists too whenever required.
+- The `tracker` subagent (`.claude/agents/tracker.md`) is claude-code-specific — opencode/codex run the same
+  `core/scripts/tracker-issue.sh` inline (see `PORTABILITY.md`). The harness never installs, asks for,
+  or stores a tracker credential on any agent.
 - The `verifier` subagent (`.claude/agents/verifier.md`) is claude-code-specific — opencode/codex have no subagent primitive, so those adapters run the same verification instructions inline in the main session instead (see `PORTABILITY.md`). No capability is lost, just the isolated context.

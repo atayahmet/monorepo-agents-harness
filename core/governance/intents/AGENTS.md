@@ -40,6 +40,7 @@ status: pending
 author: <name or role>
 date: <YYYY-MM-DD>
 slug: <slug>
+pr: <optional PR URL or #number>
 ---
 
 # Intent: <short title>
@@ -78,6 +79,12 @@ review, the reviewer appends a `## Review` section:
 **`slug`** follows the same convention as task slugs (`snake_case`, `[a-z0-9_]`, 3-5 words) — an
 approved intent's slug is reused as the basis for the resulting task's slug where practical, so the
 connection stays traceable.
+
+**`pr`** is optional and defaults to nothing: an intent without it is complete and valid. Set it when
+the intent itself already lives in a pull request (a stakeholder filing it from a branch, a review
+comment thread). `/monorepo-harness-intent-execute` then pushes the **commit that carries the
+approval** — the one adding the `## Review` section — to that PR's branch, so the PR shows the
+decision. Only a branch the user names is pushed, never a force-push.
 
 ## Status lifecycle rules
 
