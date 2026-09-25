@@ -46,6 +46,16 @@ Claude Code, opencode, Cursor, Codex, and more.
   approved intent optionally seeds a later task's plan via `0_intent.md` — a reference stub linking
   back, never a copy, so the intent file stays the single source of truth; rejected ones are kept,
   not deleted, as an audit trail.
+- **Intent dispatch** — `/monorepo-harness-intent-dispatch <intent.md>` takes an **approved** intent
+  the rest of the way: it confirms the workspace scope, splits the intent into 3-5 phases (each worth
+  its own review), records the developer's sign-off, then writes one task directory **and** one
+  tracker issue per phase — and stops. Each phase is built separately through
+  `/monorepo-harness-build <2_plan.md>`, so a plan is never approved and executed in the same turn.
+  Issues are created with `core/scripts/tracker-issue.sh` (GitHub Issues via the `gh` CLI the
+  developer already has authenticated; the harness installs and stores no credential). If `gh` is
+  missing, the command prints paste-ready issue text and the task directories still stand. The
+  resolved platform is recorded as `tracker:` in each phase's `2_plan.md`, so there is no config file
+  to install.
 - **Starter project rules** — the installer seeds `.agents/rules/local-agents-md.md` into every
   project: when an agent works in any directory inside a workspace (the workspace root or a nested
   subdirectory at any depth) whose current state needs agent instructions, it must add or update
@@ -501,9 +511,9 @@ installs the current one.
 
 | Adapter       | Enforcement provided                                                                                                                                                               |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting, `verifier` subagent  |
-| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting                                                        |
-| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-spec` · `-plan` · `-build`, `/monorepo-harness-ci`, `/monorepo-harness-review`, `/monorepo-harness-intent`, `/monorepo-harness-changeset`, `/monorepo-harness-update`, and `/monorepo-self-improve` skills |
+| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-intent-dispatch` intent dispatch, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting, `verifier` + `tracker` subagents  |
+| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-intent-dispatch` intent dispatch, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting                                                        |
+| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-spec` · `-plan` · `-build`, `/monorepo-harness-ci`, `/monorepo-harness-review`, `/monorepo-harness-intent`, `/monorepo-harness-intent-dispatch`, `/monorepo-harness-changeset`, `/monorepo-harness-update`, and `/monorepo-self-improve` skills |
 | yours         | Follow the capability matrix in [PORTABILITY.md](PORTABILITY.md) — new adapters are the intended growth path                                                                       |
 
 ## Documentation map
