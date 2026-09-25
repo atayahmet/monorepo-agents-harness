@@ -13,6 +13,7 @@ This adapter wires the harness into **Claude Code**. It gives you an automatic p
 - **`/monorepo-harness-build <2_plan.md>`** — run the implementation, gated on the full spec/plan/intent chain, then write `3_memory.md` + `4_verify.md`.
 - **`/monorepo-harness-changeset <2_plan.md>`** — draft a changesets-compatible release entry into `.changeset/` from the task's spec/plan/memory (deterministic filename, revision-based multi-changeset flow), gated on `check-plan` and user-confirmed bumps. No `@changesets/cli` dependency — it consumes your project's own `changeset` CLI later.
 - **Hard memory-gate** — the `Stop` hook refuses to end the task until today's task directory contains `3_memory.md`, and `4_verify.md` too whenever the spec's Test/verification plan is not `N/A` (Feedback Loop enforcement).
+- **`/monorepo-harness-update`** — check the installed harness version against upstream and, on your consent, upgrade the core and every installed adapter.
 - **`/monorepo-self-improve`** — harvest recurring patterns from lessons and task memories, then propose durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`). Requires explicit approval before writing anything.
 - **`verifier` subagent** — an isolated, read-only subagent that runs the task's verification commands and reports pass/fail evidence for `4_verify.md`, without touching any files.
 
@@ -70,11 +71,18 @@ writing anything; on approval it writes only consumer-owned files and reconciles
 A declined, deferred, or partly applied proposal is saved as
 `.agents/self-improve-proposals/<YYYY_MM_DD>-<slug>.md` so the finding survives the turn.
 
-### Checking for harness updates
+### `/monorepo-harness-update` — Check for and apply harness updates
 
-There is no `/monorepo-harness:update` command in this adapter. To check or upgrade the harness,
-follow the "Update from the repo" prompt in the project README, or run the shared
-`core/skills/harness-update/SKILL.md` workflow directly (backed by `core/scripts/harness-update.sh`).
+Run it when upstream announces a harness release, or when you suspect your install is out of date. It
+applies the paste-in prompt in `core/prompts/harness-update.md` and then follows the shared
+`core/skills/harness-update/SKILL.md` workflow end to end: check the installed version, report,
+ask **"Upgrade now?"**, then re-run the new release's own installers (`install-harness.sh
+--sync-only`, plus `install-adapter.sh claude-code --refresh`), reconcile the root `AGENTS.md` behind
+its own second approval, audit, and clean up. No file is ever copied by hand.
+
+With no adapter installed, paste that same prompt from `core/prompts/harness-update.md` into Claude
+Code instead. The version check alone is
+`bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh check`.
 
 ## Typical workflow
 

@@ -63,6 +63,52 @@ Release procedure (harness maintainers):
   corresponding `knowledge/` update in the same commit (`check-kb`/memory-gate enforces it); the
   `changelogs/version-0.4.0-rc.0.md` prompt gives the one command for existing installs.
 
+## [0.4.0-rc.2] - 2026-09-25
+
+### Added
+
+- **`/monorepo-harness-update` is back on every adapter, with the README update prompt embedded**
+  (issue #4). `0.1.0-rc.4` removed the per-adapter update entry points and left the README
+  paste-in prompt as the only way in, so every update meant finding and copying that prompt by
+  hand, out of a README copy that may be stale. The workflow never left the bundle — only the
+  entry point did. It is now a command again, and the prompt ships with the harness.
+  - `core/prompts/harness-update.md` — the paste-in prompt, now the single copy of the procedure
+    in this repo. Versionless by design: the version engine is `harness-update.sh`, the file list
+    is `core/install-manifest.txt`, the workflow is `harness-update/SKILL.md`.
+  - `adapters/claude-code/.claude/commands/monorepo-harness-update.md`,
+    `adapters/opencode/.opencode/commands/monorepo-harness-update.md`,
+    `adapters/codex/.agents/skills/monorepo-harness-update/SKILL.md` — thin entry points that apply
+    that prompt verbatim and then defer to the shared skill. Bodies are byte-identical; only the
+    frontmatter differs per agent. The command never restates the workflow, so it cannot drift
+    from the skill.
+  - Manifest rows: one `copy` row per adapter command, plus an explicit row for the prompt file
+    (`audit-install.sh` Check 2 now reports a missing command as a gap).
+  - Docs: `PORTABILITY.md` (capability row, Codex note, adapter-authoring note), `README.md`
+    (feature bullet, Scenario 5, the update section, the adapter table), `INSTALL.md` §7, and every
+    adapter `README.md` / `INSTALL.md`. The README's 25-line update block is replaced by a link to
+    `core/prompts/harness-update.md` — one copy of the prompt, still clickable on GitHub and
+    resolvable inside an installed bundle.
+
+### Changed
+
+- `core/skills/harness-update/SKILL.md` states that the entry point exists again and where the
+  prompt lives. Its workflow is unchanged.
+
+### Removed
+
+### Upgrade Notes
+
+- **Backwards-compatible, and the new command arrives by itself.** All three additions are
+  manifest rows, so the normal update path delivers them: step 7 syncs the bundle (including
+  `core/prompts/harness-update.md`), step 7.5 runs `install-adapter.sh <agent> --refresh` and places
+  the command. **No command to run and no manual follow-up** — see `changelogs/version-0.4.0-rc.2.md`.
+- A project that still carries the pre-`0.1.0-rc.4` `/monorepo-harness:update` file in
+  `.claude/commands/monorepo-harness/` keeps it: `--refresh` never deletes. It is harmless (it
+  still points at the same skill) and `audit-install.sh` will report it as an extra file, exactly
+  as `0.1.0-rc.4` documented. Remove it whenever you like; nothing depends on it.
+- claude-code gets the flat `/monorepo-harness-update` name, matching its eight sibling commands
+  and the same name on opencode and codex. The namespaced pre-rc.4 name is not resurrected.
+
 ## [0.4.0-rc.1] - 2026-09-24
 
 ### Added

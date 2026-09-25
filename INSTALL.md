@@ -107,7 +107,8 @@ throwaway dir afterwards.
 
 ## 7. Updating
 
-`bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh check`, or paste the "Or
-update from the repo" prompt from `README.md` into your agent. The upgrade is
+`/monorepo-harness-update`, in the agent you installed the adapter for. With no adapter, paste the
+prompt from `.agents/monorepo-agents-harness/core/prompts/harness-update.md`, or run
+`bash .agents/monorepo-agents-harness/core/scripts/harness-update.sh check` yourself. The upgrade is
 consent-gated and re-uses the very same installer scripts, so an update can never disagree with an
 install about what "complete" means. Full workflow: `core/skills/harness-update/SKILL.md`.
