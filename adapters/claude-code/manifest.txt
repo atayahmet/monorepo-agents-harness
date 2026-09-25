@@ -23,7 +23,7 @@ copy  .claude/commands/monorepo-harness-plan.md
 copy  .claude/commands/monorepo-harness-ci.md
 copy  .claude/commands/monorepo-harness-review.md
 copy  .claude/commands/monorepo-harness-intent.md
-copy  .claude/commands/monorepo-harness-intent-execute.md
+copy  .claude/commands/monorepo-harness-intent-dispatch.md
 copy  .claude/commands/monorepo-harness-update.md
 copy  .claude/commands/monorepo-self-improve.md
 copy  .claude/agents/verifier.md

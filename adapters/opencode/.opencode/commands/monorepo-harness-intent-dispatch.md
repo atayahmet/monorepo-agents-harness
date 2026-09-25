@@ -4,8 +4,8 @@ description: Execute an approved intent - confirm the workspace scope, split it 
 
 Follow the shared instructions in
 `.agents/monorepo-agents-harness/core/skills/intent-workflow/SKILL.md`, section
-**"Workflow — Execute"**, exactly. The intent path is the argument the user typed after the command
-(`/monorepo-harness-intent-execute <intent.md>`); if it is missing, ask which approved intent to use.
+**"Workflow — Dispatch"**, exactly. The intent path is the argument the user typed after the command
+(`/monorepo-harness-intent-dispatch <intent.md>`); if it is missing, ask which approved intent to use.
 
 1. Run `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved <intent.md>`
    **first**. If it exits non-zero, report the reason and stop — write nothing, create nothing.

@@ -82,7 +82,7 @@ connection stays traceable.
 
 **`pr`** is optional and defaults to nothing: an intent without it is complete and valid. Set it when
 the intent itself already lives in a pull request (a stakeholder filing it from a branch, a review
-comment thread). `/monorepo-harness-intent-execute` then pushes the **commit that carries the
+comment thread). `/monorepo-harness-intent-dispatch` then pushes the **commit that carries the
 approval** — the one adding the `## Review` section — to that PR's branch, so the PR shows the
 decision. Only a branch the user names is pushed, never a force-push.
 

@@ -46,7 +46,7 @@ Claude Code, opencode, Cursor, Codex, and more.
   approved intent optionally seeds a later task's plan via `0_intent.md` — a reference stub linking
   back, never a copy, so the intent file stays the single source of truth; rejected ones are kept,
   not deleted, as an audit trail.
-- **Intent execution** — `/monorepo-harness-intent-execute <intent.md>` takes an **approved** intent
+- **Intent dispatch** — `/monorepo-harness-intent-dispatch <intent.md>` takes an **approved** intent
   the rest of the way: it confirms the workspace scope, splits the intent into 3-5 phases (each worth
   its own review), records the developer's sign-off, then writes one task directory **and** one
   tracker issue per phase — and stops. Each phase is built separately through
@@ -511,9 +511,9 @@ installs the current one.
 
 | Adapter       | Enforcement provided                                                                                                                                                               |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-intent-execute` intent execution, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting, `verifier` + `tracker` subagents  |
-| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-intent-execute` intent execution, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting                                                        |
-| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-spec` · `-plan` · `-build`, `/monorepo-harness-ci`, `/monorepo-harness-review`, `/monorepo-harness-intent`, `/monorepo-harness-intent-execute`, `/monorepo-harness-changeset`, `/monorepo-harness-update`, and `/monorepo-self-improve` skills |
+| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-intent-dispatch` intent dispatch, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting, `verifier` + `tracker` subagents  |
+| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-intent-dispatch` intent dispatch, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting                                                        |
+| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-spec` · `-plan` · `-build`, `/monorepo-harness-ci`, `/monorepo-harness-review`, `/monorepo-harness-intent`, `/monorepo-harness-intent-dispatch`, `/monorepo-harness-changeset`, `/monorepo-harness-update`, and `/monorepo-self-improve` skills |
 | yours         | Follow the capability matrix in [PORTABILITY.md](PORTABILITY.md) — new adapters are the intended growth path                                                                       |
 
 ## Documentation map

@@ -1,9 +1,9 @@
 ---
 name: intent-workflow
-description: Capture a stakeholder's problem description as an intent file before it becomes a plan-mode task, let a product owner or manager review pending intents and approve or reject them, and execute an approved intent into scoped phases with one task directory and one tracker issue per phase. Use when the user types /monorepo-harness-intent or /monorepo-harness-intent-execute, describes a new feature/problem without being in an active coding task, asks to review pending intents, or asks to turn an approved intent into work.
+description: Capture a stakeholder's problem description as an intent file before it becomes a plan-mode task, let a product owner or manager review pending intents and approve or reject them, and dispatch an approved intent into scoped phases with one task directory and one tracker issue per phase. Use when the user types /monorepo-harness-intent or /monorepo-harness-intent-dispatch, describes a new feature/problem without being in an active coding task, asks to review pending intents, or asks to turn an approved intent into work.
 ---
 
-# Intent Capture, Review, and Execution
+# Intent Capture, Review, and Dispatch
 
 Captures a request **before** it has been scoped into a plan-mode task, gates it behind an explicit
 human approval, and — once approved — turns it into phased, tracked work. This is the harness's entry
@@ -15,7 +15,7 @@ Full format and lifecycle rules: `core/governance/intents/AGENTS.md`.
 
 **Write in simple English.** Every file and developer message this skill produces follows
 `../../governance/rules/simple-english.md` — short sentences, common words, active voice. This matters
-most in **Execute**, whose issue titles and bodies are read by people outside the engineering pair.
+most in **Dispatch**, whose issue titles and bodies are read by people outside the engineering pair.
 
 ## Workflow — Capture
 
@@ -69,9 +69,9 @@ Triggered when a product owner/manager asks to review pending intents, or via
    - **Edit** → apply the requested changes to the intent's content, leave `status: pending`, and
      return to step 3 for the same intent.
 
-## Workflow — Execute
+## Workflow — Dispatch
 
-Triggered by `/monorepo-harness-intent-execute <intent.md>`, when an **approved** intent needs to
+Triggered by `/monorepo-harness-intent-dispatch <intent.md>`, when an **approved** intent needs to
 become real work. It plans and records the work; it **never implements it** — each phase is built
 later through the normal `agent-workflow` chain. Nothing is written before the developer signs off on
 the phase list.
@@ -132,7 +132,7 @@ existing phase's plan behind the user's back.
 An approved intent is optional input to plan-mode work, not a requirement — see
 `core/governance/intents/AGENTS.md`'s "Relationship to the plan/spec/memory/verify workflow" and
 `core/skills/agent-workflow/SKILL.md` Phase 1. **Capture** and **Review** create nothing beyond the
-intent file itself. **Execute** is the one phase that writes task directories: it writes only
+intent file itself. **Dispatch** is the one phase that writes task directories: it writes only
 `0_intent.md`, `1_spec.md` and `2_plan.md` per phase, and hands the implementation to
 `/monorepo-harness-build` — so the spec/plan/memory/verify loop still runs one task at a time, with
 its own gates, exactly as it does for an ad-hoc task.
@@ -161,4 +161,4 @@ its own gates, exactly as it does for an ad-hoc task.
   `--repo <owner/name>`. A repository with no remote at all still gets its task directories; the
   issue is simply left to the developer.
 - **The developer wants the phases built now**: that is `/monorepo-harness-build <2_plan.md>` per
-  phase, in the main session. Execute does not implement.
+  phase, in the main session. Dispatch does not implement.

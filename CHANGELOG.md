@@ -67,12 +67,12 @@ Release procedure (harness maintainers):
 
 ### Added
 
-- **`/monorepo-harness-intent-execute <intent.md>` — an approved intent now becomes real work**
+- **`/monorepo-harness-intent-dispatch <intent.md>` — an approved intent now becomes real work**
   (issue #5). `/monorepo-harness-intent` captures a problem and `/monorepo-harness-intent review`
   approves it, and then the harness went quiet: choosing the workspaces, splitting the intent into
   reviewable phases and recording the work in the team's tracker were all left to hand. The new
   command does that part — and only that part.
-  - `core/skills/intent-workflow/SKILL.md` gains a third phase, `## Workflow — Execute`, next to
+  - `core/skills/intent-workflow/SKILL.md` gains a third phase, `## Workflow — Dispatch`, next to
     Capture and Review. It verifies the approval first (`task-state.sh check-intent-approved`; a
     `pending` intent writes nothing), pushes the approval commit when the intent names a `pr:`
     field, confirms the workspace scope, proposes 3-5 phases (a phase is worth its own review), and
@@ -90,9 +90,9 @@ Release procedure (harness maintainers):
     issue yet", so it never claims an issue that does not exist.
   - `core/governance/intents/AGENTS.md` documents an optional `pr:` frontmatter field. An intent
     without one is complete and valid.
-  - Three thin entry points — `.claude/commands/monorepo-harness-intent-execute.md` (claude-code),
-    `.opencode/commands/monorepo-harness-intent-execute.md` (opencode),
-    `.agents/skills/monorepo-harness-intent-execute/SKILL.md` (codex) — plus a claude-code
+  - Three thin entry points — `.claude/commands/monorepo-harness-intent-dispatch.md` (claude-code),
+    `.opencode/commands/monorepo-harness-intent-dispatch.md` (opencode),
+    `.agents/skills/monorepo-harness-intent-dispatch/SKILL.md` (codex) — plus a claude-code
     `.claude/agents/tracker.md` subagent that creates the issues and returns the URLs. opencode and
     codex run the same script inline (no subagent primitive), so the capability is identical
     everywhere; see `PORTABILITY.md`.
@@ -103,8 +103,8 @@ Release procedure (harness maintainers):
 ### Changed
 
 - `core/skills/intent-workflow/SKILL.md` — title, frontmatter `description`, the
-  "Connection to `agent-workflow`" note (Execute is the one phase that writes task directories) and
-  the edge-case list now cover execution. Capture and Review behavior is unchanged.
+  "Connection to `agent-workflow`" note (Dispatch is the one phase that writes task directories) and
+  the edge-case list now cover dispatch. Capture and Review behavior is unchanged.
 - Docs updated to match: `PORTABILITY.md` (capability row + two semantic-difference notes),
   `adapters/AGENTS.md` Rule 7 whitelist, `README.md` (feature bullet + all three adapter rows),
   `INSTALL.md` §6, and every adapter `README.md` / `INSTALL.md`.
@@ -119,10 +119,10 @@ Release procedure (harness maintainers):
   `tracker` subagent on claude-code). **No command to run and no manual follow-up** — see
   `changelogs/version-0.4.0-rc.3.md`.
 - **opencode needs no `opencode.jsonc` edit.** The command reaches
-  `core/skills/intent-workflow/SKILL.md` by path, so the new Execute phase needs no new
+  `core/skills/intent-workflow/SKILL.md` by path, so the new Dispatch phase needs no new
   `instructions` entry. `audit-install.sh` Check 6 stays clean — a new core skill would have left
   that gap open on every upgrade.
-- **Nothing implements a phase.** After `-intent-execute` the work still starts with
+- **Nothing implements a phase.** After `-intent-dispatch` the work still starts with
   `/monorepo-harness-build <2_plan.md>`, one phase at a time. A plan is never approved and executed
   in the same turn.
 - **No credential is ever installed, asked for, or stored.** GitHub issues go through the `gh` CLI

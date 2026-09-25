@@ -1,6 +1,6 @@
 ---
 name: tracker
-description: Creates one tracker issue per harness task phase through core/scripts/tracker-issue.sh, using the developer's own authenticated tooling, and returns the issue URLs. Use after /monorepo-harness-intent-execute has written the per-phase 2_plan.md files and the developer has signed off on the phase list.
+description: Creates one tracker issue per harness task phase through core/scripts/tracker-issue.sh, using the developer's own authenticated tooling, and returns the issue URLs. Use after /monorepo-harness-intent-dispatch has written the per-phase 2_plan.md files and the developer has signed off on the phase list.
 tools: Bash, Read
 ---
 

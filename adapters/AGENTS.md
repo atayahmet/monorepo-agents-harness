@@ -39,7 +39,7 @@ in the same change.
    - `../INSTALL.md` — Phase 2 table (Agent / Adapter notes) if a new adapter ships.
 7. **Slash commands and subagents ship only for harness plumbing** (the update check, the plan/spec
    build trigger, the changeset-draft trigger, the CI integration trigger, the PR review trigger, the
-   intent capture/review trigger, the intent-execution trigger and its `tracker` subagent, and the
+   intent capture/review trigger, the intent-dispatch trigger and its `tracker` subagent, and the
    `verifier` subagent). Project-specific commands/subagents do not belong here.
 8. **Shipped dependencies.** If an adapter ships a `package.json` (e.g., a plugin that needs
    `node_modules`), `install-adapter.sh` surfaces it as a `Needs you:` follow-up automatically —

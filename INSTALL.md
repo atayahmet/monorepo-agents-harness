@@ -78,9 +78,9 @@ To prove the hard gate is live, add a throwaway `apps/<n>/.agents/artifacts/task
 
 - **CI** — `/monorepo-harness-ci` detects the provider and wires `memory-gate.sh` in.
 - **Intent inbox** — `/monorepo-harness-intent` (`core/governance/intents/AGENTS.md`).
-- **Intent execution** — `/monorepo-harness-intent-execute <intent.md>` turns an approved intent into
+- **Intent dispatch** — `/monorepo-harness-intent-dispatch <intent.md>` turns an approved intent into
   3-5 phases, one task directory and one GitHub issue per phase
-  (`core/skills/intent-workflow/SKILL.md`, "Workflow — Execute"). Issues go through the `gh` CLI you
+  (`core/skills/intent-workflow/SKILL.md`, "Workflow — Dispatch"). Issues go through the `gh` CLI you
   already authenticated (`core/scripts/tracker-issue.sh`): nothing to install, no token ever stored.
   Without `gh` the task directories are still written and the issue text is printed to paste. Other
   trackers (Linear, Jira) need an MCP server or token that **you** install — the harness ships none.

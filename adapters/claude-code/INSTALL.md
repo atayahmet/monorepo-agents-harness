@@ -49,7 +49,7 @@ so they coexist with your existing hooks safely.
 | Verifier subagent | `core/skills/agent-workflow/SKILL.md` Phase 4 | `.claude/agents/verifier.md` (isolated, read-only) |
 | Update check | `core/scripts/harness-update.sh` + `core/prompts/harness-update.md` + `core/skills/harness-update/SKILL.md` | `/monorepo-harness-update` → `.claude/commands/monorepo-harness-update.md` |
 | CI wiring · PR review · intent capture | `core/skills/{ci-integration,pr-review,intent-workflow}/SKILL.md` | `/monorepo-harness-ci` · `/monorepo-harness-review` · `/monorepo-harness-intent` |
-| Intent execution (`/monorepo-harness-intent-execute`) | `core/skills/intent-workflow/SKILL.md` "Workflow — Execute" + `core/scripts/tracker-issue.sh` | `/monorepo-harness-intent-execute` command · `tracker` subagent creates the issues |
+| Intent dispatch (`/monorepo-harness-intent-dispatch`) | `core/skills/intent-workflow/SKILL.md` "Workflow — Dispatch" + `core/scripts/tracker-issue.sh` | `/monorepo-harness-intent-dispatch` command · `tracker` subagent creates the issues |
 | Self-improvement (`/monorepo-self-improve`) | `core/skills/self-improvement-workflow/SKILL.md` | `/monorepo-self-improve` command · skill symlinked into `.claude/skills/` |
 
 ## Verify
