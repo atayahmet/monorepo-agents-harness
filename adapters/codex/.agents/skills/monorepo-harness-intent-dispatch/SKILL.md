@@ -14,7 +14,15 @@ Follow the shared instructions in
    branch (`git push <remote> <sha>:<branch>`) and report the remote ref. No `pr:` field → skip.
 3. Confirm the workspace scope (primary + secondary) and propose 3-5 phases — a phase is worth its
    own review. Ask "Start these N phases?" and write nothing before an explicit yes.
-4. For each approved phase write `0_intent.md` (reference stub), `1_spec.md` and `2_plan.md` under
+4. Find the tracker and **confirm it with the developer** before any issue exists (skill step 6):
+   use `<repo-root>/.agents/tracker.md` if it records one, otherwise run
+   `bash .agents/monorepo-agents-harness/core/scripts/tracker-issue.sh --infer` and show the result,
+   then ask — with the inferred platform, **a different platform**, and `--tracker` all on the table.
+   Write the cache only on their answer. If the platform is not `github`, `jira` or `linear`, ask how
+   their team files work in it and record that. **The harness repo is never a target and never an
+   option.** Only `github` is implemented (GitHub Issues via `gh`); `jira` / `linear` hand off to the
+   developer's own tooling, and the harness never asks for a token.
+5. For each approved phase write `0_intent.md` (reference stub), `1_spec.md` and `2_plan.md` under
    `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<phase_slug>/`, add the index rows, then create the
    issue in this session (Codex has no subagent primitive — see `PORTABILITY.md`):
 
@@ -24,12 +32,8 @@ Follow the shared instructions in
    ```
 
    Record the returned URL in the plan's `## Tracker` section. On exit 3 (`gh` missing or
-   unauthenticated) keep the task directory, write "no issue yet", and tell the user to open it by
-   hand — never report an issue that does not exist.
-5. Report the per-phase task directory, issue URL, and the next command
+   unauthenticated, or a confirmed `jira` / `linear` project) keep the task directory, write "no issue
+   yet", and tell the user how to open it by hand — never report an issue that does not exist.
+6. Report the per-phase task directory, issue URL, and the next command
    (`/monorepo-harness-build <2_plan.md>`), then **stop**. This command does not implement: no
    source edits, no `3_memory.md` / `4_verify.md`.
-
-The tracker is resolved from `--tracker`, then the plan's `tracker:` frontmatter, then by asking the
-user once. This version implements `github` (GitHub Issues via the `gh` CLI) only; the harness never
-asks for a token and never stores one.

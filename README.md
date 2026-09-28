@@ -52,10 +52,16 @@ Claude Code, opencode, Cursor, Codex, and more.
   tracker issue per phase — and stops. Each phase is built separately through
   `/monorepo-harness-build <2_plan.md>`, so a plan is never approved and executed in the same turn.
   Issues are created with `core/scripts/tracker-issue.sh` (GitHub Issues via the `gh` CLI the
-  developer already has authenticated; the harness installs and stores no credential). If `gh` is
-  missing, the command prints paste-ready issue text and the task directories still stand. The
-  resolved platform is recorded as `tracker:` in each phase's `2_plan.md`, so there is no config file
-  to install.
+  developer already has authenticated; the harness installs and stores no credential). **The tracker
+  is the consumer project's own, never the harness's.** The script's `--infer` reads the project's
+  `origin` remote to suggest one (`github.com` → GitHub, `bitbucket.org` → Bitbucket, `gitlab.com` →
+  GitLab, anything else → unknown), the command shows you what it inferred and asks you to confirm —
+  a different platform is always one of the answers — and the confirmed platform and target are
+  remembered in `<repo-root>/.agents/tracker.md`, a consumer-owned file you can edit or gitignore.
+  Later runs reuse it and never re-ask; `--tracker` overrides it on purpose. `jira` and `linear` are
+  recognized but need an MCP server, project skill, or CLI that **you** install, and any other
+  platform is asked about rather than guessed at. If `gh` is missing, the command prints paste-ready
+  issue text and the task directories still stand. The harness repo is refused as an issue target.
 - **Starter project rules** — the installer seeds `.agents/rules/local-agents-md.md` into every
   project: when an agent works in any directory inside a workspace (the workspace root or a nested
   subdirectory at any depth) whose current state needs agent instructions, it must add or update

@@ -9,9 +9,10 @@ plan edits, no source changes.
 
 ## What to do
 
-1. Read the `2_plan.md` the caller names for each phase. It carries the resolved platform in
-   `tracker:` frontmatter and the issue text in its `## Tracker` section (title + body). If
-   `tracker:` is absent, report that back — the caller asks the user, then retries with `--tracker`.
+1. Read the `2_plan.md` the caller names for each phase. The platform comes from the caller's
+   `--tracker`, else the project cache `<repo-root>/.agents/tracker.md`, else the plan's
+   `tracker:` frontmatter. If none of the three has a platform, report that back — the caller asks
+   the developer, then retries with `--tracker`. Never choose a platform yourself.
 2. Write the issue body to a temporary file (issue bodies are multi-line) and run, once per phase:
 
    ```
@@ -25,16 +26,23 @@ plan edits, no source changes.
 ## Exit codes
 
 - **0** — created (or dry-run printed). The last stdout line is the URL.
-- **3** — not created: `gh` is missing or unauthenticated. The paste-ready title and body were
-  printed. Report the phase as "no issue yet" and include that text so the user can open it by hand.
+- **3** — not created: `gh` is missing or unauthenticated, or the platform is one the harness
+  recognizes but does not implement (`jira`, `linear`). The paste-ready title and body were printed.
+  Report the phase as "no issue yet", include that text, and name the handoff the script suggested
+  (their own MCP server, project skill, or CLI, or paste it by hand).
   **Never** report an issue that does not exist.
-- **1** — guard failure (unknown tracker, no repository, empty body). Report the message verbatim and
-  stop; do not work around a guard.
+- **1** — guard failure: no platform resolved, a platform the harness does not know, no target
+  repository, or the target is the harness's own repository. Report the message verbatim and stop;
+  do not work around a guard.
 
 ## What not to do
 
-- Do not write, edit, or delete any `1_spec.md`, `2_plan.md`, `0_intent.md`, or index file — the
-  caller owns those. Report the URL; the caller records it.
+- **The harness repo (`monorepo-agents-harness`) is never an issue target.** Never pass it as
+  `--repo`, never suggest it, and never work around the script's refusal. It is a template, not this
+  project's task tracker.
+- Do not write, edit, or delete any `1_spec.md`, `2_plan.md`, `0_intent.md`, index file, or the
+  project cache — the caller owns those. Report the URL; the caller records it.
+- Do not write `.agents/tracker.md` yourself. The caller asks the developer and writes it.
 - Do not edit the issue after creating it, do not label, assign, close, or comment on it, and do not
   create issues beyond the phases the caller named.
 - Do not read, ask for, store, or pass a token. The script uses the `gh` CLI's existing
