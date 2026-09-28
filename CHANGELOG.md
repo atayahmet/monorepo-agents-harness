@@ -17,6 +17,63 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.5] - 2026-09-28
+
+### Fixed
+
+- **`/monorepo-harness-intent-dispatch` no longer writes intent, spec or plan files.** Found on the
+  first real run of `0.4.0-rc.4`: the command created `0_intent.md`, `1_spec.md` and `2_plan.md` per
+  phase, plus an `index.md` row. Those files belong to `/monorepo-harness-spec` and
+  `/monorepo-harness-plan`, which scope one task at a time — dispatch was running N stage chains in a
+  single turn, on N tasks, behind one "Start these N phases?" gate. A task is now the tracker issue.
+  - **Dispatch writes exactly two files, and only when justified:** the **existing** intent file's
+    `status: approved` + `## Review` section, and the `<repo-root>/.agents/tracker.md` cache added in
+    rc.4. It never creates an intent file, a task directory, `0_intent.md`, `1_spec.md`, `2_plan.md`
+    or an `index.md` row.
+  - Each phase's scope, workspace, verification command and intent link live in its **issue body**,
+    which is where a phase is tracked from now on. The hand-off is
+    `/monorepo-harness-spec <intent.md>` — the unchanged start of the chain — instead of
+    `/monorepo-harness-build <2_plan.md>`, a file dispatch no longer creates.
+  - `0_intent.md` keeps **exactly one writer**: `write-intent-ref.sh`, called by
+    `/monorepo-harness-spec`. Two writers could let the stub disagree with itself about `source:`, and
+    an `index.md` row for a directory nobody scoped indexes work that does not exist.
+  - `tracker-issue.sh --plan` is now **optional** (its `tracker:` stays a resolution source when a
+    caller has a plan). The `tracker` subagent no longer reads a plan or records a URL in one.
+  - ADR `0001-dispatch_creates_issues_not_plan_artifacts.md` supersedes the 2026-09-25 task's ADR 0001
+    — "one task directory per phase" is reversed, so the hand-off carries the reversal rather than
+    quietly contradicting it.
+  - `core/governance/intents/AGENTS.md` names the stub's single writer instead of describing the stub
+    as if several commands might write it.
+
+### Added
+
+- **The approval gate now reads the intent's PR before the intent file.** `task-state.sh
+  check-intent-approved <intent.md> [--pr <pr-ref>]`. An intent approved on its PR while the local
+  file still said `pending` — the ordinary state right after a reviewer clicks "Approve" — was
+  refused, and the developer was told the intent was not approved while the approval sat on the PR.
+  The PR is the decision; the file is the record of it, and the command writes the record from the
+  PR's reviewer and date rather than asking twice.
+  - The state is verified in the script, not only in `gh`'s jq filter: a `CHANGES_REQUESTED` or
+    comment-only PR is not an approval. Unrecognised output falls through to the file, the safe
+    direction.
+  - Missing or unauthenticated `gh`, or a non-GitHub `pr:`, warns and falls through to the file — a
+    warning, not a failure, since the file is a complete source on its own.
+  - A failure now names **both** sources it checked. The old message named only the file, and that is
+    the message that misled the first run.
+  - `--pr` is accepted only by this subcommand, and an unrecognized option exits 2 rather than being
+    ignored — a typo in a gate argument must never read as "no PR, check the file only" and pass.
+
+### Upgrade Notes
+
+- No new installed file, so no manifest row and no command beyond the normal update sync.
+- **Behavior change, no action required:** if you ran `/monorepo-harness-intent-dispatch` on
+  `0.4.0-rc.4`, the task directories it wrote are still valid tasks and still work with
+  `/monorepo-harness-plan` and `/monorepo-harness-build`. Leave them. Re-running dispatch now opens
+  issues instead of rewriting those files, so a re-run cannot overwrite a spec or plan you revised.
+- A phase's scope is re-derived from its issue plus the intent when you scope it with
+  `/monorepo-harness-spec`, so read the issue body first — the phase's written spec now lives there
+  rather than on disk.
+
 ## [0.4.0-rc.4] - 2026-09-28
 
 ### Added

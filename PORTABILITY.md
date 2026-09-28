@@ -97,18 +97,23 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
   the slash list because codex auto-registers every `.agents/skills/*` as a slash command; invoking
   it manually just runs the same workflow. Validation (`check-adr`) is a return-0-or-1 read-only
   check the review skill shells out to — no agent-specific mechanism involved.
-- **Intent dispatch plans and records work; it never implements it, on any agent.**
-  `/monorepo-harness-intent-dispatch` verifies the approval, confirms the workspace scope, splits the
-  intent into 3-5 phases, records the developer's sign-off, then writes one task directory and one
-  tracker issue per phase. Implementation is always the separate `/monorepo-harness-build <2_plan.md>`
-  step, so the plan approval and the work that follows it never happen in the same turn. Issue
-  creation is script-driven (`tracker-issue.sh`, GitHub Issues via `gh`) and therefore byte-identical
-  across agents; only the delivery differs — claude-code dispatches the `tracker` subagent, opencode
-  and codex run the same script inline, per the "no subagent primitive" note above.
+- **Intent dispatch opens issues; it never implements, and it never writes a task artifact, on any
+  agent.**
+  `/monorepo-harness-intent-dispatch` checks the approval — an approving review on the intent's PR
+  first, the intent file's own `status:` second — records it, confirms the workspace scope, splits
+  the intent into 3-5 phases, records the developer's sign-off, then opens one tracker issue per
+  phase. It writes no `task_<date>_<slug>/`, no `0_intent.md`, no `1_spec.md`, no `2_plan.md` and no
+  `index.md` row: `/monorepo-harness-spec` and `/monorepo-harness-plan` own those, one task at a
+  time, so the plan approval and the work that follows it never happen in the same turn. Both the
+  approval check (`task-state.sh check-intent-approved`, with the PR's reviewer and date) and issue
+  creation (`tracker-issue.sh`, GitHub Issues via `gh`) are script-driven and therefore
+  byte-identical across agents; only the delivery differs — claude-code dispatches the `tracker`
+  subagent, opencode and codex run the same script inline, per the "no subagent primitive" note
+  above.
 - **No tracker credential is ever installed, asked for, or stored, on any agent.** The harness uses
   whatever the developer already has authenticated (`gh auth`). If it is missing, the command fails
-  open with paste-ready issue text and the task directories still stand — the developer opens the
-  issues by hand. Linear/Jira need an MCP server or token that the **developer** installs; the harness
+  open with paste-ready issue text and the remaining phases still get their issues — the developer
+  opens them by hand. Linear/Jira need an MCP server or token that the **developer** installs; the harness
   ships neither.
 - **Which tracker a project uses, and refusing the harness repo, is identical on every agent.** The
   inference (`tracker-issue.sh --infer`, from the *consumer's* `origin` remote), the confirmation

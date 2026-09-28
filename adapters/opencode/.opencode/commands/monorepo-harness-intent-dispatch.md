@@ -1,5 +1,5 @@
 ---
-description: Execute an approved intent - confirm the workspace scope, split it into phases, and open one task directory and one tracker issue per phase (no implementation)
+description: Turn an approved intent into phased tracker issues - check the intent's PR for an approval, record it, and open one issue per phase, writing no spec, plan or task directory (no implementation)
 ---
 
 Follow the shared instructions in
@@ -7,8 +7,13 @@ Follow the shared instructions in
 **"Workflow — Dispatch"**, exactly. The intent path is the argument the user typed after the command
 (`/monorepo-harness-intent-dispatch <intent.md>`); if it is missing, ask which approved intent to use.
 
-1. Run `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved <intent.md>`
-   **first**. If it exits non-zero, report the reason and stop — write nothing, create nothing.
+1. Check the approval **first, PR before file**. Read the intent's `pr:` field, then run
+   `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved <intent.md> --pr <ref>`
+   when it names a GitHub PR, and the same command **without** `--pr` otherwise. If it exits non-zero,
+   report the reason and stop — write nothing, create nothing. If it reports `source: PR` while the
+   file still says `pending`, set `status: approved` and append the `## Review` section, taking the
+   reviewer and date from the script's output — never invent them. If the file is already approved,
+   change nothing.
 2. If the intent has a `pr:` field, push the commit carrying its `## Review` section to that PR's
    branch (`git push <remote> <sha>:<branch>`) and report the remote ref. No `pr:` field → skip.
 3. Confirm the workspace scope (primary + secondary) and propose 3-5 phases — a phase is worth its
@@ -21,18 +26,21 @@ Follow the shared instructions in
    their team files work in it and record that. **The harness repo is never a target and never an
    option.** Only `github` is implemented (GitHub Issues via `gh`); `jira` / `linear` hand off to the
    developer's own tooling, and the harness never asks for a token.
-5. For each approved phase write `0_intent.md` (reference stub), `1_spec.md` and `2_plan.md` under
-   `<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<phase_slug>/`, add the index rows, then create the
-   issue in this session (opencode has no subagent primitive — see `PORTABILITY.md`):
+5. For each approved phase, put the scope, workspace, verification command and the intent link in the
+   issue body, then create the issue in this session (opencode has no subagent primitive — see
+   `PORTABILITY.md`):
 
    ```
    bash .agents/monorepo-agents-harness/core/scripts/tracker-issue.sh \
-     --plan <2_plan.md> --title "<issue title>" --body-file <file> --create
+     --title "<issue title>" --body-file <file> --create
    ```
 
-   Record the returned URL in the plan's `## Tracker` section. On exit 3 (`gh` missing or
-   unauthenticated, or a confirmed `jira` / `linear` project) keep the task directory, write "no issue
-   yet", and tell the user how to open it by hand — never report an issue that does not exist.
-6. Report the per-phase task directory, issue URL, and the next command
-   (`/monorepo-harness-build <2_plan.md>`), then **stop**. This command does not implement: no
-   source edits, no `3_memory.md` / `4_verify.md`.
+   **Write no file of your own**: no `task_<YYYY_MM_DD>_<phase_slug>/`, no `0_intent.md`, no
+   `1_spec.md`, no `2_plan.md`, no `index.md` row. Those belong to `/monorepo-harness-spec` and
+   `/monorepo-harness-plan`, which scope one task at a time; delete the throwaway body file when
+   done. On exit 3 (`gh` missing or unauthenticated, or a confirmed `jira` / `linear` project), tell
+   the user how to open the phase by hand, keep going with the remaining phases, and never report an
+   issue that does not exist.
+6. Report each phase's issue URL and the next command (`/monorepo-harness-spec <intent.md>`), then
+   **stop**. This command does not implement and does not plan: no source edits, no task directory,
+   no spec or plan.

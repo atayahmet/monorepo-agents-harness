@@ -6,7 +6,15 @@
 # memory-gate.sh (plain grep/sed, no dependencies).
 #
 # Subcommands (each prints a reason on stdout and exits 1 on failure, 0 on success):
-#   check-intent-approved <intent.md>  — file exists AND frontmatter has `status: approved`.
+#   check-intent-approved <intent.md> [--pr <pr-ref>]
+#                                        — file exists AND (an approving review on the PR, if
+#                                          --pr is given, ELSE frontmatter `status: approved`).
+#                                          The PR is the human decision, so it is read first; the
+#                                          file is the record of it. Missing/unauthenticated `gh`
+#                                          warns and falls through to the file. On success the
+#                                          source is named, with the reviewer and date from the PR
+#                                          review so the caller can record them without inventing
+#                                          them.
 #   check-spec <spec.md>               — file exists AND frontmatter has `phase: spec`.
 #   check-plan <plan.md>               — file exists AND frontmatter has `phase: plan`.
 #   check-chain <plan.md>              — the plan's task dir also has a `1_spec.md`; and, when the
@@ -31,7 +39,7 @@
 #
 # Web usage (from the shared bundle root in a consumer project):
 #   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved \
-#        apps/api/.agents/intents/intent_2026_08_27_add_auth.md
+#        apps/api/.agents/intents/intent_2026_08_27_add_auth.md --pr 12
 #   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-chain \
 #        apps/api/.agents/artifacts/task_2026_08_27_add_auth/2_plan.md
 #   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-adr \
@@ -40,9 +48,23 @@
 set -euo pipefail
 
 cmd="${1:-}"
-[ -n "$cmd" ] || { echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb> <path>" >&2; exit 2; }
+[ -n "$cmd" ] || { echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb> <path> [--pr <pr-ref>]" >&2; exit 2; }
 path="${2:-}"
 [ -n "$path" ] || { echo "usage: task-state.sh $cmd <path>" >&2; exit 2; }
+
+# Optional `--pr <ref>` (currently only read by check-intent-approved): the PR that carries the human
+# approval. A PR approval is the decision; the intent file is the record of it, so the PR is checked
+# first and the file is the fallback. Any unrecognized option is refused rather than ignored, so a
+# typo in a gate argument can never read as "no PR, check the file only" and pass.
+pr_ref=""
+if [ "$cmd" = "check-intent-approved" ] && [ "${3:-}" = "--pr" ]; then
+  pr_ref="${4:-}"
+  [ -n "$pr_ref" ] || { echo "usage: task-state.sh $cmd <path> --pr <pr-ref>" >&2; exit 2; }
+  [ -z "${5:-}" ] || { echo "task-state: $cmd — unexpected argument '$5'" >&2; exit 2; }
+elif [ -n "${3:-}" ]; then
+  echo "task-state: $cmd — '$3' is not a supported option for this subcommand" >&2
+  exit 2
+fi
 
 # frontmatter_field <file> <key> — print the value of a top-level frontmatter key (`key: value`),
 # or nothing if the file or key is absent. Only the first fenced `---` block is treated as
@@ -65,9 +87,44 @@ fail() { echo "task-state: $cmd — $1" >&2; exit 1; }
 case "$cmd" in
   check-intent-approved)
     [ -f "$path" ] || fail "intent file '$path' missing"
+    # An approving review on the intent's PR *is* the human decision; the file is the record of it.
+    # So the PR is read first, and the file is the fallback — not the other way round, which is what
+    # refused an intent whose reviewer had already clicked "Approve" while the file still said pending.
+    pr_checked="no"
+    if [ -n "$pr_ref" ]; then
+      pr_checked="yes"
+      if ! command -v gh >/dev/null 2>&1; then
+        echo "task-state: $cmd — gh not found, cannot read an approval on PR '$pr_ref'; falling back to the intent file" >&2
+      elif ! gh auth status >/dev/null 2>&1; then
+        echo "task-state: $cmd — gh is not authenticated, cannot read an approval on PR '$pr_ref'; falling back to the intent file" >&2
+      elif reviews="$(gh pr view "$pr_ref" --json reviews \
+            -q '.reviews[] | "\(.author.login)\t\(.state)\t\(.submittedAt)"' 2>&1)"; then
+        # Filter on the state HERE, not only in gh's jq expression. This is a gate: it must not
+        # accept an unapproved review because a tool's filter changed, was skipped, or printed raw
+        # JSON. Anything unrecognised falls through to the file, which is the safe direction.
+        approved_rows="$(printf '%s\n' "$reviews" | awk -F'\t' '$2 == "APPROVED" && $1 != ""' || true)"
+        if [ -n "$approved_rows" ]; then
+          reviewer="$(printf '%s\n' "$approved_rows" | head -1 | cut -f1)"
+          approved_at="$(printf '%s\n' "$approved_rows" | head -1 | cut -f3 | cut -c1-10)"
+          echo "task-state: intent approved (source: PR $pr_ref, reviewer ${reviewer:-<unknown>}, ${approved_at:-<unknown>}) — $path"
+          exit 0
+        fi
+      else
+        echo "task-state: $cmd — gh could not read PR '$pr_ref' ($(printf '%s' "$reviews" | head -1)); falling back to the intent file" >&2
+      fi
+    fi
     value="$(frontmatter_field "$path" status || true)"
-    [ "$value" = "approved" ] || fail "intent '$path' is not approved (status: '${value:-<none>}')"
-    echo "task-state: intent approved — $path"
+    if [ "$value" != "approved" ]; then
+      if [ "$pr_checked" = "yes" ]; then
+        fail "intent '$path' is not approved (status: '${value:-<none>}') and PR '$pr_ref' carries no approving review — both sources were checked"
+      fi
+      fail "intent '$path' is not approved (status: '${value:-<none>}')"
+    fi
+    if [ "$pr_checked" = "yes" ]; then
+      echo "task-state: intent approved (source: file) — $path (PR '$pr_ref' carries no approving review)"
+    else
+      echo "task-state: intent approved — $path"
+    fi
     ;;
   check-spec)
     [ -f "$path" ] || fail "spec file '$path' missing"

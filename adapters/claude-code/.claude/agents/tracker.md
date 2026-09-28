@@ -1,6 +1,6 @@
 ---
 name: tracker
-description: Creates one tracker issue per harness task phase through core/scripts/tracker-issue.sh, using the developer's own authenticated tooling, and returns the issue URLs. Use after /monorepo-harness-intent-dispatch has written the per-phase 2_plan.md files and the developer has signed off on the phase list.
+description: Creates one tracker issue per approved harness phase through core/scripts/tracker-issue.sh, using the developer's own authenticated tooling, and returns the issue URLs. Use after /monorepo-harness-intent-dispatch has had the developer sign off on the phase list. It writes no spec, plan or task directory itself, so there is no 2_plan.md to read.
 tools: Bash, Read
 ---
 
@@ -9,19 +9,20 @@ plan edits, no source changes.
 
 ## What to do
 
-1. Read the `2_plan.md` the caller names for each phase. The platform comes from the caller's
-   `--tracker`, else the project cache `<repo-root>/.agents/tracker.md`, else the plan's
-   `tracker:` frontmatter. If none of the three has a platform, report that back — the caller asks
-   the developer, then retries with `--tracker`. Never choose a platform yourself.
+1. Resolve the platform from the caller's `--tracker`, else the project cache
+   `<repo-root>/.agents/tracker.md`. If neither has one, report that back — the caller asks the
+   developer and retries with `--tracker`. Never choose a platform yourself. There is no plan to
+   read: dispatch writes no `2_plan.md`, and the phase's scope arrives in the issue body you are
+   given.
 2. Write the issue body to a temporary file (issue bodies are multi-line) and run, once per phase:
 
    ```
    bash .agents/monorepo-agents-harness/core/scripts/tracker-issue.sh \
-     --plan <2_plan.md> --title "<issue title>" --body-file <tmpfile> --create
+     --title "<issue title>" --body-file <tmpfile> --create
    ```
 
-3. Return the URL the script printed, one line per phase, in phase order. That URL is what the caller
-   records in the plan — report it verbatim, never a reconstructed or remembered link.
+3. Return the URL the script printed, one line per phase, in phase order. The caller reports it and
+   records nothing on disk — return it verbatim, never a reconstructed or remembered link.
 
 ## Exit codes
 
@@ -40,8 +41,10 @@ plan edits, no source changes.
 - **The harness repo (`monorepo-agents-harness`) is never an issue target.** Never pass it as
   `--repo`, never suggest it, and never work around the script's refusal. It is a template, not this
   project's task tracker.
-- Do not write, edit, or delete any `1_spec.md`, `2_plan.md`, `0_intent.md`, index file, or the
-  project cache — the caller owns those. Report the URL; the caller records it.
+- Do not write, edit, or delete any `0_intent.md`, `1_spec.md`, `2_plan.md`, index file, task
+  directory, or the project cache — `/monorepo-harness-spec` and `/monorepo-harness-plan` own the
+  task artifacts, and the cache is the caller's. Report the URL and stop. If the caller asked you to
+  write a spec or a plan, refuse and say which command owns it.
 - Do not write `.agents/tracker.md` yourself. The caller asks the developer and writes it.
 - Do not edit the issue after creating it, do not label, assign, close, or comment on it, and do not
   create issues beyond the phases the caller named.

@@ -78,12 +78,13 @@ To prove the hard gate is live, add a throwaway `apps/<n>/.agents/artifacts/task
 
 - **CI** — `/monorepo-harness-ci` detects the provider and wires `memory-gate.sh` in.
 - **Intent inbox** — `/monorepo-harness-intent` (`core/governance/intents/AGENTS.md`).
-- **Intent dispatch** — `/monorepo-harness-intent-dispatch <intent.md>` turns an approved intent into
-  3-5 phases, one task directory and one issue per phase. It suggests a tracker from this repo's
-  `origin` (`core/scripts/tracker-issue.sh --infer`), asks you to confirm, and remembers your answer
-  in `.agents/tracker.md` — yours, hand-editable; the harness repo is never an issue target. Issues
-  go through the `gh` CLI you already authenticated, never a stored token. Without `gh`, or on Jira /
-  Linear, you get paste-ready text — those need a server or CLI you install.
+- **Intent dispatch** — `/monorepo-harness-intent-dispatch <intent.md>` checks the intent's PR for an
+  approval, records it on the intent, and opens one issue for each of 3-5 phases. It writes no spec,
+  plan or task directory — those come from `/monorepo-harness-spec` and `-plan`. It suggests a tracker
+  from this repo's `origin` (`core/scripts/tracker-issue.sh --infer`), asks you to confirm, and
+  remembers your answer in `.agents/tracker.md` — yours, hand-editable; the harness repo is never an
+  issue target. Issues go through the `gh` CLI you already authenticated, never a stored token.
+  Without `gh`, or on Jira / Linear, you get paste-ready text — those need a server or CLI you install.
 - **Self-improvement** — `/monorepo-self-improve` proposes project-owned rules and skills; declined
   proposals are kept under `.agents/self-improve-proposals/`, yours to track or ignore in git.
 - **Changeset release entries** — `/monorepo-harness-changeset` drafts a changesets-compatible
