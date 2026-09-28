@@ -47,10 +47,12 @@ Claude Code, opencode, Cursor, Codex, and more.
   back, never a copy, so the intent file stays the single source of truth; rejected ones are kept,
   not deleted, as an audit trail.
 - **Intent dispatch** — `/monorepo-harness-intent-dispatch <intent.md>` takes an **approved** intent
-  the rest of the way: it confirms the workspace scope, splits the intent into 3-5 phases (each worth
-  its own review), records the developer's sign-off, then writes one task directory **and** one
-  tracker issue per phase — and stops. Each phase is built separately through
-  `/monorepo-harness-build <2_plan.md>`, so a plan is never approved and executed in the same turn.
+  the rest of the way: it checks the intent's PR for an approving review (falling back to the file's
+  own `status:`), records that decision on the intent, confirms the workspace scope, splits the intent
+  into 3-5 phases (each worth its own review), records the developer's sign-off, then opens one
+  tracker issue per phase — and stops. **It writes no spec, no plan and no task directory**: those
+  belong to `/monorepo-harness-spec` and `/monorepo-harness-plan`, which scope one task at a time, so
+  the chain starts there with the approved intent as its input. A phase is tracked by its issue.
   Issues are created with `core/scripts/tracker-issue.sh` (GitHub Issues via the `gh` CLI the
   developer already has authenticated; the harness installs and stores no credential). **The tracker
   is the consumer project's own, never the harness's.** The script's `--infer` reads the project's
@@ -61,7 +63,8 @@ Claude Code, opencode, Cursor, Codex, and more.
   Later runs reuse it and never re-ask; `--tracker` overrides it on purpose. `jira` and `linear` are
   recognized but need an MCP server, project skill, or CLI that **you** install, and any other
   platform is asked about rather than guessed at. If `gh` is missing, the command prints paste-ready
-  issue text and the task directories still stand. The harness repo is refused as an issue target.
+  issue text and the remaining phases still get their issues. The harness repo is refused as an issue
+  target.
 - **Starter project rules** — the installer seeds `.agents/rules/local-agents-md.md` into every
   project: when an agent works in any directory inside a workspace (the workspace root or a nested
   subdirectory at any depth) whose current state needs agent instructions, it must add or update

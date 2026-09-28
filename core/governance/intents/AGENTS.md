@@ -113,3 +113,12 @@ such as `problem originally captured and approved in [0_intent.md](0_intent.md)`
 best-effort match, not a mandatory search like the artifact-index prior-art check
 (`core/governance/artifacts/AGENTS.md`) — most ad-hoc engineering tasks have no intent behind them
 and omit both the frontmatter line and the trailing clause.
+
+**Who writes what.** `/monorepo-harness-spec <intent.md>` is the **only** writer of `0_intent.md` —
+it calls `core/scripts/write-intent-ref.sh`, which refuses an unapproved intent.
+`/monorepo-harness-intent-dispatch` writes **no** task artifact: no `0_intent.md`, no `1_spec.md`, no
+`2_plan.md`, no `artifacts/index.md` row. It records the approval on the intent file itself (see
+`core/skills/intent-workflow/SKILL.md` Dispatch step 1) and opens one tracker issue per phase; the
+phase scope lives in the issue body, not on disk. Two writers for the stub would let it disagree with
+itself about `source:`, and an `index.md` row for a directory nobody scoped is an index entry for work
+that does not exist. One file, one writer.

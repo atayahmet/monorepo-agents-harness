@@ -26,13 +26,15 @@
 #
 # Usage (from the target repo root):
 #   tracker-issue.sh --infer
-#   tracker-issue.sh --plan <2_plan.md> --title <text> (--body <text> | --body-file <path>)
-#                    [--tracker <platform>] [--repo <owner/name>] [--dry-run] [--create]
+#   tracker-issue.sh --title <text> (--body <text> | --body-file <path>)
+#                    [--plan <2_plan.md>] [--tracker <platform>] [--repo <owner/name>]
+#                    [--dry-run] [--create]
 #
 #   --infer          print 'platform=<p> target=<t> source=cache|inferred|none origin=<url>' and
 #                    exit 0. No plan, no title, no body needed. Writes nothing.
-#   --plan <path>    the phase's 2_plan.md; supplies 'tracker:' when neither --tracker nor the
-#                    project cache does
+#   --plan <path>    OPTIONAL. The phase's 2_plan.md; supplies 'tracker:' when neither --tracker
+#                    nor the project cache does. Dispatch writes no plan (0.4.0-rc.5), so a caller
+#                    without one is the normal case, not an error.
 #   --title <text>   issue title (one line)
 #   --body <text>    issue body (may be multi-line)
 #   --body-file <p>  read the body from a file instead (preferred for multi-line bodies)
@@ -203,8 +205,7 @@ if [ "$infer_mode" -eq 1 ]; then
 fi
 
 # --- Guard cluster -----------------------------------------------------------------------------
-[ -n "$plan" ] || fail "no --plan <2_plan.md> given"
-[ -f "$plan" ] || fail "plan file '$plan' missing"
+[ -n "$plan" ] && [ ! -f "$plan" ] && fail "plan file '$plan' missing"
 [ -n "$title" ] || fail "no --title given"
 
 if [ -n "$body_file" ]; then

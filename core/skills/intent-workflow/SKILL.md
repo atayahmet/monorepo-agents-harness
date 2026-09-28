@@ -1,6 +1,6 @@
 ---
 name: intent-workflow
-description: Capture a stakeholder's problem description as an intent file before it becomes a plan-mode task, let a product owner or manager review pending intents and approve or reject them, and dispatch an approved intent into scoped phases with one task directory and one tracker issue per phase. Use when the user types /monorepo-harness-intent or /monorepo-harness-intent-dispatch, describes a new feature/problem without being in an active coding task, asks to review pending intents, or asks to turn an approved intent into work.
+description: Capture a stakeholder's problem description as an intent file before it becomes a plan-mode task, let a product owner or manager review pending intents and approve or reject them, and dispatch an approved intent into scoped phases with one tracker issue per phase, writing no spec, plan or task directory of its own. Use when the user types /monorepo-harness-intent or /monorepo-harness-intent-dispatch, describes a new feature/problem without being in an active coding task, asks to review pending intents, or asks to turn an approved intent into work.
 ---
 
 # Intent Capture, Review, and Dispatch
@@ -72,14 +72,31 @@ Triggered when a product owner/manager asks to review pending intents, or via
 ## Workflow — Dispatch
 
 Triggered by `/monorepo-harness-intent-dispatch <intent.md>`, when an **approved** intent needs to
-become real work. It plans and records the work; it **never implements it** — each phase is built
-later through the normal `agent-workflow` chain. Nothing is written before the developer signs off on
-the phase list.
+become real work. It records the approval and opens the tasks; it **never implements them** and it
+**writes no spec, plan or task directory** — those belong to `/monorepo-harness-spec` and
+`/monorepo-harness-plan`, one task at a time. A task here **is** a tracker issue.
 
-1. **Confirm the approval first.** Run
-   `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved <intent.md>`.
-   If it exits non-zero, report the reason and **stop** — do not write a file, do not ask about
-   workspaces, do not create an issue. A `pending` intent has not been agreed to yet.
+**Dispatch writes exactly two files, and only when each is justified: the existing intent file's
+status and `## Review` section (step 1) and the confirmed tracker cache (step 6). Nothing else — no
+`task_<date>_<slug>/`, no `0_intent.md`, no `1_spec.md`, no `2_plan.md`, no `index.md` row, and never
+a new intent file.** Each phase's scope, workspace and verification command live in its issue body,
+which is where a phase is tracked from now on. (ADR
+`0001-dispatch_creates_issues_not_plan_artifacts.md` — this reverses the 2026-09-25 task's ADR 0001,
+whose "one task directory per phase" premise no longer holds.)
+
+1. **Confirm the approval, PR first.** The human decision lives on the intent's PR; the local file is
+   the record of it. Read the intent's optional `pr:` field, then run:
+   - `pr:` names a GitHub PR →
+     `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved <intent.md> --pr <ref>`
+   - no `pr:`, or it is not a GitHub PR (a non-GitHub tracker has no review state to read) → the same
+     command without `--pr`.
+   The script names the source it accepted. If it exits non-zero, report the reason and **stop** — do
+   not write a file, do not ask about workspaces, do not create an issue. A `pending` intent has not
+   been agreed to yet.
+   - **Accepted from a PR** (`source: PR …`) while the file still says `pending` → set `status:
+     approved` and append the `## Review` section, taking **Reviewer** and **Date** from the script's
+     output. Never invent either.
+   - **Already `approved` in the file** → change nothing. The section is already there.
 2. **Hand the approval to the PR, if the intent names one.** An intent may carry an optional `pr:`
    frontmatter field. When it is present, push the commit that carries the approval (the one adding
    its `## Review` section) to that PR's branch with `git push <remote> <sha>:<branch>`, then report
@@ -92,11 +109,11 @@ the phase list.
    verification command, and its issue title + body. **A phase is worth its own review.** If it is one
    edit, one file, or something no reviewer would look at separately, it is not a phase — fold it into
    a neighbour. Equally, do not split a phase that only makes sense as a whole. Give every phase a
-   `snake_case` slug (3-5 words, `[a-z0-9_]`), unique across the **whole intent**, not just inside one
-   workspace; a collision on a directory name is reported, never silently merged.
+   `snake_case` slug (3-5 words, `[a-z0-9_]`), unique across the **whole intent**, so two issues never
+   describe the same work.
 5. **Get the sign-off.** Show the phase table — number, title, workspace, verification — and ask
    **"Start these N phases?"** (yes / edit / fewer). A "fewer" answer means re-split and ask again.
-   No task directory and no issue exists before an explicit yes in the current turn.
+   No issue exists before an explicit yes in the current turn.
 6. **Find the tracker, then confirm it with the developer.** The tracker belongs to **this
    consumer project**, never to the harness. In this order:
    a. **If `<repo-root>/.agents/tracker.md` already records a platform, use it.** Do not ask
@@ -124,33 +141,34 @@ the phase list.
    if none is available the script prints paste-ready text and the phase records "no issue yet". The
    harness never asks for a credential and never stores one. Only **github** (GitHub Issues through
    the `gh` CLI) is implemented in this version.
-7. **Per phase, write the artifacts and open the issue.** For each approved phase, in the phase's own
-   workspace: create `task_<YYYY_MM_DD>_<phase_slug>/` with `0_intent.md` (a reference stub with
-   `phase: intent-ref` and `source: <intent path>` — never a copy), `1_spec.md` (the phase scope and
-   acceptance criteria, seeded from the intent), and `2_plan.md` (`phase: plan`, `status: approved`,
-   `tracker: <platform>`, a `## Tracker` section, and a `## Sign-off` block naming who approved the
-   phase list and when). Add one row per phase to that workspace's `artifacts/index.md`. Then run
-   `core/scripts/tracker-issue.sh --plan <2_plan.md> --title "<issue title>" --body-file <file>
-   --create` and write the returned URL into the plan's `## Tracker` section. Do the index update for
-   **all** phases before reporting back, not one phase per turn.
-8. **Hand off and stop.** Report the per-phase task directory, its issue URL, and the command that
-   starts the work: `/monorepo-harness-build <2_plan.md>`, one phase at a time. A phase can be
-   re-planned first with `/monorepo-harness-spec` + `/monorepo-harness-plan` (which appends a
-   `revisions:` entry to that phase's own `2_plan.md`).
+7. **Open the issue. Write no file.** For each approved phase, compose the issue title and body from
+   the phase row — scope, workspace, verification command, and a link to the intent file — then run
+   `core/scripts/tracker-issue.sh --title "<issue title>" --body-file <file> --create` and report the
+   returned URL. Open **all** phases' issues before reporting back, not one phase per turn.
+   **The body is the phase record now.** Do not create `task_<YYYY_MM_DD>_<phase_slug>/`, do not write
+   `0_intent.md`, `1_spec.md` or `2_plan.md`, and do not add a row to `artifacts/index.md`: those are
+   `/monorepo-harness-spec` and `/monorepo-harness-plan`'s to write, one task at a time, and an
+   `index.md` row indexes a task directory that does not exist here. Delete the throwaway body file
+   you passed to `--body-file`.
+8. **Hand off and stop.** Report each phase's issue URL and the command that starts the work:
+   `/monorepo-harness-spec <intent.md>` — it refuses an unapproved intent, links the intent as
+   `0_intent.md`, and writes `1_spec.md`; then `/monorepo-harness-plan` and `/monorepo-harness-build`,
+   one phase at a time. There is no `<2_plan.md>` to hand over, because dispatch never writes one. A
+   phase's scope is re-derived from its issue plus the intent, so read the issue before scoping it.
 
 **`tracker-issue.sh` exit codes** — 0 created (or dry-run printed), 1 guard failure, 2 usage error,
 **3 not created** (`gh` missing or unauthenticated; a confirmed platform the harness recognizes but
 does not implement, such as `jira` or `linear`; the paste-ready title and body were printed). On 3,
-keep the task directory, write "no issue yet" in the plan's `## Tracker` section, tell the user how
-to open it by hand or with their own tooling, and continue with the remaining phases. On 1, report
-and stop. Never report an issue that does not exist.
+tell the user how to open the phase by hand or with their own tooling, note it in your report, and
+continue with the remaining phases. On 1, report and stop. Never report an issue that does not exist.
 
-**Hard never's for this phase:** no source-file edits, no `3_memory.md` / `4_verify.md` (there is no
-finished task yet), no implementation of any phase, no issue without an explicit yes, no token or
-credential read or write, no push to a branch the user did not name, no re-splitting of an existing
-phase's plan behind the user's back, and — **the harness repo (`monorepo-agents-harness`) is never
-an issue target and is never offered as a choice.** It is a template, not a consumer project's task
-tracker. `tracker-issue.sh` refuses it as a target on every path; do not offer it in the question
+**Hard never's for this phase:** no source-file edits, no `task_<date>_<slug>/` directory, no
+`0_intent.md` / `1_spec.md` / `2_plan.md` / `3_memory.md` / `4_verify.md`, no `artifacts/index.md`
+row, no new or renamed intent file, no implementation of any phase, no issue without an explicit yes,
+no token or credential read or write, no push to a branch the user did not name, no re-splitting of an
+approved phase list behind the user's back, and — **the harness repo (`monorepo-agents-harness`) is
+never an issue target and is never offered as a choice.** It is a template, not a consumer project's
+task tracker. `tracker-issue.sh` refuses it as a target on every path; do not offer it in the question
 either, however prominent it is in the harness docs or the session history.
 
 ## Connection to `agent-workflow`
@@ -158,10 +176,12 @@ either, however prominent it is in the harness docs or the session history.
 An approved intent is optional input to plan-mode work, not a requirement — see
 `core/governance/intents/AGENTS.md`'s "Relationship to the plan/spec/memory/verify workflow" and
 `core/skills/agent-workflow/SKILL.md` Phase 1. **Capture** and **Review** create nothing beyond the
-intent file itself. **Dispatch** is the one phase that writes task directories: it writes only
-`0_intent.md`, `1_spec.md` and `2_plan.md` per phase, and hands the implementation to
-`/monorepo-harness-build` — so the spec/plan/memory/verify loop still runs one task at a time, with
-its own gates, exactly as it does for an ad-hoc task.
+intent file itself, and **Dispatch** adds only the intent's status/`## Review` section and the
+tracker cache. Every task artifact — `0_intent.md`, `1_spec.md`, `2_plan.md`, the `index.md` row —
+belongs to `/monorepo-harness-spec` and `/monorepo-harness-plan`, which run one task at a time with
+their own gates, exactly as they do for an ad-hoc task. Dispatch is the step that decides how many
+tasks there are and files each one as an issue; it is not a faster route through the chain. (ADR
+`0001-dispatch_creates_issues_not_plan_artifacts.md`.)
 
 ## Edge cases
 
@@ -181,8 +201,20 @@ its own gates, exactly as it does for an ad-hoc task.
   projects.
 - **The intent is too small to be a phase list**: one phase is allowed. Do not invent extra phases to
   reach three.
-- **A phase's slug already exists** as a task directory: reuse it and say which one, or propose a
-  different slug — never overwrite an existing `1_spec.md` / `2_plan.md`.
+- **The intent's PR was approved but the local file still says `pending`**: normal, and the reason
+  step 1 checks the PR first. Take the reviewer and date from the script's output rather than asking
+  again, and report which source the approval came from.
+- **The PR carries `CHANGES_REQUESTED` or only comments**: that is not an approval. The script
+  refuses it; say what the PR actually says and stop. Never treat a comment or a dismissed review as
+  consent.
+- **`gh` is missing or the intent's `pr:` is not a GitHub PR**: the script warns on stderr and falls
+  back to the file, so the command still works — the approval then has to be in the file.
+- **A phase's slug matches an existing task directory**: not a collision any more, since dispatch
+  creates no directory. If `/monorepo-harness-spec` later refuses for that reason, propose a
+  different slug; never overwrite an existing `1_spec.md` / `2_plan.md`.
+- **A task directory already exists for this intent** from an earlier `0.4.0-rc.4` run: leave it.
+  Those files are valid work; this version simply stops producing new ones. Say so rather than
+  deleting them.
 - **No git remote, or a non-GitHub one**: `--infer` reports `platform=unknown` (or `bitbucket` /
   `gitlab`) and step 6 asks the developer where this project's work is tracked. On a non-GitHub
   origin with `tracker: github` the script still needs `--repo <owner/name>`; a repository with no
