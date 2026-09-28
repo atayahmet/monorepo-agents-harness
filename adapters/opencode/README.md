@@ -14,7 +14,7 @@ This adapter wires the harness into **opencode**. Because opencode has no `ExitP
 - **`/monorepo-harness-update`** — check the installed harness version against upstream and, on your consent, upgrade the core and every installed adapter.
 - **Automatic ADR capture** — the `adr-workflow` SKILL.md (listed in `opencode.jsonc` `instructions`) fires automatically while `1_spec.md`/`2_plan.md` are written whenever the task makes an architecture-affecting decision, producing `adr/NNNN-<title>.md` records referenced from the spec's `## Architectural decisions` section.
 - **`/monorepo-self-improve`** — harvest recurring patterns from lessons and task memories, then propose durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`). Requires explicit approval before writing anything.
-- **`/monorepo-harness-intent-dispatch <intent.md>`** — turn an **approved** intent into scoped work: confirm the workspace scope, split it into 3-5 phases, record your sign-off, then open one GitHub issue per phase (run inline — opencode has no subagent primitive) and write no spec, plan or task directory. It stops there — each phase is scoped and built separately, starting with `/monorepo-harness-spec <intent.md>`. No credential is ever installed or stored; without `gh` you get paste-ready issue text instead.
+- **`/monorepo-harness-intent-dispatch <intent.md>`** — turn an **approved** intent into scoped work: confirm the workspace scope, split it into 3-5 phases, record your sign-off, ask before filing work the tracker already has open, open one GitHub issue per phase (run inline — opencode has no subagent primitive), then ask whether to merge the intent's PR — writing no spec, plan or task directory. It stops after that answer — each phase is scoped and built separately, starting with `/monorepo-harness-spec <intent.md>`. No credential is ever installed or stored; without `gh` you get paste-ready issue text instead.
 - **Feedback Loop, without a dedicated subagent** — opencode has no subagent primitive, so run your verification commands inline in the main session before writing `4_verify.md`; the underlying instructions are the same ones a `verifier` subagent would follow on Claude Code (see `PORTABILITY.md`).
 - **Shared skills arrive via `instructions`, not symlinks** — every `core/skills/*/SKILL.md` reaches opencode through the `instructions` array in *your* root `opencode.jsonc`. That file is never overwritten, so a harness upgrade that adds a skill leaves the array one entry short: the slash command still works, but the skill never enters context. Run `core/scripts/audit-install.sh` after every upgrade — it names each missing entry by exact path.
 
@@ -59,7 +59,11 @@ intent's `pr:` before the file's own `status:` (`task-state.sh check-intent-appr
 and stops on anything else; records the decision on the intent; pushes the approval commit if the
 intent names a `pr:`; confirms the workspace scope; and proposes 3-5 phases, where a phase is worth
 its own review. After you answer
-**"Start these N phases?"** it opens one GitHub issue per phase and writes nothing else: no
+**"Start these N phases?"** it checks whether that work is **already open** on the tracker
+(`tracker-issue.sh --list-open`, read-only) and asks *"create these phases anyway?"* if it finds any,
+then opens one GitHub issue per phase. Last, it asks **"Merge the intent PR (#N) now?"** and merges it
+only on a yes (`task-state.sh merge-intent-pr --yes`, which re-checks that the PR really carries an
+approving review and merges with a merge commit only). Throughout it writes nothing else: no
 `task_<date>_<phase_slug>/`, no `0_intent.md`, no `1_spec.md`, no `2_plan.md`, no index row. The phase
 scope lives in the issue body, and `/monorepo-harness-spec <intent.md>` is where each phase becomes a
 task directory. The platform comes from `<repo-root>/.agents/tracker.md` if you have confirmed it
@@ -111,8 +115,8 @@ instead. The version check alone is
 
 1. Start a non-trivial task. Capture an intent (`/monorepo-harness-intent`) and approve it if the
    work is intent-driven; most quick tasks are ad-hoc and skip this. An approved intent that needs
-   planning becomes `/monorepo-harness-intent-dispatch <intent.md>`, which hands you one task
-   directory and one issue per phase.
+   planning becomes `/monorepo-harness-intent-dispatch <intent.md>`, which hands you one issue per
+   phase (and can merge the intent's PR once you say so).
 2. Type `/monorepo-harness-spec` (optionally `<intent.md>` to seed the spec from an approved intent).
    **It stops there** — do not write `2_plan.md` or start implementation until you run the next
    command.

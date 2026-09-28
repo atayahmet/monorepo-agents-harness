@@ -86,6 +86,24 @@ comment thread). `/monorepo-harness-intent-dispatch` then pushes the **commit th
 approval** — the one adding the `## Review` section — to that PR's branch, so the PR shows the
 decision. Only a branch the user names is pushed, never a force-push.
 
+**A dispatch reads the tracker before it writes to it, and merges only on an explicit answer.** Before
+creating anything, the command checks whether the same work is already open
+(`tracker-issue.sh --list-open`, read-only — it never comments, labels, assigns or closes) and asks
+before filing it anyway; a check that cannot run is reported and the dispatch continues, so a skip is
+never silent. The `pr:` field is then read twice: dispatch checks it first to read the approval, and at
+the very end asks *"Merge the intent PR (#N) now?"* — after the issues exist,
+never before. The merge is performed by `core/scripts/task-state.sh merge-intent-pr`, which re-checks
+the approval itself and refuses a PR with no approving review (or one whose reviewer asked for changes
+afterwards). Accepted forms: `42`, `#42`, `owner/name#42`, a PR URL
+(`https://host/owner/name/pull/42`) or a scp-style PR URL (`git@host:owner/name/pull/42`) — all
+normalized to one ref the script can use. A bare clone URL or branch name carries no PR number, so
+it is refused rather than guessed at. **A `pr:` value that is still the template placeholder is
+not a PR**, and the script says so rather than trying to fetch it — `<optional PR URL or #number>`
+and an unexpanded `{{PR_URL}}` are both treated as "no PR" (fill it in, or pass `--pr <ref>`).
+Quote the value if you like: `pr: "42"`, `pr: 'https://host/owner/name/pull/42'` and
+`pr: #42` all work. Deleting the intent's branch after a
+merge stays the developer's decision; the harness never deletes a branch.
+
 ## Status lifecycle rules
 
 1. **Never delete an intent file**, regardless of decision — `rejected` intents stay as an audit
