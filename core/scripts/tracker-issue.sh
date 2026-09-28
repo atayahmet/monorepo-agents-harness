@@ -2,9 +2,12 @@
 # tracker-issue - create one tracker issue per harness task phase, through the developer's own
 # already-authenticated tooling. Agent-agnostic; the harness installs and stores no credential.
 #
-# Three modes:
+# Four modes:
 #   --infer          print the tracker this project's own git config points at, and where that
 #                    answer came from. Read-only, always exits 0, never writes.
+#   --list-open      print the OPEN work already on the tracker that matches the caller's keywords.
+#                    Read-only: the duplicate check dispatch runs before it files anything. Never
+#                    writes, never comments, never labels, never closes.
 #   (default)        --dry-run: print exactly what would be created.
 #   --create         create the issue and print its URL.
 #
@@ -26,12 +29,22 @@
 #
 # Usage (from the target repo root):
 #   tracker-issue.sh --infer
+#   tracker-issue.sh --list-open --search <text> [--search <text> ...]
 #   tracker-issue.sh --title <text> (--body <text> | --body-file <path>)
 #                    [--plan <2_plan.md>] [--tracker <platform>] [--repo <owner/name>]
 #                    [--dry-run] [--create]
 #
 #   --infer          print 'platform=<p> target=<t> source=cache|inferred|none origin=<url>' and
 #                    exit 0. No plan, no title, no body needed. Writes nothing.
+#   --list-open      read-only open-work check. Needs at least one --search. Resolves the tracker
+#                    and the target exactly as --create does, and refuses the harness repo exactly
+#                    as --create does, so the check can never become a way to read the wrong board.
+#                    Prints 'open-match count=<n> platform=<p> target=<t>' then one
+#                    '#<number>\t<title>\t<url>' row per open item, unioned across the --search
+#                    terms and de-duplicated by issue number. No matches is NOT a failure: count=0
+#                    and exit 0. Nothing is created, changed or closed in this mode.
+#   --search <text>  keyword to look for in open items; repeatable, results unioned. The caller
+#                    picks 1-2 distinctive words from the intent, not a sentence.
 #   --plan <path>    OPTIONAL. The phase's 2_plan.md; supplies 'tracker:' when neither --tracker
 #                    nor the project cache does. Dispatch writes no plan (0.4.0-rc.5), so a caller
 #                    without one is the normal case, not an error.
@@ -43,16 +56,21 @@
 #   --dry-run        print the issue that would be created, create nothing (default)
 #   --create         create the issue and print its URL
 #
-# Exit codes: 0 = success (inferred / dry-run printed / issue created), 1 = guard failure, 2 = usage
-#             error, 3 = not created, paste-ready text printed (gh missing or unauthenticated, or a
-#             recognized platform the harness does not implement) - the caller records "no issue
-#             yet" and continues.
-# Dependencies: git + coreutils; 'gh' only for --create, and its absence is a supported path.
+# Exit codes: 0 = success (inferred / open work listed / dry-run printed / issue created), 1 = guard
+#             failure, 2 = usage error, 3 = NOT DONE, reason printed (gh missing or unauthenticated,
+#             or a recognized platform the harness does not implement) - the caller records "no
+#             issue yet" and continues. In --list-open, 3 means the check could not be performed at
+#             all, which the caller must report rather than treat as "nothing is open".
+# Dependencies: git + coreutils; 'gh' only for --create and --list-open, and its absence is a
+# supported path.
 # Knobs (env): HARNESS_UPSTREAM - upstream git URL of this harness, added to the never-target list.
 
 set -euo pipefail
 
-usage() { sed -n '3,49p' "$0"; exit 2; }
+# Print this file's header comment (everything above the 'set -euo pipefail' line) as the usage
+# text. A range by line number would silently drift every time the header grows.
+print_usage() { awk 'NR < 2 { next } /^set -euo pipefail$/ { exit } { print }' "$0"; }
+usage() { print_usage; exit 2; }
 
 root() { git rev-parse --show-toplevel 2>/dev/null || pwd; }
 
@@ -112,10 +130,13 @@ BUNDLE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
 [ $# -ge 1 ] || usage
 
 plan=""; title=""; body=""; body_file=""; tracker=""; repo=""; create_mode=0; infer_mode=0
+list_mode=0; searches=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --infer)      infer_mode=1; shift ;;
+    --list-open)  list_mode=1; shift ;;
+    --search)     [ -n "${2:-}" ] || usage; searches="$searches $2"; shift 2 ;;
     --plan)      [ -n "${2:-}" ] || usage; plan="$2"; shift 2 ;;
     --title)     [ -n "${2:-}" ] || usage; title="$2"; shift 2 ;;
     --body)      [ -n "${2:-}" ] || usage; body="$2"; shift 2 ;;
@@ -124,7 +145,7 @@ while [ $# -gt 0 ]; do
     --repo)      [ -n "${2:-}" ] || usage; repo="$2"; shift 2 ;;
     --dry-run)   create_mode=0; shift ;;
     --create)    create_mode=1; shift ;;
-    -h|--help)   sed -n '3,49p' "$0"; exit 0 ;;
+    -h|--help)   print_usage; exit 0 ;;
     *) echo "tracker-issue: unknown argument: $1" >&2; usage ;;
   esac
 done
@@ -206,14 +227,22 @@ fi
 
 # --- Guard cluster -----------------------------------------------------------------------------
 [ -n "$plan" ] && [ ! -f "$plan" ] && fail "plan file '$plan' missing"
-[ -n "$title" ] || fail "no --title given"
 
-if [ -n "$body_file" ]; then
-  [ -f "$body_file" ] || fail "--body-file '$body_file' missing"
-  [ -z "$body" ] || fail "give either --body or --body-file, not both"
-  body="$(cat "$body_file")"
+# The list mode reads the board; it has nothing to create, so the title/body requirements do not
+# apply to it. Every other mode keeps them.
+if [ "$list_mode" -eq 0 ]; then
+  [ -n "$title" ] || fail "no --title given"
+
+  if [ -n "$body_file" ]; then
+    [ -f "$body_file" ] || fail "--body-file '$body_file' missing"
+    [ -z "$body" ] || fail "give either --body or --body-file, not both"
+    body="$(cat "$body_file")"
+  fi
+  [ -n "$body" ] || fail "no issue body - pass --body <text> or --body-file <path>"
+else
+  searches="$(printf '%s' "$searches" | tr -s ' ' | sed -e 's/^ //' -e 's/ $//')"
+  [ -n "$searches" ] || usage "--list-open needs at least one --search <text>"
 fi
-[ -n "$body" ] || fail "no issue body - pass --body <text> or --body-file <path>"
 
 # Tracker resolution: argument, then the project cache, then the phase plan's record, then refuse.
 # The cache is the developer's confirmed answer, so it outranks a stale per-phase record. The plan
@@ -248,6 +277,44 @@ fi
 if [ "$tracker" = "github" ]; then
   [ -n "$repo" ] || fail "no target repository - the 'origin' remote is missing or is not a GitHub URL and $CACHE_FILE has no target, so pass --repo <owner/name>"
   refuse_harness_repo "$repo"
+fi
+
+# --- --list-open -------------------------------------------------------------------------------
+# The duplicate check, AFTER the guard cluster on purpose: the open-work check reads a real board, so
+# it resolves the tracker, the target and the harness-repo refusal by exactly the same code as
+# --create. Placed earlier it would have been a second, weaker copy of those rules.
+if [ "$list_mode" -eq 1 ]; then
+  if [ "$tracker" != "github" ]; then
+    echo "tracker-issue: cannot check open work on '$tracker' - it is not implemented by this harness, so whether the work is already filed is unknown. Read '$tracker' yourself, then tell the developer what is open" >&2
+    exit 3
+  fi
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "tracker-issue: cannot check open work - 'gh' not found. The check is UNKNOWN, not empty; report it before creating anything" >&2
+    exit 3
+  fi
+  if ! gh auth status >/dev/null 2>&1; then
+    echo "tracker-issue: cannot check open work - 'gh auth status' failed. The check is UNKNOWN, not empty; report it before creating anything" >&2
+    exit 3
+  fi
+  # One query per term, unioned and de-duplicated by issue number. A template error in gh exits
+  # non-zero, so a broken query fails loudly instead of reading as "nothing is open".
+  matches=""
+  for term in $searches; do
+    if ! rows="$(gh issue list --repo "$repo" --state open --search "$term" --limit 20 \
+          -q '.[] | "#\(.number)\t\(.title)\t\(.url)"' 2>&1)"; then
+      printf 'tracker-issue: gh issue list failed for search term "%s":\n%s\n' \
+        "$term" "$(printf '%s' "$rows" | head -1)" >&2
+      exit 1
+    fi
+    matches="$matches$rows"$'\n'
+  done
+  matches="$(printf '%s' "$matches" | grep -v '^[[:space:]]*$' | awk -F'\t' '!seen[$1]++' || true)"
+  count="$(printf '%s' "$matches" | grep -c . || true)"
+  [ -n "$count" ] || count=0
+  printf 'tracker-issue: open-match count=%s platform=%s target=%s terms=%s\n' \
+    "$count" "$tracker" "$repo" "$searches"
+  [ "$count" -eq 0 ] || printf '%s\n' "$matches"
+  exit 0
 fi
 
 # Provenance footer: greppable link back to the artifact this issue came from.

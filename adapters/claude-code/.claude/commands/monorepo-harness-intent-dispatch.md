@@ -1,5 +1,5 @@
 ---
-description: Turn an approved intent into phased tracker issues - check the intent's PR for an approval, record it, and open one issue per phase, writing no spec, plan or task directory (no implementation)
+description: Turn an approved intent into phased tracker issues - check the intent's PR for an approval, record it, ask before filing work that may already be open, open one issue per phase, then ask before merging the intent PR; writing no spec, plan or task directory (no implementation)
 ---
 
 Follow the shared instructions in
@@ -26,7 +26,19 @@ Follow the shared instructions in
    their team files work in it and record that. **The harness repo is never a target and never an
    option.** Only `github` is implemented (GitHub Issues via `gh`); `jira` / `linear` hand off to the
    developer's own tooling, and the harness never asks for a token.
-5. For each approved phase, put the scope, workspace, verification command and the intent link in the
+5. **Check whether the work is already open, before anything is filed** (skill step 7). Pick 1-2
+   distinctive words from the intent's proposed outcome and the phase titles, then run:
+
+   ```
+   bash .agents/monorepo-agents-harness/core/scripts/tracker-issue.sh \
+     --list-open --search <word> --tracker <platform> [--repo <owner/name>]
+   ```
+
+   `count=0` → carry on. Matches → show every row and ask **"This work may already be open — create
+   these phases anyway?"** (create anyway / stop / re-split) and file nothing without a yes. Exit 3
+   → say in those words that the check could **not** be run and why, then carry on. It reads only:
+   never comment, label, assign or close what it finds.
+6. For each approved phase, put the scope, workspace, verification command and the intent link in the
    issue body, then dispatch the `tracker` subagent (`.claude/agents/tracker.md`) once per phase. It
    runs exactly this and returns the issue URL:
 
@@ -41,6 +53,19 @@ Follow the shared instructions in
    done. If the subagent reports exit 3 (`gh` missing or unauthenticated, or a confirmed `jira` /
    `linear` project), tell the user how to open the phase by hand, keep going with the remaining
    phases, and never report an issue that does not exist.
-6. Report each phase's issue URL and the next command (`/monorepo-harness-spec <intent.md>`), then
-   **stop**. This command does not implement and does not plan: no source edits, no task directory,
-   no spec or plan.
+7. **Ask whether to merge the intent PR — the last step** (skill step 9). No `pr:` field → skip
+   silently. Otherwise show the read-only summary first, then ask:
+
+   ```
+   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh merge-intent-pr <intent.md>
+   ```
+
+   **"Merge the intent PR (#N) now?"** (yes / no / later). Only on a **yes**, re-run it **with
+   `--yes`**; the script refuses without it, and it re-checks the approval itself, so a PR nobody
+   approved is never merged. Merge commit only — no `--admin`, no branch deletion, no
+   squash/rebase. On 1, the PR is still open: report that and stop. On 3 (`gh` missing), nothing was
+   merged — give them the PR URL.
+8. Report each phase's issue URL, whether the open-work check could run, what happened to the intent
+   PR (merged / left open with its URL / no `pr:` field), and the next command
+   (`/monorepo-harness-spec <intent.md>`), then **stop**. This command does not implement and does
+   not plan: no source edits, no task directory, no spec or plan.

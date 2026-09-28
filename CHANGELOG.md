@@ -17,6 +17,74 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.6] - 2026-09-28
+
+### Added
+
+- **`/monorepo-harness-intent-dispatch` checks whether the work is already open before filing it.**
+  Two asks, both asked on every agent, in this order, after the existing approval / push / scope /
+  phase / sign-off steps:
+  1. **"This work may already be open — create these phases anyway?"** — the command reads the
+     project's own tracker (`tracker-issue.sh --list-open --search <keyword>...`, read-only) and
+     shows every open match before creating anything. New read-only mode on `tracker-issue.sh`:
+     repeatable `--search` terms, results unioned and de-duplicated by issue number, `count=0` is
+     success, and the same tracker resolution and harness-repo refusal as `--create` so the check can
+     never read the wrong board. It **writes nothing** — no comment, label, assignment or close —
+     and nothing is created without an explicit yes in the current turn.
+  2. **"Merge the intent PR (#N) now?"** — asked **last**, once every issue URL has been reported, so
+     an unapproved PR never hides behind a successful dispatch. New `task-state.sh merge-intent-pr
+     <intent.md> [--pr <ref>] [--yes]`: dry-run by default (prints title, state, approval source and
+     the exact `gh pr merge` it would run), re-checks the approval itself, is idempotent on an
+     already-merged PR, and merges with `gh pr merge <ref> --merge` only. It never passes
+     `--admin`, never deletes the branch, and never squash/rebase/auto-merges.
+
+### Changed
+
+- **An approving review is read per reviewer, newest review wins.** `check-intent-approved` and
+  `merge-intent-pr` share one reader: each reviewer's **latest** review decides, at least one must be
+  `APPROVED`, and no reviewer may have `CHANGES_REQUESTED` as their latest. `DISMISSED` and
+  `COMMENTED` are neutral, and a review superseded by a later one is ignored. Previously any single
+  historical `APPROVED` satisfied the gate, so a review that was later retracted still let dispatch
+  and a merge through. Exit codes are unchanged: 0 approved, 1 not approved, 3 `gh` missing or
+  unauthenticated (the file's own `status:` is the fallback).
+- **The two new steps write nothing.** Dispatch still writes exactly two files, and only when
+  justified: the existing intent file's `status: approved` + `## Review`, and the
+  `<repo-root>/.agents/tracker.md` cache. No task directory, no `0_intent.md`, no `1_spec.md`, no
+  `2_plan.md`, no `index.md` row — a task is the tracker issue, and neither the found issues nor the
+  merge outcome is recorded anywhere.
+- **The advisory open-work check never blocks a dispatch the developer wants.** `gh` missing or
+  unauthenticated, or a platform the harness recognizes but does not implement, exits **3**: the
+  command says "I could not check whether this is already open", names the reason, records the skip
+  in its report, and continues — the same fail-open contract issue creation has always had. A guard
+  failure (exit 1) still stops, and a usage error (exit 2, e.g. a missing `--search`) is a call bug
+  that must be fixed and retried rather than read as a board state.
+
+### Fixed
+
+- **A quoted `pr:` value is no longer refused.** `pr: "42"`, `pr: '42'` and a quoted PR URL are
+  valid hand-written YAML and are what most people write; the value reached `gh` with its quotes
+  attached, so `merge-intent-pr` failed on a ref that was perfectly good. One layer of surrounding
+  quotes is now stripped before the ref is normalized.
+- **An unexpanded `{{PR_URL}}`-style placeholder reads as "no PR", not as a broken ref.** The
+  template ships `pr: <optional PR URL or #number>`, and a field filled in by hand is just as easily
+  left as `{{PR_URL}}`. Both now take the same path as an absent field — "no PR to merge, pass
+  `--pr <ref>`" — instead of "fix the field".
+- **`merge-intent-pr` reads the PR's state before its reviews.** An already-merged PR is a no-op
+  (exit 0) whatever its reviews say, so re-running the command on a merged PR no longer fails with
+  "carries no approving review". The approval still gates the only write, and that write is reachable
+  only from an `OPEN` PR.
+- **`--list-open` without `--search` is a usage error (exit 2), not a guard failure.** It is a
+  mistake in the call, not a fact about the board, and the skill now says so instead of treating it
+  as a stop condition.
+
+### Upgrade Notes
+
+- No new file is added to the bundle or to any adapter, so there is **no manifest row to add** — the
+  normal `/monorepo-harness-update` sync installs the changed scripts, skill, governance doc and the
+  three dispatch entry points, and `--refresh` places the `tracker` subagent note. See
+  `changelogs/version-0.4.0-rc.6.md` for the new commands to try and one manual follow-up: an intent
+  whose approval was later retracted now fails the gate, by design.
+
 ## [0.4.0-rc.5] - 2026-09-28
 
 ### Fixed

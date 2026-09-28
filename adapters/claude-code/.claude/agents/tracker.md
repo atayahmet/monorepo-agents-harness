@@ -1,6 +1,6 @@
 ---
 name: tracker
-description: Creates one tracker issue per approved harness phase through core/scripts/tracker-issue.sh, using the developer's own authenticated tooling, and returns the issue URLs. Use after /monorepo-harness-intent-dispatch has had the developer sign off on the phase list. It writes no spec, plan or task directory itself, so there is no 2_plan.md to read.
+description: Creates one tracker issue per approved harness phase through core/scripts/tracker-issue.sh, using the developer's own authenticated tooling, and returns the issue URLs. Use after /monorepo-harness-intent-dispatch has had the developer sign off on the phase list and answer the "is this already open?" question. It writes no spec, plan or task directory itself, so there is no 2_plan.md to read.
 tools: Bash, Read
 ---
 
@@ -13,6 +13,8 @@ plan edits, no source changes.
    `<repo-root>/.agents/tracker.md`. If neither has one, report that back — the caller asks the
    developer and retries with `--tracker`. Never choose a platform yourself. There is no plan to
    read: dispatch writes no `2_plan.md`, and the phase's scope arrives in the issue body you are
+   given. The caller has already run the open-work check (`tracker-issue.sh --list-open`) and
+   collected the developer's answer to it — do not run it again, and create only the phases you were
    given.
 2. Write the issue body to a temporary file (issue bodies are multi-line) and run, once per phase:
 

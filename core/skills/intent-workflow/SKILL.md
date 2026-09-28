@@ -1,6 +1,6 @@
 ---
 name: intent-workflow
-description: Capture a stakeholder's problem description as an intent file before it becomes a plan-mode task, let a product owner or manager review pending intents and approve or reject them, and dispatch an approved intent into scoped phases with one tracker issue per phase, writing no spec, plan or task directory of its own. Use when the user types /monorepo-harness-intent or /monorepo-harness-intent-dispatch, describes a new feature/problem without being in an active coding task, asks to review pending intents, or asks to turn an approved intent into work.
+description: Capture a stakeholder's problem description as an intent file before it becomes a plan-mode task, let a product owner or manager review pending intents and approve or reject them, and dispatch an approved intent into scoped phases with one tracker issue per phase - asking first whether the work is already open and whether the intent's PR should be merged - writing no spec, plan or task directory of its own. Use when the user types /monorepo-harness-intent or /monorepo-harness-intent-dispatch, describes a new feature/problem without being in an active coding task, asks to review pending intents, or asks to turn an approved intent into work.
 ---
 
 # Intent Capture, Review, and Dispatch
@@ -79,10 +79,12 @@ become real work. It records the approval and opens the tasks; it **never implem
 **Dispatch writes exactly two files, and only when each is justified: the existing intent file's
 status and `## Review` section (step 1) and the confirmed tracker cache (step 6). Nothing else — no
 `task_<date>_<slug>/`, no `0_intent.md`, no `1_spec.md`, no `2_plan.md`, no `index.md` row, and never
-a new intent file.** Each phase's scope, workspace and verification command live in its issue body,
-which is where a phase is tracked from now on. (ADR
+a new intent file. The two consent steps in between (7 and 8) write nothing either.** Each phase's
+scope, workspace and verification command live in its issue body, which is where a phase is tracked
+from now on. (ADR
 `0001-dispatch_creates_issues_not_plan_artifacts.md` — this reverses the 2026-09-25 task's ADR 0001,
-whose "one task directory per phase" premise no longer holds.)
+whose "one task directory per phase" premise no longer holds. The duplicate check and the merge
+question are in ADR `0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
 
 1. **Confirm the approval, PR first.** The human decision lives on the intent's PR; the local file is
    the record of it. Read the intent's optional `pr:` field, then run:
@@ -141,7 +143,29 @@ whose "one task directory per phase" premise no longer holds.)
    if none is available the script prints paste-ready text and the phase records "no issue yet". The
    harness never asks for a credential and never stores one. Only **github** (GitHub Issues through
    the `gh` CLI) is implemented in this version.
-7. **Open the issue. Write no file.** For each approved phase, compose the issue title and body from
+7. **Check whether the work is already open, then ask.** Read-only, and **before the first issue
+   exists** — a duplicate is cheap to prevent here and expensive to notice a week later:
+   `bash .agents/monorepo-agents-harness/core/scripts/tracker-issue.sh --list-open --search <word> [--search <word>] --tracker <platform>`
+   Pick **1-2 distinctive words** from the intent's *proposed outcome* and the phase titles — nouns a
+   search will actually match, not a sentence. It prints `open-match count=<n>`, then one
+   `#<number>\t<title>\t<url>` row per open item.
+   - **count=0** → nothing to ask. Go to step 8.
+   - **count>0** → show **every** row and ask **"This work may already be open — create these phases
+     anyway?"** (create anyway / stop / re-split). Nothing is created without an explicit yes in the
+     current turn. "stop" and "re-split" both end the dispatch here: leave the intent approved, file
+     no issues, and say what is already open so the developer can merge the phase list into it.
+   - **exit 3** (`gh` missing or unauthenticated, or a platform the harness recognizes but does not
+     implement) → the check could **not** be performed. Say so in those words — "I could not check
+     whether this is already open" — name the reason, and continue. The check is advisory, and issue
+     creation on that same path fails immediately anyway. Record it in the final report, so a skip is
+     never silent.
+   - **exit 1** (guard failure — e.g. the harness repo itself as the target) → report and stop.
+   - **exit 2** (usage error, e.g. no `--search`) → that is a bug in the call, not a board state.
+     Fix the call and retry once; if it still fails, report it and continue.
+   This step **writes nothing**: no comment, no label, no assignment, no close, no edit on what it
+   finds. It reads the board so the same work is not filed twice. (ADR
+   `0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
+8. **Open the issue. Write no file.** For each approved phase, compose the issue title and body from
    the phase row — scope, workspace, verification command, and a link to the intent file — then run
    `core/scripts/tracker-issue.sh --title "<issue title>" --body-file <file> --create` and report the
    returned URL. Open **all** phases' issues before reporting back, not one phase per turn.
@@ -150,26 +174,64 @@ whose "one task directory per phase" premise no longer holds.)
    `/monorepo-harness-spec` and `/monorepo-harness-plan`'s to write, one task at a time, and an
    `index.md` row indexes a task directory that does not exist here. Delete the throwaway body file
    you passed to `--body-file`.
-8. **Hand off and stop.** Report each phase's issue URL and the command that starts the work:
-   `/monorepo-harness-spec <intent.md>` — it refuses an unapproved intent, links the intent as
-   `0_intent.md`, and writes `1_spec.md`; then `/monorepo-harness-plan` and `/monorepo-harness-build`,
-   one phase at a time. There is no `<2_plan.md>` to hand over, because dispatch never writes one. A
-   phase's scope is re-derived from its issue plus the intent, so read the issue before scoping it.
+9. **Ask whether to merge the intent PR — and merge only on a yes.** The intent's PR is where the
+   approval is visible to other people, and leaving it open forever is the one piece of unfinished
+   business this command creates. So it is the **last** step, and it is a question:
+   - **No `pr:` field on the intent** → skip this step silently; there is nothing to merge.
+   - Otherwise first show what *would* happen, read-only and with nothing merged:
+     `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh merge-intent-pr <intent.md> [--pr <ref>]`
+     It prints the ref, the title, who approved it and when, and the merge state. Then ask
+     **"Merge the intent PR (#N) now?"** (yes / no / later).
+   - On **yes**, re-run the same command **with `--yes`**. That flag is the developer's in-turn answer
+     and the script refuses to merge without it. On **no** or **later**, skip it and name the PR URL in
+     the report so it is not forgotten.
+   - The script re-checks the approval itself and will not be talked out of it: a PR with no
+     approving review — or one whose reviewer asked for changes *after* approving — is never merged.
+     It merges with a merge commit and nothing else: **no `--admin`** (bypassing branch protection is
+     the developer's decision, not the harness's), **no `--delete-branch`** (never asked for), no
+     squash, rebase or auto. A repository that forbids merge commits makes it exit 1 with the PR
+     still open — report that and stop, do not try another method.
+   - An **already-merged** PR is a no-op whatever its reviews say: the script reads the PR's state
+     before the gate, prints "already merged" and exits 0. A re-run therefore never fails on a PR that
+     is already done, which is what makes the step safe to repeat.
+   - **exit 3** (`gh` missing or unauthenticated) → nothing was merged. Give the developer the PR URL
+     and say they can merge it themselves.
+   Merging last is deliberate: if a phase fails to file, or the duplicate check stopped the run, the
+   approval is still sitting on an open PR where a human can pick it up — rather than merged as work
+   that was never dispatched.
+10. **Hand off and stop.** Report each phase's issue URL, whether the open-work check could be run,
+    and what happened to the intent PR (merged, left open with its URL, or no `pr:` field), then the
+    command that starts the work:
+    `/monorepo-harness-spec <intent.md>` — it refuses an unapproved intent, links the intent as
+    `0_intent.md`, and writes `1_spec.md`; then `/monorepo-harness-plan` and `/monorepo-harness-build`,
+    one phase at a time. There is no `<2_plan.md>` to hand over, because dispatch never writes one. A
+    phase's scope is re-derived from its issue plus the intent, so read the issue before scoping it.
 
-**`tracker-issue.sh` exit codes** — 0 created (or dry-run printed), 1 guard failure, 2 usage error,
-**3 not created** (`gh` missing or unauthenticated; a confirmed platform the harness recognizes but
-does not implement, such as `jira` or `linear`; the paste-ready title and body were printed). On 3,
-tell the user how to open the phase by hand or with their own tooling, note it in your report, and
-continue with the remaining phases. On 1, report and stop. Never report an issue that does not exist.
+**`tracker-issue.sh` exit codes** — 0 done (tracker inferred, open work listed, dry-run printed, or
+the issue created), 1 guard failure, 2 usage error, **3 not done** (`gh` missing or unauthenticated; a
+confirmed platform the harness recognizes but does not implement, such as `jira` or `linear`). On 3
+from step 8, tell the user how to open the phase by hand or with their own tooling, note it in your
+report, and continue with the remaining phases; on 3 from step 7, say the duplicate check could not
+run. On 1, report and stop. Never report an issue that does not exist, and never report a merge that
+did not happen.
+
+**`merge-intent-pr` exit codes** — 0 the PR is merged, or already was, or (without `--yes`) nothing
+was merged and the summary was printed; 1 refused, with the reason (no approving review, not open,
+conflicts, or the repository refused the merge — the PR is still open in every one of those cases); 3
+`gh` missing or unauthenticated, nothing merged.
 
 **Hard never's for this phase:** no source-file edits, no `task_<date>_<slug>/` directory, no
 `0_intent.md` / `1_spec.md` / `2_plan.md` / `3_memory.md` / `4_verify.md`, no `artifacts/index.md`
 row, no new or renamed intent file, no implementation of any phase, no issue without an explicit yes,
-no token or credential read or write, no push to a branch the user did not name, no re-splitting of an
-approved phase list behind the user's back, and — **the harness repo (`monorepo-agents-harness`) is
-never an issue target and is never offered as a choice.** It is a template, not a consumer project's
-task tracker. `tracker-issue.sh` refuses it as a target on every path; do not offer it in the question
-either, however prominent it is in the harness docs or the session history.
+**no automatic duplicate matching** (show the candidates, let the developer decide — never skip, merge
+or silently retitle a phase because an issue looks similar), **no comment, label, assignment, close or
+edit on any issue the open-work check finds**, **no PR merge without an explicit yes in this turn**,
+**no `--admin`**, no branch deletion, no token or credential read or write, no push to a branch the
+user did not name, no re-splitting of an approved phase list behind the user's back, and — **the
+harness repo (`monorepo-agents-harness`) is never an issue target and is never offered as a choice.**
+It is a template, not a consumer project's task tracker. `tracker-issue.sh` refuses it as a target on
+every path, `--list-open` included; do not offer it in the question either, however prominent it is in
+the harness docs or the session history.
 
 ## Connection to `agent-workflow`
 
@@ -181,7 +243,11 @@ tracker cache. Every task artifact — `0_intent.md`, `1_spec.md`, `2_plan.md`, 
 belongs to `/monorepo-harness-spec` and `/monorepo-harness-plan`, which run one task at a time with
 their own gates, exactly as they do for an ad-hoc task. Dispatch is the step that decides how many
 tasks there are and files each one as an issue; it is not a faster route through the chain. (ADR
-`0001-dispatch_creates_issues_not_plan_artifacts.md`.)
+`0001-dispatch_creates_issues_not_plan_artifacts.md`.) It also asks two questions the rest of the chain
+never has to: **is this work already open on the tracker** (step 7) and **should the intent's PR be
+merged now** (step 9). Each one ends in a write to a shared system that cannot be undone by re-reading
+the conversation, which is why each is a question first and a script second. (ADR
+`0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
 
 ## Edge cases
 
@@ -225,3 +291,16 @@ tasks there are and files each one as an issue; it is not a faster route through
   did not ask for.
 - **The developer wants the phases built now**: that is `/monorepo-harness-build <2_plan.md>` per
   phase, in the main session. Dispatch does not implement.
+- **The open-work check finds something that looks like the same work**: show it and let the
+  developer decide — usually the answer is one phase merged into an existing issue, which you cannot
+  do (dispatch never edits an issue it did not create). Offer the honest options: stop and let them
+  do it, re-split, or create the phase anyway. Never decide that two titles are "the same work".
+- **The search finds nothing but you expected it to**: the keyword was too generic. Try once more
+  with a word from the proposed outcome, then move on. Do not keep searching until something turns
+  up — a check that hunts for a match will find one.
+- **The intent's PR was already merged**: report it and skip the merge question. The script exits 0
+  for that case, so re-running dispatch on a merged intent is harmless.
+- **The developer answers "later" to the merge**: the PR stays open and the report names its URL. That
+  is a complete outcome, not a pending step — do not offer to merge it again later in the same run.
+- **The intent has no `pr:` field**: step 9 does not exist. Do not invent a PR to merge and do not
+  offer to open one.
