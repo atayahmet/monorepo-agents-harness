@@ -15,7 +15,7 @@ This adapter wires the harness into **Codex CLI**. Codex toggles plan mode with 
 - **`/monorepo-harness-update`** — check the installed harness version against upstream and, on your consent, upgrade the core and every installed adapter.
 - **Automatic ADR capture** — the `adr-workflow` skill (symlinked into `.agents/skills/`, so it also appears in the slash list) fires automatically while `1_spec.md`/`2_plan.md` are written whenever the task makes an architecture-affecting decision, producing `adr/NNNN-<title>.md` records referenced from the spec's `## Architectural decisions` section.
 - **`/monorepo-self-improve`** — harvest recurring patterns from lessons and task memories, then propose durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`). Requires explicit approval before writing anything.
-- **`/monorepo-harness-intent-dispatch <intent.md>`** — turn an **approved** intent into scoped work: confirm the workspace scope, split it into 3-5 phases, record your sign-off, ask before filing work the tracker already has open, open one GitHub issue per phase (run inline — Codex has no subagent primitive), then ask whether to merge the intent's PR — writing no spec, plan or task directory. It stops after that answer — each phase is scoped and built separately, starting with `/monorepo-harness-spec <intent.md>`. No credential is ever installed or stored; without `gh` you get paste-ready issue text instead.
+- **`/monorepo-harness-intent-dispatch <intent.md>`** — turn an **approved** intent into scoped work: confirm the workspace scope, split it into 3-5 phases, record your sign-off, ask before filing work the tracker already has open, open one GitHub issue per phase (run inline — Codex has no subagent primitive), then ask whether to merge the intent's PR — writing no spec, plan or task directory. It stops after that answer — each phase is scoped and built separately, starting with `/monorepo-harness-spec <intent.md>`. No credential is ever installed or stored; without `gh` you get paste-ready issue text instead, and an unreachable PR yields an explicit "approval unknown" rather than a merge.
 - **Feedback Loop, without a dedicated subagent** — Codex has no subagent primitive, so run your verification commands inline in the main session before writing `4_verify.md`; the underlying instructions are the same ones a `verifier` subagent would follow on Claude Code (see `PORTABILITY.md`).
 
 ## Day-to-day commands
@@ -61,9 +61,14 @@ intent names a `pr:`; confirms the workspace scope; and proposes 3-5 phases, whe
 its own review. After you answer
 **"Start these N phases?"** it checks whether that work is **already open** on the tracker
 (`tracker-issue.sh --list-open`, read-only) and asks *"create these phases anyway?"* if it finds any,
-then opens one GitHub issue per phase. Last, it asks **"Merge the intent PR (#N) now?"** and merges it
-only on a yes (`task-state.sh merge-intent-pr --yes`, which re-checks that the PR really carries an
-approving review and merges with a merge commit only). Throughout it writes nothing else: no
+then opens one GitHub issue per phase (creation is GitHub-only, whatever forge the PR is on). Last, it
+asks **"Merge the intent PR (#N) now?"** and merges it only on a yes
+(`task-state.sh merge-intent-pr --yes`, which re-checks that the PR really carries an approving review
+and merges with a merge commit only). The PR itself does not have to be on GitHub: those reads go
+through `core/scripts/forge.sh`, which decides GitHub / GitLab / Bitbucket / Gitea from the PR's own
+host and reaches it with that platform's CLI or REST, using a token the project already exports. If
+nothing can reach the PR it says the approval is **unknown** and merges nothing — it will not read an
+intent file's own `status: approved` in place of a human's decision. Throughout it writes nothing else: no
 `task_<date>_<phase_slug>/`, no `0_intent.md`, no `1_spec.md`, no `2_plan.md`, no index row. The phase
 scope lives in the issue body, and `/monorepo-harness-spec <intent.md>` is where each phase becomes a
 task directory. The platform comes from `<repo-root>/.agents/tracker.md` if you have confirmed it

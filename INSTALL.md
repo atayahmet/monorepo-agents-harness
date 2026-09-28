@@ -76,15 +76,15 @@ To prove the hard gate is live, add a throwaway `apps/<n>/.agents/artifacts/task
 - **CI** — `/monorepo-harness-ci` detects the provider and wires `memory-gate.sh` in.
 - **Intent inbox** — `/monorepo-harness-intent` (`core/governance/intents/AGENTS.md`).
 - **Intent dispatch** — `/monorepo-harness-intent-dispatch <intent.md>` checks the intent's PR for an
-  approval, records it on the intent, checks the tracker for work that is already open (and asks
-  before filing it anyway), opens one issue for each of 3-5 phases, then asks whether to merge the
-  intent's PR. It writes no spec, plan or task directory — those come from `/monorepo-harness-spec`
-  and `-plan`. It suggests a tracker from this repo's `origin` (`core/scripts/tracker-issue.sh
-  --infer`), asks you to confirm, and remembers your answer in `.agents/tracker.md` — yours,
-  hand-editable; the harness repo is never an issue target. The open-work read is
-  `tracker-issue.sh --list-open`; the merge is `task-state.sh merge-intent-pr`, which re-checks the
-  approval and merges with a merge commit only. Both go through the `gh` CLI you already
-  authenticated, never a stored token; without it, or on Jira / Linear, you get paste-ready text.
+  approval, records it on the intent, checks the tracker for work that is already open (and asks before
+  filing it anyway), opens one issue for each of 3-5 phases, then asks whether to merge the intent's
+  PR. It writes no spec, plan or task directory — those come from `/monorepo-harness-spec` and
+  `-plan`. It suggests a tracker from this repo's `origin` (`tracker-issue.sh --infer`), asks you to
+  confirm, and remembers the answer in `.agents/tracker.md` — yours, hand-editable; the harness repo is
+  never an issue target. Both reads go through `core/scripts/forge.sh`: GitHub, GitLab, Bitbucket and
+  Gitea, decided by the PR's own host, reached with the platform CLI you already authenticated or a
+  token you already export, never stored — if nothing can reach the PR you get "approval unknown",
+  never a merge. The merge is a merge commit only; issue creation is GitHub-only.
 - **Self-improvement** — `/monorepo-self-improve` proposes project-owned rules and skills; declined
   proposals are kept under `.agents/self-improve-proposals/`, yours to track or ignore in git.
 - **Changeset release entries** — `/monorepo-harness-changeset` drafts a changesets-compatible

@@ -154,6 +154,10 @@ fail() { echo "tracker-issue: $1" >&2; exit 1; }
 
 ROOT="$(root)"
 CACHE_FILE="$ROOT/.agents/tracker.md"
+# The open-work READ lives in forge.sh from 0.4.0-rc.7 on: it is a question about the code
+# repository's board, and forge.sh is the harness's answer to "which forge is this, and can
+# anything here reach it". Only issue CREATION stays in this script, and only for GitHub.
+FORGE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/forge.sh"
 
 cache_field() { frontmatter_field "$CACHE_FILE" "${1:-}" 2>/dev/null || true; }
 
@@ -284,36 +288,29 @@ fi
 # it resolves the tracker, the target and the harness-repo refusal by exactly the same code as
 # --create. Placed earlier it would have been a second, weaker copy of those rules.
 if [ "$list_mode" -eq 1 ]; then
+  # The tracker is still named here, and it still decides the board. "--tracker jira --list-open"
+  # is a question about the Jira board, so reading this repository's GitHub issues in its place
+  # would answer a different question - the exact axis confusion ADR 0003 exists to prevent.
   if [ "$tracker" != "github" ]; then
     echo "tracker-issue: cannot check open work on '$tracker' - it is not implemented by this harness, so whether the work is already filed is unknown. Read '$tracker' yourself, then tell the developer what is open" >&2
     exit 3
   fi
-  if ! command -v gh >/dev/null 2>&1; then
-    echo "tracker-issue: cannot check open work - 'gh' not found. The check is UNKNOWN, not empty; report it before creating anything" >&2
-    exit 3
-  fi
-  if ! gh auth status >/dev/null 2>&1; then
-    echo "tracker-issue: cannot check open work - 'gh auth status' failed. The check is UNKNOWN, not empty; report it before creating anything" >&2
-    exit 3
-  fi
-  # One query per term, unioned and de-duplicated by issue number. A template error in gh exits
-  # non-zero, so a broken query fails loudly instead of reading as "nothing is open".
-  matches=""
+  # A GitHub board is read by forge.sh from 0.4.0-rc.7 on, not by a second copy of `gh issue list`
+  # here. What that buys is the mechanism ladder: a self-hosted GitHub Enterprise host, or a project
+  # whose token is in the environment rather than in a logged-in CLI, is now reachable, and a
+  # project that is reachable by nothing still reports UNKNOWN instead of pretending it found zero.
+  # --create stays GitHub-only, in this script, unchanged.
+  forge_args=(issues --forge github)
+  [ -n "$repo" ] && forge_args+=(--repo "$repo")
   for term in $searches; do
-    if ! rows="$(gh issue list --repo "$repo" --state open --search "$term" --limit 20 \
-          -q '.[] | "#\(.number)\t\(.title)\t\(.url)"' 2>&1)"; then
-      printf 'tracker-issue: gh issue list failed for search term "%s":\n%s\n' \
-        "$term" "$(printf '%s' "$rows" | head -1)" >&2
-      exit 1
-    fi
-    matches="$matches$rows"$'\n'
+    forge_args+=(--search "$term")
   done
-  matches="$(printf '%s' "$matches" | grep -v '^[[:space:]]*$' | awk -F'\t' '!seen[$1]++' || true)"
-  count="$(printf '%s' "$matches" | grep -c . || true)"
-  [ -n "$count" ] || count=0
-  printf 'tracker-issue: open-match count=%s platform=%s target=%s terms=%s\n' \
-    "$count" "$tracker" "$repo" "$searches"
-  [ "$count" -eq 0 ] || printf '%s\n' "$matches"
+  if ! list_out="$(bash "$FORGE" "${forge_args[@]}" 2>&1)"; then
+    printf '%s\n' "$list_out" >&2
+    echo "tracker-issue: cannot check open work - the read failed. Whether the work is already filed is UNKNOWN, not empty; report it before creating anything" >&2
+    exit 3
+  fi
+  printf 'tracker-issue: %s\n' "$list_out"
   exit 0
 fi
 

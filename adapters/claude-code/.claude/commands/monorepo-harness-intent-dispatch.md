@@ -9,11 +9,16 @@ Follow the shared instructions in
 
 1. Check the approval **first, PR before file**. Read the intent's `pr:` field, then run
    `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved <intent.md> --pr <ref>`
-   when it names a GitHub PR, and the same command **without** `--pr` otherwise. If it exits non-zero,
-   report the reason and stop — write nothing, create nothing. If it reports `source: PR` while the
-   file still says `pending`, set `status: approved` and append the `## Review` section, taking the
-   reviewer and date from the script's output — never invent them. If the file is already approved,
-   change nothing.
+   when it names a pull request **on any forge** — GitHub, GitLab, Bitbucket, Gitea — and the same
+   command **without** `--pr` only when there is no `pr:` field at all. The script resolves the forge
+   and probe-verifies a real read through that platform's CLI or REST; do not assume `gh` or GitHub.
+   If it exits non-zero, report the reason and stop — write nothing, create nothing. If it reports
+   `source: PR` while the file still says `pending`, set `status: approved` and append the `## Review`
+   section, taking the reviewer and date from the script's output — never invent them. If the file is
+   already approved, change nothing. If the script says the approval is **UNKNOWN** (it could not
+   read the PR, and it names the MCP server or project skill that could), read it with that mechanism
+   using your own tools and apply the same rule — and if you cannot, say so and stop. **Never** re-run
+   without `--pr` to get a "yes" out of the file.
 2. If the intent has a `pr:` field, push the commit carrying its `## Review` section to that PR's
    branch (`git push <remote> <sha>:<branch>`) and report the remote ref. No `pr:` field → skip.
 3. Confirm the workspace scope (primary + secondary) and propose 3-5 phases — a phase is worth its
@@ -36,8 +41,9 @@ Follow the shared instructions in
 
    `count=0` → carry on. Matches → show every row and ask **"This work may already be open — create
    these phases anyway?"** (create anyway / stop / re-split) and file nothing without a yes. Exit 3
-   → say in those words that the check could **not** be run and why, then carry on. It reads only:
-   never comment, label, assign or close what it finds.
+   → say in those words that the check could **not** be run and why, then carry on. Unknown is never
+   "nothing is open", so do not answer the question yourself either. It reads only: never comment,
+   label, assign or close what it finds.
 6. For each approved phase, put the scope, workspace, verification command and the intent link in the
    issue body, then dispatch the `tracker` subagent (`.claude/agents/tracker.md`) once per phase. It
    runs exactly this and returns the issue URL:
@@ -63,8 +69,11 @@ Follow the shared instructions in
    **"Merge the intent PR (#N) now?"** (yes / no / later). Only on a **yes**, re-run it **with
    `--yes`**; the script refuses without it, and it re-checks the approval itself, so a PR nobody
    approved is never merged. Merge commit only — no `--admin`, no branch deletion, no
-   squash/rebase. On 1, the PR is still open: report that and stop. On 3 (`gh` missing), nothing was
-   merged — give them the PR URL.
+   squash/rebase. On **1**, the harness looked and refused: the PR is still open, report that and
+   stop. On **3**, the harness could not read the PR at all, so the approval is unknown and **nothing
+   was merged** — the script names the MCP server or project skill that could reach it. Read the PR
+   that way with your own tools, merge only on a fresh yes and only with a merge commit, or give them
+   the PR URL. Never report a merge that did not happen.
 8. Report each phase's issue URL, whether the open-work check could run, what happened to the intent
    PR (merged / left open with its URL / no `pr:` field), and the next command
    (`/monorepo-harness-spec <intent.md>`), then **stop**. This command does not implement and does

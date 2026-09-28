@@ -1,6 +1,6 @@
 ---
 name: tracker
-description: Creates one tracker issue per approved harness phase through core/scripts/tracker-issue.sh, using the developer's own authenticated tooling, and returns the issue URLs. Use after /monorepo-harness-intent-dispatch has had the developer sign off on the phase list and answer the "is this already open?" question. It writes no spec, plan or task directory itself, so there is no 2_plan.md to read.
+description: Creates one tracker issue per approved harness phase through core/scripts/tracker-issue.sh, using the developer's own authenticated tooling, and returns the issue URLs. Handles only GitHub issue creation; other trackers hand back to the caller. Use after /monorepo-harness-intent-dispatch has had the developer sign off on the phase list and answer the "is this already open?" question. It writes no spec, plan or task directory itself, so there is no 2_plan.md to read.
 tools: Bash, Read
 ---
 
@@ -34,6 +34,10 @@ plan edits, no source changes.
   Report the phase as "no issue yet", include that text, and name the handoff the script suggested
   (their own MCP server, project skill, or CLI, or paste it by hand).
   **Never** report an issue that does not exist.
+  **This is about creation, not the open-work read.** The duplicate check in step 7 of the dispatch
+  reads the board through `core/scripts/forge.sh`, so it works on a self-hosted or non-GitHub forge —
+  that changes nothing about what you may create. Issue creation is still GitHub-only, and no MCP
+  server or project skill turns that into a different exit code here.
 - **1** — guard failure: no platform resolved, a platform the harness does not know, no target
   repository, or the target is the harness's own repository. Report the message verbatim and stop;
   do not work around a guard.
@@ -51,7 +55,9 @@ plan edits, no source changes.
 - Do not edit the issue after creating it, do not label, assign, close, or comment on it, and do not
   create issues beyond the phases the caller named.
 - Do not read, ask for, store, or pass a token. The script uses the `gh` CLI's existing
-  authentication; if that is not authenticated, that is exit 3, not something to fix here.
+  authentication; if that is not authenticated, that is exit 3, not something to fix here. A token the
+  project already exports in its environment is read by `forge.sh` for **reads**; that is never a
+  licence to create an issue somewhere new.
 - Do not implement any phase, and do not run the verification command the phase names.
 
 ## Output

@@ -17,6 +17,91 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.7] - 2026-09-28
+
+### Added
+
+- **`core/scripts/forge.sh` — the intent PR's forge is resolved, never assumed.** A new agent-neutral
+  script owns every read of a pull request and the merge itself, so `task-state.sh` and
+  `tracker-issue.sh` no longer hard-code GitHub. Subcommands: `resolve`, `probe`, `state`, `reviews`,
+  `issues`, `merge`, `paste`.
+  - **Platforms:** GitHub, GitLab (including nested groups), Bitbucket, Gitea and self-hosted hosts.
+  - **Forge precedence:** the host in the `pr:` value itself, then a `forge:` line in
+    `<repo-root>/.agents/tracker.md`, then this repo's `origin` remote. A bare `#42` with no
+    `origin` is refused rather than assumed to be GitHub.
+  - **Mechanism ladder, each rung probe-verified with a real read before any write is considered:**
+    the platform's own CLI (`gh` / `glab` / `bb` / `tea`), then that platform's REST API using a token
+    the project **already exports** (`GITHUB_TOKEN`, `GITLAB_TOKEN`, `BITBUCKET_TOKEN`,
+    `GITEA_TOKEN`), then a project MCP server or a project skill. The harness installs, prompts for
+    and stores no credential.
+  - **Agent-only handoff:** a shell script cannot call an MCP tool, so when only the last rung exists
+    the script names the config file and the server, states plainly that it cannot verify an approval
+    and will not merge, and the agent makes the call with its own tools under the same rule. A project
+    skill outranks a generic command, because the project's own procedure wins.
+  - **Exit codes:** `0` done (resolved / probed / read / listed / merged / already merged), `1`
+    refused or usage error, `3` not done — no mechanism could read it, which is a different answer
+    from "the harness looked and said no".
+- **`task-state.sh check-intent-approved` and `merge-intent-pr` work on any forge.** Both delegate
+  every PR read to `forge.sh`. A cross-repository ref keeps its `owner/name` or full URL so it can
+  never resolve against the current project, and `merge --explain` prints the exact command it would
+  run (`gh pr merge 10 --merge`) so the write is inspectable before `--yes`.
+- **`tracker-issue.sh --list-open` reads the board through `forge.sh`**, so the already-open
+  duplicate check works on self-hosted and non-GitHub forges. Multi-word search terms and results
+  matched across terms are de-duplicated. Issue **creation** remains GitHub-only in this release —
+  reading a board and writing to it are separate axes (ADR
+  `0003-forge_axis_is_separate_from_the_tracker_axis.md`).
+
+### Changed
+
+- **An approval the harness cannot read is no longer replaced by the intent file's own
+  `status: approved`.** This is the one deliberate reversal in this release. In rc.6, if the PR could
+  not be read, dispatch fell back to the file — so on **any** project whose PR the harness could not
+  reach (which is every MCP-only or self-hosted setup, i.e. the setup this release exists to support)
+  the file stood in for a human's decision, every single time. That was a standing permission slip
+  with a success message attached. An unreadable approval is now `UNKNOWN`: `check-intent-approved`
+  exits 1 and names the fact, `merge-intent-pr` exits 3 and hands off. The file is still
+  authoritative in the one case it is meant to be — an intent with **no** `pr:` field at all — and
+  the script reports which source it used.
+- **A read that cannot happen is never a board state.** `--list-open` and `forge.sh` reads exit 3 on
+  an unreadable board, and the skill says "unknown is never nothing is open" so an agent cannot
+  answer the duplicate question from memory either.
+- **A project skill outranks a generic command when both are available**, and a conflict is reported
+  rather than silently resolved.
+- **`merge-intent-pr` separates "refused" from "could not look".** Exit 1 means the harness read the
+  PR and said no (still open); exit 3 means it could not read it at all, so the approval is unknown
+  and nothing was merged. The three adapter entry points, the shared skill, the intents governance
+  doc, `PORTABILITY.md`, `README.md`, `INSTALL.md` and the three adapter READMEs now describe the
+  merge this way.
+
+### Fixed
+
+- **PR refs are normalized once, and the host in the ref wins.** A trailing `/files` or `/commits`
+  suffix on a GitHub or Gitea PR URL, a scp-style URL (`git@host:owner/name/pull/42`), an `owner/name`
+  pair containing dashes or digits, and GitLab nested groups all resolve to the same ref instead of
+  being refused or misread.
+- **Review state is a single uppercase vocabulary.** `CHANGES_REQUESTED` and `REQUEST_CHANGES` are
+  both recognized as a request for changes; `OPEN` / `open` and `MERGED` / `merged` normalize, so a
+  platform's own casing cannot silently satisfy the gate.
+- **GitLab and Gitea REST merges no longer fail on the request itself.** The JSON body was being
+  appended to the URL, so the request was malformed before the endpoint was ever reached; Gitea's
+  merge field is now `{"Do":"merge"}` rather than GitHub's `{"merge_method":"merge"}`. A REST merge
+  also confirms the response state before reporting success, instead of reporting on a 2xx alone.
+- **A quoted or multi-word `pr:` survives end to end.** A `pr:` value wrapped in quotes reaches
+  `forge.sh` unquoted, and a multi-word `--search` term on the duplicate check is one term rather
+  than several.
+- **`forge.sh` is executable in the installed bundle.** It was created non-executable, so a direct
+  invocation failed with exit 126 while `bash forge.sh` worked — an inconsistency every other script
+  in `core/scripts/` does not have.
+
+### Upgrade Notes
+
+- **`core/install-manifest.txt` already copies the whole `core/` directory**, so the new
+  `core/scripts/forge.sh` needs **no** manifest row. Run the normal `/monorepo-harness-update` sync
+  and the adapter refresh; see `changelogs/version-0.4.0-rc.7.md` for the `forge:` line you may want
+  to add to `.agents/tracker.md`, and for the one manual follow-up that matters: if you relied on the
+  rc.6 file fallback, an intent whose `pr:` the harness could not read is now refused rather than
+  approved.
+
 ## [0.4.0-rc.6] - 2026-09-28
 
 ### Added
