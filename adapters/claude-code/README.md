@@ -59,9 +59,12 @@ and stops on anything else; pushes the approval commit if the intent names a `pr
 workspace scope; and proposes 3-5 phases, where a phase is worth its own review. After you answer
 **"Start these N phases?"** it writes one `task_<date>_<phase_slug>/` per phase (`0_intent.md`,
 `1_spec.md`, `2_plan.md` + an index row) and opens one GitHub issue per phase, recording the URL in
-the plan. The platform is resolved from `--tracker`, then the plan's `tracker:` frontmatter, then by
-asking you once — GitHub Issues via `gh` is the only platform this version implements, and Linear/Jira
-need an MCP server or token that you install yourself.
+the plan. The platform comes from `<repo-root>/.agents/tracker.md` if you have confirmed it before;
+otherwise `tracker-issue.sh --infer` reads this project's `origin` remote and the command asks you
+to confirm it — with a different platform always on the table — and records the answer there. GitHub
+Issues via `gh` is the only platform this version implements; `jira` / `linear` are recognized but
+need an MCP server or CLI that you install yourself, and any other platform is asked about, never
+guessed at. The harness repo is never an issue target.
 
 Then build each phase on its own:
 ```

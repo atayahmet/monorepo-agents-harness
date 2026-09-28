@@ -17,7 +17,7 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
-## [Unreleased]
+## [0.4.0-rc.4] - 2026-09-28
 
 ### Added
 
@@ -49,19 +49,60 @@ Release procedure (harness maintainers):
     `.claude/skills/` + `.agents/skills/` symlink and `opencode.jsonc` `instructions` entry per
     adapter, `audit-install.sh` Check 5c, `harness-update/SKILL.md` step 9.5 remediation, and
     `PORTABILITY.md` capability + semantic-difference rows.
+- **The tracker a project uses is now inferred, confirmed, and cached (issue #9).**
+  `tracker-issue.sh --infer` reads the **consumer project's** own `origin` remote and prints
+  `platform= target= source= origin=` — `github.com` → `github`, `bitbucket.org` → `bitbucket`,
+  `gitlab.com` → `gitlab`, anything else → `unknown`. Read-only, always exit 0, so an inference is a
+  suggestion with a visible source rather than a silent decision. The new confirmed answer is
+  remembered in `<repo-root>/.agents/tracker.md` (`tracker:`, `target:`, `confirmed:`) — a
+  consumer-owned file, read with the awk frontmatter helper the script already had, so no `jq`, no
+  manifest row, and no `.gitignore` work. Resolution order is now `--tracker` → project cache → the
+  phase plan's `tracker:` (an audit record, not the cache). `jira` and `linear` became recognized
+  platforms that end at exit 3 with paste-ready text and a handoff hint; any other platform is
+  refused with a message that tells the caller to ask the developer, never silently redirected to a
+  GitHub repository.
+
+### Fixed
+
+- **The harness repo is never an issue target (issue #9).** `/monorepo-harness-intent-dispatch` in a
+  consumer project on v0.4.0-rc.3 was asked an open "which GitHub repo?" question, and the agent
+  offered `atayahmet/monorepo-agents-harness` **first** — it is the most salient string in the
+  harness's own context. Picking it would have filed a consumer app's tasks in the template's
+  tracker. `tracker-issue.sh` now refuses a target matching the harness upstream on every path
+  (`--repo`, the cached `target:`, the `origin` default) and in `--dry-run` as well as `--create`, so
+  the refusal holds on every agent and every future caller rather than relying on an instruction; the
+  skill, the `tracker` subagent and the three dispatch entry points all state it. The refusal matches
+  the bundle's own `origin` too, so a fork or re-hosted bundle is covered.
 
 ### Changed
+
+- `/monorepo-harness-intent-dispatch` asks "is `<inferred>` right, or do you file it somewhere else?"
+  before any issue exists, and writes nothing to `.agents/tracker.md` before the developer answers in
+  the current turn. A later run reuses the cached answer without asking; `--tracker` still overrides
+  it deliberately.
+- `PORTABILITY.md` gains a semantic-difference note: tracker resolution has no per-agent variance —
+  inference, confirmation, cache and refusal are script- and skill-driven, so only the delivery of
+  the script call differs (claude-code subagent, opencode/codex inline).
 
 ### Removed
 
 ### Upgrade Notes
 
-- **Backwards-compatible.** Existing consumers keep their `.agents/` working state untouched; a
-  `knowledge/` dir is seeded only on a fresh full install or by running
-  `core/scripts/scaffold-knowledge.sh`. Research-only / `N/A` tasks (no `3_memory.md`) are skipped
-  by ingest and pass the gate. Tasks that wrote `3_memory.md` after this upgrade must land a
-  corresponding `knowledge/` update in the same commit (`check-kb`/memory-gate enforces it); the
-  `changelogs/version-0.4.0-rc.0.md` prompt gives the one command for existing installs.
+- **Backwards-compatible, no manifest change, no prompt.** No file was added to the bundle or to any
+  adapter, so there is no `core/install-manifest.txt` / `manifest.txt` row and no
+  `changelogs/version-0.4.0-rc.4.md` prompt — re-run the normal `install-harness.sh --sync-only` +
+  `install-adapter.sh <agent> --refresh` (or a fresh install) and the update flow carries it.
+  - An existing phase plan with `tracker: github` still resolves exactly as before: the plan is now
+    the last fallback instead of the first, so nothing that used to work stops working.
+  - A consumer whose confirmed tracker is `jira` or `linear` now gets paste-ready text and exit 3
+    (record "no issue yet", keep the task directories) where the script used to exit 1 and stop. Any
+    other platform still exits 1, with a message that says to ask the developer.
+  - Knowledge base (this release, from `[Unreleased]`): existing consumers keep their `.agents/`
+    working state untouched; a `knowledge/` dir is seeded only on a fresh full install or by running
+    `core/scripts/scaffold-knowledge.sh`. Research-only / `N/A` tasks (no `3_memory.md`) are skipped
+    by ingest and pass the gate. Tasks that wrote `3_memory.md` after this upgrade must land a
+    corresponding `knowledge/` update in the same commit (`check-kb`/memory-gate enforces it); the
+    `changelogs/version-0.4.0-rc.0.md` prompt gives the one command for existing installs.
 
 ## [0.4.0-rc.3] - 2026-09-25
 

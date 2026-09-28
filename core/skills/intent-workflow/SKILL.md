@@ -97,11 +97,33 @@ the phase list.
 5. **Get the sign-off.** Show the phase table — number, title, workspace, verification — and ask
    **"Start these N phases?"** (yes / edit / fewer). A "fewer" answer means re-split and ask again.
    No task directory and no issue exists before an explicit yes in the current turn.
-6. **Resolve the tracker once.** First hit wins: the `--tracker` argument, then `tracker:` in the
-   phase plan's frontmatter, then ask the user and write the answer into that plan. This version
-   implements **github** (GitHub Issues through the `gh` CLI) only. Linear or Jira need an MCP server
-   or API token that the **developer** installs — the harness never asks for a credential and never
-   stores one. If the user names a platform this version does not implement, say so plainly.
+6. **Find the tracker, then confirm it with the developer.** The tracker belongs to **this
+   consumer project**, never to the harness. In this order:
+   a. **If `<repo-root>/.agents/tracker.md` already records a platform, use it.** Do not ask
+      again. The developer can still change it on purpose, with `--tracker <platform>`.
+   b. **Otherwise infer it, read-only:**
+      `bash .agents/monorepo-agents-harness/core/scripts/tracker-issue.sh --infer` prints
+      `platform= target= source= origin=` and exits 0. It reads **this project's** `origin` remote
+      only — `github.com` → github, `bitbucket.org` → bitbucket, `gitlab.com` → gitlab, anything
+      else → `unknown`. The harness's own repo, `.harness-map.json` and `VERSION` are never a
+      source. Show the developer the inferred platform **and** its target.
+   c. **Ask, in one question, with three answers:** the inferred one (recommended), **a different
+      platform**, or an explicit `--tracker <platform>`. Something like "This project tracks work
+      in `<platform>` — is that right, or do you file it somewhere else?" **Never create an issue
+      on an unconfirmed guess, and never write the cache before the developer answers in the current
+      turn.** A different answer always wins over the inferred one.
+   d. **On an answer, write `<repo-root>/.agents/tracker.md`** — frontmatter `tracker:`,
+      `target:` (a GitHub `owner/name`, a Jira project key, a Linear team key) and `confirmed:`
+      (today's date), plus a line of prose saying the harness reads it and that editing it by hand
+      is fine. It is the consumer's own file: not `.harness-map.json`, not a bundle file.
+   **If the confirmed platform is not `github`, `jira` or `linear`, ask the developer how their team
+   files work in it and what its target is** (a project key, a board, a URL shape, a CLI they
+   already run), and record that answer. The harness does not guess at a platform it does not know
+   and never falls back to some other repository. For `jira` and `linear` — recognized, but needing
+   an MCP server, project skill, or CLI that **the developer** installs — hand off to that tooling;
+   if none is available the script prints paste-ready text and the phase records "no issue yet". The
+   harness never asks for a credential and never stores one. Only **github** (GitHub Issues through
+   the `gh` CLI) is implemented in this version.
 7. **Per phase, write the artifacts and open the issue.** For each approved phase, in the phase's own
    workspace: create `task_<YYYY_MM_DD>_<phase_slug>/` with `0_intent.md` (a reference stub with
    `phase: intent-ref` and `source: <intent path>` — never a copy), `1_spec.md` (the phase scope and
@@ -117,15 +139,19 @@ the phase list.
    `revisions:` entry to that phase's own `2_plan.md`).
 
 **`tracker-issue.sh` exit codes** — 0 created (or dry-run printed), 1 guard failure, 2 usage error,
-**3 not created** (`gh` missing or unauthenticated; the paste-ready title and body were printed). On 3,
-keep the task directory, write "no issue yet" in the plan's `## Tracker` section, tell the user to
-open it by hand, and continue with the remaining phases. On 1, report and stop. Never report an issue
-that does not exist.
+**3 not created** (`gh` missing or unauthenticated; a confirmed platform the harness recognizes but
+does not implement, such as `jira` or `linear`; the paste-ready title and body were printed). On 3,
+keep the task directory, write "no issue yet" in the plan's `## Tracker` section, tell the user how
+to open it by hand or with their own tooling, and continue with the remaining phases. On 1, report
+and stop. Never report an issue that does not exist.
 
 **Hard never's for this phase:** no source-file edits, no `3_memory.md` / `4_verify.md` (there is no
 finished task yet), no implementation of any phase, no issue without an explicit yes, no token or
-credential read or write, no push to a branch the user did not name, and no re-splitting of an
-existing phase's plan behind the user's back.
+credential read or write, no push to a branch the user did not name, no re-splitting of an existing
+phase's plan behind the user's back, and — **the harness repo (`monorepo-agents-harness`) is never
+an issue target and is never offered as a choice.** It is a template, not a consumer project's task
+tracker. `tracker-issue.sh` refuses it as a target on every path; do not offer it in the question
+either, however prominent it is in the harness docs or the session history.
 
 ## Connection to `agent-workflow`
 
@@ -157,8 +183,13 @@ its own gates, exactly as it does for an ad-hoc task.
   reach three.
 - **A phase's slug already exists** as a task directory: reuse it and say which one, or propose a
   different slug — never overwrite an existing `1_spec.md` / `2_plan.md`.
-- **No git remote, or a non-GitHub one, with `tracker: github`**: the script refuses and asks for
-  `--repo <owner/name>`. A repository with no remote at all still gets its task directories; the
-  issue is simply left to the developer.
+- **No git remote, or a non-GitHub one**: `--infer` reports `platform=unknown` (or `bitbucket` /
+  `gitlab`) and step 6 asks the developer where this project's work is tracked. On a non-GitHub
+  origin with `tracker: github` the script still needs `--repo <owner/name>`; a repository with no
+  remote at all still gets its task directories, and the issue is simply left to the developer.
+- **The developer names a tracker the harness does not implement**: ask how they work in it (step
+  6d), record the answer, and let their own MCP server, project skill, or CLI create the issue — or
+  print the paste-ready text and record "no issue yet". Never substitute a GitHub repository they
+  did not ask for.
 - **The developer wants the phases built now**: that is `/monorepo-harness-build <2_plan.md>` per
   phase, in the main session. Dispatch does not implement.
