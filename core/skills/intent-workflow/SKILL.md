@@ -88,13 +88,28 @@ question are in ADR `0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
 
 1. **Confirm the approval, PR first.** The human decision lives on the intent's PR; the local file is
    the record of it. Read the intent's optional `pr:` field, then run:
-   - `pr:` names a GitHub PR →
+   - `pr:` names a pull request on **any** forge →
      `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved <intent.md> --pr <ref>`
-   - no `pr:`, or it is not a GitHub PR (a non-GitHub tracker has no review state to read) → the same
-     command without `--pr`.
+   - no `pr:` field at all → the same command without `--pr`.
+   The script reads the PR through `core/scripts/forge.sh`, which decides the forge from the ref's own
+   host, then `.agents/tracker.md`'s `forge:`, then the `origin` remote, and reaches it with that
+   platform's CLI (`gh` / `glab` / `bb` / `tea`) or with REST using a token the project already
+   exports. **Do not assume GitHub**, and do not check for a CLI yourself first: the script
+   probe-verifies a real read and reports which rung it used.
    The script names the source it accepted. If it exits non-zero, report the reason and **stop** — do
    not write a file, do not ask about workspaces, do not create an issue. A `pending` intent has not
    been agreed to yet.
+   - **The approval could not be read** (no mechanism reaches that forge, or the PR is unreadable) →
+     the approval is **UNKNOWN**, which is neither a yes nor a no. Report that in those words and stop.
+     **Never** re-run without `--pr` to fall through to the file's own `status: approved`: the agent
+     that wrote that line is not the human whose approval it claims to record. From 0.4.0-rc.7 the
+     script refuses this itself, and you must not route around it.
+   - **A project MCP server or skill is the only way in** → the script prints
+     `probe result=agent-only` and exits 3, naming the config file and the server (or the skill path).
+     A shell script cannot call an MCP tool, so **you** make that call with your own tools, apply the
+     same rule (at least one approving review, and no reviewer whose *latest* review requests
+     changes), and report what you read. Merge only on the developer's explicit yes in the current
+     turn, and only with a merge commit. If you cannot read it either, say the approval is unknown.
    - **Accepted from a PR** (`source: PR …`) while the file still says `pending` → set `status:
      approved` and append the `## Review` section, taking **Reviewer** and **Date** from the script's
      output. Never invent either.
@@ -141,8 +156,12 @@ question are in ADR `0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
    and never falls back to some other repository. For `jira` and `linear` — recognized, but needing
    an MCP server, project skill, or CLI that **the developer** installs — hand off to that tooling;
    if none is available the script prints paste-ready text and the phase records "no issue yet". The
-   harness never asks for a credential and never stores one. Only **github** (GitHub Issues through
-   the `gh` CLI) is implemented in this version.
+   harness never asks for a credential and never stores one. Only **github** (GitHub Issues, created
+   through the `gh` CLI) is implemented for *creation* in this version. The open-work **read** in
+   step 7 goes through `core/scripts/forge.sh` and so works on any forge that project can reach —
+   but it reads that project's own board, which for a confirmed `jira` or `linear` tracker is still
+   the Jira or Linear board, not a GitHub one. Tracker and forge are separate questions (ADR
+   `0003-forge_axis_is_separate_from_the_tracker_axis.md`); never answer one with the other.
 7. **Check whether the work is already open, then ask.** Read-only, and **before the first issue
    exists** — a duplicate is cheap to prevent here and expensive to notice a week later:
    `bash .agents/monorepo-agents-harness/core/scripts/tracker-issue.sh --list-open --search <word> [--search <word>] --tracker <platform>`
@@ -154,11 +173,13 @@ question are in ADR `0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
      anyway?"** (create anyway / stop / re-split). Nothing is created without an explicit yes in the
      current turn. "stop" and "re-split" both end the dispatch here: leave the intent approved, file
      no issues, and say what is already open so the developer can merge the phase list into it.
-   - **exit 3** (`gh` missing or unauthenticated, or a platform the harness recognizes but does not
-     implement) → the check could **not** be performed. Say so in those words — "I could not check
-     whether this is already open" — name the reason, and continue. The check is advisory, and issue
-     creation on that same path fails immediately anyway. Record it in the final report, so a skip is
-     never silent.
+    - **exit 3** (no mechanism reaches that tracker — CLI missing or unauthenticated, no token the
+      project exports — or a platform the harness recognizes but does not implement) → the check could
+      **not** be performed. Say so in those words — "I could not check whether this is already open" —
+      name the reason, and continue. The check is advisory, and issue creation on that same path fails
+      immediately anyway. Record it in the final report, so a skip is never silent. **Unknown is never
+      "nothing is open"**: if the script cannot read the board, do not answer the question yourself
+      from memory either.
    - **exit 1** (guard failure — e.g. the harness repo itself as the target) → report and stop.
    - **exit 2** (usage error, e.g. no `--search`) → that is a bug in the call, not a board state.
      Fix the call and retry once; if it still fails, report it and continue.
@@ -194,8 +215,14 @@ question are in ADR `0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
    - An **already-merged** PR is a no-op whatever its reviews say: the script reads the PR's state
      before the gate, prints "already merged" and exits 0. A re-run therefore never fails on a PR that
      is already done, which is what makes the step safe to repeat.
-   - **exit 3** (`gh` missing or unauthenticated) → nothing was merged. Give the developer the PR URL
-     and say they can merge it themselves.
+   - **exit 3** → nothing was merged, and the reason is on stderr: the harness could not read the PR
+     at all, so it could not verify an approval. **This is the normal answer on a project whose PR
+     lives behind an MCP server or a project skill** — the script names the config and the server, and
+     you make the call with your own tools using the same rule (at least one approving review, no
+     reviewer's *latest* review requesting changes), merge only on the developer's explicit yes in
+     this turn, and only with a merge commit. If you cannot read it either, say the approval is
+     unknown and give the developer the PR URL to merge by hand. **Never** report a merge that did not
+     happen, and never fall back to the intent file's own `status: approved`.
    Merging last is deliberate: if a phase fails to file, or the duplicate check stopped the run, the
    approval is still sitting on an open PR where a human can pick it up — rather than merged as work
    that was never dispatched.
@@ -208,8 +235,9 @@ question are in ADR `0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
     phase's scope is re-derived from its issue plus the intent, so read the issue before scoping it.
 
 **`tracker-issue.sh` exit codes** — 0 done (tracker inferred, open work listed, dry-run printed, or
-the issue created), 1 guard failure, 2 usage error, **3 not done** (`gh` missing or unauthenticated; a
-confirmed platform the harness recognizes but does not implement, such as `jira` or `linear`). On 3
+the issue created), 1 guard failure, 2 usage error, **3 not done** (no mechanism can read that
+board — CLI missing or unauthenticated, or no token the project exports; or a confirmed platform the
+harness recognizes but does not implement, such as `jira` or `linear`). On 3
 from step 8, tell the user how to open the phase by hand or with their own tooling, note it in your
 report, and continue with the remaining phases; on 3 from step 7, say the duplicate check could not
 run. On 1, report and stop. Never report an issue that does not exist, and never report a merge that
@@ -217,8 +245,10 @@ did not happen.
 
 **`merge-intent-pr` exit codes** — 0 the PR is merged, or already was, or (without `--yes`) nothing
 was merged and the summary was printed; 1 refused, with the reason (no approving review, not open,
-conflicts, or the repository refused the merge — the PR is still open in every one of those cases); 3
-`gh` missing or unauthenticated, nothing merged.
+conflicts, or the forge refused the merge — the PR is still open in every one of those cases); **3 not
+done** — no mechanism could read the PR, so the approval is unknown and nothing was merged. 1 and 3
+are different answers: 1 means the harness looked and said no, 3 means it could not look. Handle them
+differently and never report either as a merge.
 
 **Hard never's for this phase:** no source-file edits, no `task_<date>_<slug>/` directory, no
 `0_intent.md` / `1_spec.md` / `2_plan.md` / `3_memory.md` / `4_verify.md`, no `artifacts/index.md`
@@ -273,8 +303,13 @@ the conversation, which is why each is a question first and a script second. (AD
 - **The PR carries `CHANGES_REQUESTED` or only comments**: that is not an approval. The script
   refuses it; say what the PR actually says and stop. Never treat a comment or a dismissed review as
   consent.
-- **`gh` is missing or the intent's `pr:` is not a GitHub PR**: the script warns on stderr and falls
-  back to the file, so the command still works — the approval then has to be in the file.
+- **The intent's `pr:` names a PR on a forge this machine cannot reach**: the script says the
+  approval is **UNKNOWN** and refuses. This is correct, and there is no fallback to the intent file —
+  an agent that wrote `status: approved` is not the human whose approval the field claims to record.
+  Read the PR with the project's own MCP server or skill (the script names which one), or ask the
+  developer. **Never** re-run without `--pr` to get a "yes" out of the file.
+- **The approval came from the file because the intent has no `pr:` field at all**: still correct, and
+  the one case the file is authoritative in. The script names the source; report it as you found it.
 - **A phase's slug matches an existing task directory**: not a collision any more, since dispatch
   creates no directory. If `/monorepo-harness-spec` later refuses for that reason, propose a
   different slug; never overwrite an existing `1_spec.md` / `2_plan.md`.

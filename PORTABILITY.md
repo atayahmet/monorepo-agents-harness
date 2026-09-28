@@ -109,10 +109,11 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
   approval and the work that follows it never happen in the same turn. The two new consent steps
   write nothing either — the found issues and the merge outcome are reported, not recorded. All four
   mechanics are script-driven and therefore byte-identical across agents: the approval check
-  (`task-state.sh check-intent-approved`, with the PR's reviewer and date), the open-work read
-  (`tracker-issue.sh --list-open`), issue creation (`tracker-issue.sh --create`, GitHub Issues via
-  `gh`) and the merge (`task-state.sh merge-intent-pr`, which re-checks the approval itself and
-  merges with a merge commit only). Only the delivery differs — claude-code dispatches the `tracker`
+  (`task-state.sh check-intent-approved`, with the PR's reviewer and date, read through
+  `core/scripts/forge.sh`), the open-work read (`tracker-issue.sh --list-open`, also through
+  `forge.sh`), issue creation (`tracker-issue.sh --create`, GitHub Issues via `gh`) and the merge
+  (`task-state.sh merge-intent-pr`, which re-checks the approval itself and merges with a merge
+  commit only). Only the delivery differs — claude-code dispatches the `tracker`
   subagent, opencode and codex run the same scripts inline, per the "no subagent primitive" note
   above.
 - **The two dispatch consent questions are identical on every agent, and the merge is the same
@@ -124,11 +125,22 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
   project gets the same two questions in the same order on claude-code, opencode and codex. The
   refusal to merge an unapproved PR, to pass `--admin`, or to delete the branch is a script fact, not
   an instruction an agent can forget.
-- **No tracker credential is ever installed, asked for, or stored, on any agent.** The harness uses
-  whatever the developer already has authenticated (`gh auth`). If it is missing, the command fails
-  open with paste-ready issue text and the remaining phases still get their issues — the developer
-  opens them by hand. Linear/Jira need an MCP server or token that the **developer** installs; the harness
-  ships neither.
+- **No credential is ever installed, asked for, or stored, on any agent.** The harness uses whatever
+  the developer already has: `gh auth` / `glab auth status` / an authenticated `tea` / `bb`, or a
+  token the project **already exports** (`GITHUB_TOKEN`, `GITLAB_TOKEN`, `BITBUCKET_TOKEN`,
+  `GITEA_TOKEN`) which `forge.sh` reads from the environment and never writes, stores or prompts for.
+  If none of those reach the forge, the read reports UNKNOWN and the command fails open with
+  paste-ready text. Linear/Jira need an MCP server or token that the **developer** installs; the
+  harness ships neither. Issue **creation** is still GitHub-only in this version — being able to
+  *read* a GitLab board is not a licence to *write* to one.
+- **`forge.sh` is agent-agnostic too, and that is the point.** The PR's forge is decided by the ref's
+  own host, then `.agents/tracker.md`'s `forge:`, then the `origin` remote — never by assuming
+  GitHub — and every mechanism is probe-verified with a real read before any write is considered. The
+  ladder is a project CLI, then REST, then a project MCP server or skill. A shell script cannot call
+  an MCP tool, so that last rung is a **handoff**: `forge.sh` names the config file and the server,
+  and the agent makes the call with its own tools under the same approval rule. The result is the
+  same on claude-code, opencode and codex, and an agent that forgets the rule still cannot merge
+  anything, because the gate is a script fact and not an instruction.
 - **Which tracker a project uses, and refusing the harness repo, is identical on every agent.** The
   inference (`tracker-issue.sh --infer`, from the *consumer's* `origin` remote), the confirmation
   question, and the project-level cache (`<repo-root>/.agents/tracker.md`) live in

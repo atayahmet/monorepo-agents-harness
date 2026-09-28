@@ -65,6 +65,15 @@ Claude Code, opencode, Cursor, Codex, and more.
   The open-work read is `tracker-issue.sh --list-open` (read-only, nothing is commented or closed),
   and the merge is `task-state.sh merge-intent-pr`: it re-checks that the PR really carries an
   approving review, merges with a merge commit only, and never passes `--admin` or deletes a branch.
+  **The intent's PR does not have to be on GitHub.** Both of those reads go through
+  `core/scripts/forge.sh`, which decides the forge from the PR URL's own host, then
+  `.agents/tracker.md`'s `forge:`, then this repo's `origin` — never by assuming — and reaches it
+  with that platform's CLI (`gh` / `glab` / `bb` / `tea`) or with REST using a token the project
+  already exports. If the only way in is a project MCP server or skill, the script names the config
+  and the server and the agent makes that call itself, under the same approval rule. If nothing can
+  reach the PR, the approval is **UNKNOWN** and nothing is merged: the harness will not read an
+  intent file's own `status: approved` in place of a human decision. (Issue **creation** is still
+  GitHub-only.)
   Both questions are asked on every agent, in the same order, because both end in a write to a shared
   system — and both write nothing to your repo.
   Later runs reuse it and never re-ask; `--tracker` overrides it on purpose. `jira` and `linear` are

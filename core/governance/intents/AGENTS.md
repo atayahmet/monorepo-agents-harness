@@ -94,10 +94,17 @@ never silent. The `pr:` field is then read twice: dispatch checks it first to re
 the very end asks *"Merge the intent PR (#N) now?"* — after the issues exist,
 never before. The merge is performed by `core/scripts/task-state.sh merge-intent-pr`, which re-checks
 the approval itself and refuses a PR with no approving review (or one whose reviewer asked for changes
-afterwards). Accepted forms: `42`, `#42`, `owner/name#42`, a PR URL
+afterwards). **The PR does not have to be on GitHub.** Both reads go through
+`core/scripts/forge.sh`, which decides the forge from the `pr:` value's own host, then
+`.agents/tracker.md`'s `forge:`, then this repo's `origin` — never by assuming GitHub — and reaches
+it with that platform's CLI or REST, using a token the project already exports. If no mechanism can
+reach the PR (a project MCP server or skill, or Jira / Linear), the approval is **UNKNOWN** and
+nothing is merged: the harness will not read the intent's own `status: approved` in place of a human
+decision, and the dispatch says so and stops. Accepted forms: `42`, `#42`, `owner/name#42`, a PR URL
 (`https://host/owner/name/pull/42`) or a scp-style PR URL (`git@host:owner/name/pull/42`) — all
-normalized to one ref the script can use. A bare clone URL or branch name carries no PR number, so
-it is refused rather than guessed at. **A `pr:` value that is still the template placeholder is
+normalized to one ref the script can use, and a cross-repository ref keeps its `owner/name` or full
+URL so it can never resolve against the wrong project. A bare clone URL or branch name carries no PR
+number, so it is refused rather than guessed at. **A `pr:` value that is still the template placeholder is
 not a PR**, and the script says so rather than trying to fetch it — `<optional PR URL or #number>`
 and an unexpanded `{{PR_URL}}` are both treated as "no PR" (fill it in, or pass `--pr <ref>`).
 Quote the value if you like: `pr: "42"`, `pr: 'https://host/owner/name/pull/42'` and

@@ -7,14 +7,17 @@
 #
 # Subcommands (each prints a reason on stdout and exits 1 on failure, 0 on success):
 #   check-intent-approved <intent.md> [--pr <pr-ref>]
-#                                        — file exists AND (an approving review on the PR, if
-#                                          --pr is given, ELSE frontmatter `status: approved`).
-#                                          The PR is the human decision, so it is read first; the
-#                                          file is the record of it. Missing/unauthenticated `gh`
-#                                          warns and falls through to the file. On success the
-#                                          source is named, with the reviewer and date from the PR
-#                                          review so the caller can record them without inventing
-#                                          them.
+#                                        — file exists AND, when a PR is named, that PR carries an
+#                                          approving review. The PR is the human decision and is
+#                                          read through forge.sh, so the forge may be GitHub,
+#                                          GitLab, Bitbucket or Gitea and the read may come from
+#                                          that platform's CLI or from REST. The intent file is
+#                                          consulted ONLY when there is no PR to read; an approval
+#                                          that cannot be read is UNKNOWN and is refused, never
+#                                          replaced by the file's own `status: approved`. On success
+#                                          the source is named, with the reviewer and date from the
+#                                          PR review so the caller can record them without
+#                                          inventing them.
 #   check-spec <spec.md>               — file exists AND frontmatter has `phase: spec`.
 #   check-plan <plan.md>               — file exists AND frontmatter has `phase: plan`.
 #   check-chain <plan.md>              — the plan's task dir also has a `1_spec.md`; and, when the
@@ -39,14 +42,19 @@
 #   merge-intent-pr <intent.md> [--pr <ref>] [--yes]
 #                                        — merge the intent's own PR, but only on an explicit answer
 #                                          and only when the PR itself carries an approving review.
-#                                          Reads `pr:` from the intent when --pr is absent. Without
-#                                          --yes it prints what it would do and exits 0 (a dry run the
-#                                          caller shows before asking). With --yes it runs
-#                                          'gh pr merge <ref> --merge': never --admin (bypassing
-#                                          branch protection is a human's call), never
-#                                          --delete-branch, never --squash/--rebase/--auto. An
-#                                          already-merged PR is reported and exits 0, so a re-run is
-#                                          harmless; a closed or conflicting PR fails.
+#                                          Reads `pr:` from the intent when --pr is absent; every
+#                                          spelling of a ref, on every supported forge, is read by
+#                                          forge.sh so the two commands cannot disagree. Without
+#                                          --yes it prints what it would do and exits 0 (a dry run
+#                                          the caller shows before asking). With --yes it runs the
+#                                          forge's merge: a MERGE COMMIT and nothing else, never
+#                                          --admin (bypassing branch protection is a human's call),
+#                                          never --delete-branch, never
+#                                          --squash/--rebase/--auto. An already-merged PR is
+#                                          reported and exits 0, so a re-run is harmless; a closed or
+#                                          conflicting PR fails. Exit 3 means NOT DONE - the harness
+#                                          could not read the PR, so it could not verify anything and
+#                                          merged nothing.
 #
 # Web usage (from the shared bundle root in a consumer project):
 #   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved \
@@ -110,43 +118,43 @@ frontmatter_field() {
 fail() { echo "task-state: $cmd — $1" >&2; exit 1; }
 
 # --- The PR review reader, shared by the gate and the merge -------------------------------------
-# Two subcommands now answer "is this PR approved?", so the answer is one function. 0.4.0-rc.5 had
-# this inline in check-intent-approved and filtered on state itself after a test showed that trusting
+# Two subcommands answer "is this PR approved?", so the answer is one reader. 0.4.0-rc.5 had this
+# inline in check-intent-approved and filtered on state itself after a test showed that trusting
 # gh's jq filter let a CHANGES_REQUESTED review through. A second copy of that filter for the merge
 # could disagree with the first about the same PR, which is the one bug class a gate cannot have.
 #
+# 0.4.0-rc.7 moved the read to forge.sh, which is the harness's answer to "where does this project's
+# code live and how can a tool reach it". The PR may be on GitHub, GitLab, Bitbucket or Gitea, be
+# reached by that platform's CLI or by REST, or be reachable only through a mechanism this shell
+# cannot drive (a project MCP server or skill) - and in that last case the answer is that the
+# approval is UNKNOWN, not that it is absent. Reading it here would have kept a second, GitHub-only
+# copy of that logic, and would have kept inventing an answer on projects this harness cannot see.
+FORGE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/forge.sh"
+
 # latest_reviews <pr-ref> — print "<login>\t<state>\t<submittedAt>" for each reviewer's LATEST
-# review. Return 1 (reason on stderr) when gh is missing, unauthenticated, or the PR is unreadable —
-# the caller then falls back to the intent file, which is the direction that cannot invent consent.
+# review. Return 1 (reason on stderr) when no read path can be probe-verified or the PR is
+# unreadable. The caller then reports the approval as unknown, which is not the same as "not
+# approved" and is never replaced by the intent file's own claim.
 latest_reviews() {
-  if ! command -v gh >/dev/null 2>&1; then
-    echo "task-state: gh not found, cannot read an approval on PR '$1'; falling back to the intent file" >&2
-    return 1
-  fi
-  if ! gh auth status >/dev/null 2>&1; then
-    echo "task-state: gh is not authenticated, cannot read an approval on PR '$1'; falling back to the intent file" >&2
-    return 1
-  fi
-  rows="$(gh pr view "$1" --json reviews \
-        -q '.reviews[] | "\(.author.login)\t\(.state)\t\(.submittedAt)"' 2>&1)" || {
-    echo "task-state: gh could not read PR '$1' ($(printf '%s' "$rows" | head -1)); falling back to the intent file" >&2
-    return 1
-  }
-  # Latest per reviewer by submittedAt, not by position: GitHub's ordering is not a contract, and a
-  # reviewer who approved on Monday and asked for changes on Tuesday has not approved this PR.
-  printf '%s\n' "$rows" | awk -F'\t' '
-    NF >= 3 && $1 != "" { if ($3 > best[$1]) { best[$1] = $3; st[$1] = $2 } }
-    END { for (l in st) print l "\t" st[l] "\t" best[l] }
-  '
+  bash "$FORGE" reviews "$1" 2>&1
 }
 
 # approval_from_pr <pr-ref> — 0 and prints "<reviewer>\t<date>" when the PR is approved; 1 when it is
 # not (an approval is required AND no reviewer may be asking for changes); 2 when the PR could not be
 # read at all. DISMISSED and COMMENTED are neither an approval nor a block.
+#
+# The 2 is load-bearing: 0.4.0-rc.6 used to fold "unreadable" into 1, and the file fallback turned
+# that into consent. An approval nobody can verify is not an approval.
 approval_from_pr() {
-  if ! rows="$(latest_reviews "$1")"; then return 2; fi
+  local rows
+  if ! rows="$(latest_reviews "$1")"; then
+    echo "$rows" >&2
+    return 2
+  fi
   if [ -z "$rows" ]; then return 1; fi
-  blockers="$(printf '%s\n' "$rows" | awk -F'\t' '$2 == "CHANGES_REQUESTED" { print $1 }')"
+  # forge.sh already reduces each reviewer to their latest review, so the board this gate reads is
+  # the same board the merge gate reads.
+  blockers="$(printf '%s\n' "$rows" | awk -F'\t' '$2 == "CHANGES_REQUESTED" || $2 == "REQUEST_CHANGES" { print $1 }')"
   if [ -n "$blockers" ]; then
     blockers="$(printf '%s\n' "$blockers" | tr '\n' ',' | sed 's/,$//')"
     echo "task-state: PR '$1' is not approved — reviewer(s) ${blockers} requested changes" >&2
@@ -157,13 +165,18 @@ approval_from_pr() {
   printf '%s\t%s\n' "$(printf '%s' "$ok" | cut -f1)" "$(printf '%s' "$ok" | cut -f3 | cut -c1-10)"
 }
 
-# pr_ref_from_intent <file> — the intent's own `pr:` field as a ref gh understands. The template ships
-# the value as a placeholder, and a PR URL may name a different repository than the current one, so
-# both spellings are normalized here rather than guessed at the call site. Returns 1 when there is no
-# PR to merge (absent or the template placeholder) and 2 when there is a value we cannot parse - the
-# caller says which, because "no pr: field" and "a pr: field I cannot read" are different mistakes.
+# pr_ref_from_intent <file> — the intent's own `pr:` field, passed through forge.sh's ref reader so
+# the value is understood the same way in both places. The template ships the field as a placeholder,
+# and a PR URL may name a different repository than the current one. Returns 1 when there is no PR to
+# merge (absent or the template placeholder) and 2 when there is a value we cannot parse - the caller
+# says which, because "no pr: field" and "a pr: field I cannot read" are different mistakes.
+#
+# 0.4.0-rc.6 did this normalisation here, with a GitHub-shaped parser: it accepted owner/name#42 and
+# /pull/42 and nothing else. A GitLab '!' ref, a Bitbucket /pull-requests/ URL or a self-hosted host
+# was a parse failure here even though forge.sh could read it fine - so the harness refused a PR it
+# was about to be handed. One reader, one answer.
 pr_ref_from_intent() {
-  local raw base rest num ref
+  local raw ref
   raw="$(frontmatter_field "$1" pr || true)"
   # The field is hand-written YAML, so quoting is the common case: pr: "42", pr: '42', and a quoted
   # URL all mean the ref without the quotes. Strip one layer of matching surrounding quotes after the
@@ -178,43 +191,44 @@ pr_ref_from_intent() {
   case "$raw" in
     *optional*|*none*|*PR\ URL*|*"{{"*|*"}}"*) return 1 ;;
   esac
-  # Reduce every spelling to one ref gh understands, in parameter expansion rather than sed: a
-  # 'sed -e' chain that substitutes twice prints two candidates, and one '#' inside a replacement
-  # closes an s#...#...#p early on BSD sed. Both of those bit this function once already.
-  base="$raw"
-  case "$base" in
-    *[a-zA-Z]://*) base="${base#*://}"; base="${base#*/}" ;;   # https://host/owner/name/...
-    *@*)           base="${base#*@}"; base="${base#*:}" ;;     # git@host:owner/name/...
+  # forge.sh owns the spelling of a ref on every platform. It prints "<n> <ref>" and exits 2 on a
+  # ref it cannot read, which is this function's "2".
+  ref="$(bash "$FORGE" resolve "$raw" 2>/dev/null | sed -n 's/.* id=\([0-9][0-9]*\) .*/\1/p')" || return 2
+  if [ -n "$ref" ]; then printf '%s' "$raw"; return 0; fi
+  # No id could be extracted: either the value names no pull request, or forge could not resolve it.
+  # Ask forge directly which of the two it is rather than guessing here.
+  resolved="$(bash "$FORGE" resolve "$raw" 2>&1)" || return 2
+  case "$resolved" in
+    *"id=<none>"*) printf '%s' "$raw"; return 0 ;;
+    *) return 2 ;;
   esac
-  case "$base" in
-    *"/pull/"*)
-      rest="${base%%/pull/*}"; num="${base##*/pull/}"; num="${num%%[^0-9]*}"
-      case "$num" in ''|*[!0-9]*) return 2 ;; esac
-      ref="$rest#$num" ;;
-    \#*) ref="${base#\#}" ;;
-    *\#*) ref="${base%%#*}#${base#*#}" ;;
-    *)   ref="$base" ;;
-  esac
-  ref="$(printf '%s' "$ref" | tr -d '[:space:]')"
-  [ -n "$ref" ] || return 2
-  case "$ref" in *[!0-9A-Za-z_./#-]*) return 2 ;; esac
-  printf '%s' "$ref"
 }
 
 case "$cmd" in
   check-intent-approved)
     [ -f "$path" ] || fail "intent file '$path' missing"
     # An approving review on the intent's PR *is* the human decision; the file is the record of it.
-    # So the PR is read first, and the file is the fallback — not the other way round, which is what
-    # refused an intent whose reviewer had already clicked "Approve" while the file still said pending.
+    # So when a PR exists it is read first, and the file is only consulted when there is no PR to
+    # read - which is the direction that cannot invent consent.
+    #
+    # 0.4.0-rc.7 removed the other half of that rule. rc.6 fell back to the file when the PR could
+    # not be READ, and on a non-GitHub project the PR was never readable, so a `status: approved`
+    # line in a file the same agent had just written stood in for a human decision that never
+    # happened. An unreadable PR is now a refusal: the approval is UNKNOWN, not absent, and UNKNOWN
+    # is not a yes. The file is still authoritative for the one case where no PR exists.
     pr_checked="no"
     if [ -n "$pr_ref" ]; then
       pr_checked="yes"
-      if approval="$(approval_from_pr "$pr_ref")"; then
-        printf 'task-state: intent approved (source: PR %s, reviewer %s, %s) — %s\n' \
-          "$pr_ref" "$(printf '%s' "$approval" | cut -f1)" "$(printf '%s' "$approval" | cut -f2)" "$path"
-        exit 0
-      fi
+      pr_status=0
+      approval="$(approval_from_pr "$pr_ref")" || pr_status=$?
+      case "$pr_status" in
+        0)
+          printf 'task-state: intent approved (source: PR %s, reviewer %s, %s) — %s\n' \
+            "$pr_ref" "$(printf '%s' "$approval" | cut -f1)" "$(printf '%s' "$approval" | cut -f2)" "$path"
+          exit 0 ;;
+        2) fail "the approval on PR '$pr_ref' could not be read, so it is UNKNOWN — not approved and not refused. Answer in this turn, or merge it on the forge yourself; this gate will not read an intent file in place of a human decision" ;;
+        *) : ;;
+      esac
     fi
     value="$(frontmatter_field "$path" status || true)"
     if [ "$value" != "approved" ]; then
@@ -224,10 +238,9 @@ case "$cmd" in
       fail "intent '$path' is not approved (status: '${value:-<none>}')"
     fi
     if [ "$pr_checked" = "yes" ]; then
-      echo "task-state: intent approved (source: file) — $path (PR '$pr_ref' carries no approving review)"
-    else
-      echo "task-state: intent approved — $path"
+      fail "PR '$pr_ref' carries no approving review, and the intent file is not consulted in its place: an intent is merged on a human decision, not on a line in a file the agent wrote"
     fi
+    echo "task-state: intent approved (source: file, no PR to read) — $path"
     ;;
   check-spec)
     [ -f "$path" ] || fail "spec file '$path' missing"
@@ -276,56 +289,66 @@ case "$cmd" in
         *) fail "no PR to merge — pass --pr <pr-ref> or give the intent a 'pr:' field with the PR URL or #number" ;;
       esac
     fi
-    # The caller is not trusted to have checked the approval: this merge lands in a shared
-    # repository, and an unapproved intent's PR is never merged, whatever flags arrive. The same
-    # reader the gate uses decides, so the two cannot disagree about the same PR.
-    if ! command -v gh >/dev/null 2>&1; then
-      echo "task-state: $cmd — 'gh' not found; nothing merged (ask the developer to merge PR $pr_ref by hand, or install gh)" >&2
-      exit 3
-    fi
-    if ! gh auth status >/dev/null 2>&1; then
-      echo "task-state: $cmd — 'gh' is not authenticated; nothing merged (ask the developer to merge PR $pr_ref by hand)" >&2
-      exit 3
-    fi
     # State first, approval second. An already-merged PR is a no-op whatever its reviews say, so
     # reading the board before the gate is what makes this idempotent instead of a second refusal
-    # the caller has to interpret. The approval still gates the only write below, and that write is
-    # reachable only from OPEN.
-    pr_json="$(gh pr view "$pr_ref" --json state,mergeable,mergeStateStatus,title 2>&1)" || \
-      fail "gh could not read PR '$pr_ref' ($(printf '%s' "$pr_json" | head -1)); nothing merged"
-    pr_state="$(printf '%s' "$pr_json" | awk -F'"state": *"' 'NF>1 { split($2, a, /[",]/); print a[1] }')"
-    pr_mergeable="$(printf '%s' "$pr_json" | awk -F'"mergeable": *"' 'NF>1 { split($2, a, /[",]/); print a[1] }')"
-    pr_status="$(printf '%s' "$pr_json" | awk -F'"mergeStateStatus": *"' 'NF>1 { split($2, a, /[",]/); print a[1] }')"
-    pr_title="$(printf '%s' "$pr_json" | awk -F'"title": *"' 'NF>1 { split($2, a, /[",]/); print a[1] }')"
-    if [ "$pr_state" = "MERGED" ]; then
-      echo "task-state: $cmd — PR $pr_ref is already merged; nothing to do — $path"
-      exit 0
+    # the caller has to interpret. The approval still gates the only write below.
+    #
+    # forge.sh answers the same question for the merge itself, but the caller needs the answer
+    # BEFORE it decides whether to gate at all: refusing an already-merged PR for "no approving
+    # review" is a false alarm about work that is already done.
+    forge_status=0
+    state_line="$(bash "$FORGE" state "$pr_ref" 2>&1)" || forge_status=$?
+    case "$forge_status" in
+      0) : ;;
+      3) forge_problem="the harness could not read PR $pr_ref at all" ;;
+      *) forge_problem="$(printf '%s' "$state_line" | tail -1)" ;;
+    esac
+    if [ "$forge_status" -ne 0 ]; then
+      printf '%s\n' "$state_line" >&2
+      if [ "$forge_status" -eq 3 ]; then
+        echo "task-state: $cmd — nothing merged. Ask the developer to merge PR $pr_ref by hand, or install a CLI/token for the forge it lives on" >&2
+        exit 3
+      fi
+      fail "$forge_problem"
     fi
-    [ "$pr_state" = "OPEN" ] || fail "PR '$pr_ref' is ${pr_state:-<unknown>}, not open; nothing merged"
-    [ "$pr_mergeable" = "CONFLICTING" ] && \
-      fail "PR '$pr_ref' has conflicts (${pr_status:-unknown}); nothing merged — resolve them first, this command never forces a merge"
-    if ! approval="$(approval_from_pr "$pr_ref")"; then
-      fail "refusing to merge PR '$pr_ref' — it carries no approving review. Merging an intent nobody approved is the one mistake this command exists to prevent"
-    fi
+    case "$state_line" in
+      *"state=MERGED"*)
+        echo "task-state: $cmd — PR $pr_ref is already merged; nothing to do — $path"
+        exit 0 ;;
+    esac
     if [ "$merge_now" -eq 0 ]; then
-      printf 'task-state: %s — would merge PR %s (%s) with a merge commit; approved by %s on %s; state %s/%s\n' \
-        "$cmd" "$pr_ref" "${pr_title:-<untitled>}" "$(printf '%s' "$approval" | cut -f1)" \
-        "$(printf '%s' "$approval" | cut -f2)" "$pr_state" "${pr_status:-unknown}"
+      forge_out="$(bash "$FORGE" merge "$pr_ref" --explain 2>&1)" || {
+        printf '%s\n' "$forge_out" >&2
+        printf 'task-state: %s — nothing merged on PR %s. The reason is above; nothing was changed on the forge\n' \
+          "$cmd" "$pr_ref" >&2
+        exit 3
+      }
+      printf 'forge: %s\n' "$forge_out"
+      # The approval the developer is being shown has to be read from the same board, not asserted.
+      if ! approval="$(approval_from_pr "$pr_ref")"; then
+        fail "refusing to plan a merge of PR '$pr_ref' — it carries no approving review. Merging an intent nobody approved is the one mistake this command exists to prevent"
+      fi
+      printf 'task-state: %s — approved by %s on %s\n' "$cmd" \
+        "$(printf '%s' "$approval" | cut -f1)" "$(printf '%s' "$approval" | cut -f2)"
       echo "task-state: $cmd — nothing merged. Re-run with --yes only after the developer answers yes in this turn"
       exit 0
     fi
-    # --merge only. No --admin (bypassing branch protection is the developer's decision), no
-    # --delete-branch (never asked for), no --squash/--rebase/--auto (history and method are the
-    # repository's business). If the repo's protection refuses, the failure is reported and the PR
-    # stays open for a human.
-    if ! out="$(gh pr merge "$pr_ref" --merge 2>&1)"; then
-      printf 'task-state: %s — gh pr merge failed, PR %s is still open:\n%s\n' \
-        "$cmd" "$pr_ref" "$(printf '%s' "$out" | head -3)" >&2
+    # --yes given: the approval is still re-read here, so a caller cannot pass --yes to skip the gate.
+    # forge.sh re-reads the state, refuses a closed or conflicting PR, and reports a REST merge only
+    # when the response itself confirms it.
+    if ! approval="$(approval_from_pr "$pr_ref")"; then
+      fail "refusing to merge PR '$pr_ref' — it carries no approving review. Merging an intent nobody approved is the one mistake this command exists to prevent"
+    fi
+    merge_status=0
+    merge_out="$(bash "$FORGE" merge "$pr_ref" 2>&1)" || merge_status=$?
+    printf 'forge: %s\n' "$merge_out"
+    if [ "$merge_status" -ne 0 ]; then
+      printf 'task-state: %s — nothing merged on PR %s. The reason is above; nothing was changed on the forge\n' \
+        "$cmd" "$pr_ref" >&2
+      [ "$merge_status" -eq 3 ] && exit 3
       exit 1
     fi
-    merged_at="$(gh pr view "$pr_ref" --json state,mergeCommit \
-      -q '"state=" + .state + " mergeCommit=" + (.mergeCommit.oid // "none")' 2>/dev/null || echo 'state=unknown')"
-    echo "task-state: $cmd — merged PR $pr_ref (${pr_title:-<untitled>}), approved by $(printf '%s' "$approval" | cut -f1) — $merged_at — $path"
+    echo "task-state: $cmd — merged PR $pr_ref, approved by $(printf '%s' "$approval" | cut -f1) — $path"
     ;;
   check-kb)
     dir="$path"
