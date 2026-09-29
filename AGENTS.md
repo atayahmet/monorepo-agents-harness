@@ -40,8 +40,10 @@ change to a reusable template, not to a single application.
    `core/skills/adr-workflow/SKILL.md`, validated by `core/scripts/task-state.sh check-adr`).
    Every add/update/delete on a task directory must be reflected in that workspace's searchable
    index `<workspace>/.agents/artifacts/index.md` in the same commit. The memory-gate
-   (`core/scripts/memory-gate.sh`) scans every workspace's artifacts dir and blocks
-   until today's task dir has `3_memory.md` and (when required) `4_verify.md`.
+   (`core/scripts/memory-gate.sh`) scans every workspace's artifacts dir and blocks a task from
+   ending until its dir has `3_memory.md` and (when required) `4_verify.md` — but only once the
+   build has started, which it reads as `build_started` on the plan (written by
+   `task-state.sh mark-build`; a spec-only or plan-only task is never blocked).
 
 6. **Always run the narrowest workspace-scoped verification command first.** Use
    `pnpm --filter <workspace>` or `turbo run <task> --filter=<workspace>` before widening scope.

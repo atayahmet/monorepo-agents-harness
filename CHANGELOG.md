@@ -17,6 +17,85 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.9] - 2026-09-29
+
+### Fixed
+
+- **The memory gate no longer blocks a task that never started building** (issue #17). `/monorepo-
+  harness-spec` and `/monorepo-harness-plan` are supposed to end at a stage boundary, but the gate
+  asked every task dir created that day for `3_memory.md` — so a legitimate spec-only turn was
+  blocked, and on claude-code the block could repeat, because the Stop hook only ever saw "this task
+  is missing its artifacts". The gate now asks **one question, read from one place**: has this task
+  reached the build stage?
+  - **The marker is one field, written once.** `build_started: <ISO-8601>` in `2_plan.md` frontmatter,
+    written by the new `task-state.sh mark-build <2_plan.md>`. No new file, nothing in the artifact
+    index, and a re-run never restamps it.
+  - **`task-state.sh stage <task_dir>` is the single stage reader**, answering `none`, `spec`, `plan`
+    or `build`. `memory-gate.sh`, `hook-arm-build.sh` and every doc read the same answer; the marker
+    wins over file presence, so a build whose spec was later deleted is still a build.
+  - **The newest task dir no longer masks an in-flight build.** The gate scans every task dir created
+    today and keeps the ones at build stage, newest first, instead of enforcing whichever dir `ls -t`
+    happened to return. Opening a fresh spec while yesterday's build is still open no longer hides it.
+  - **Both modes are stage-scoped.** `--json` (Claude Stop hook) and the default mode (git
+    pre-commit / CI) answer the same question, so CI cannot reject a commit a local hook allowed.
+  - **The block still cannot repeat.** The gate reads its own hook input and stands down silently when
+    `stop_hook_active` is true. Anything unreadable — absent, `false`, or malformed — still enforces:
+    a fix for a blocking loop must never double as a switch to turn the gate off. A `jq` that is
+    present but broken now also fails open instead of crashing the hook.
+  - **Enforcement at build stage is unchanged**, including `4_verify.md` when the spec's verification
+    plan is not `N/A` and the knowledge-base coverage check. If the stage reader cannot be found, the
+    gate falls back to its old "newest task dir" behaviour rather than silently passing.
+
+### Added
+
+- **`core/scripts/hook-arm-build.sh` — the gate arms itself when implementation starts.** A `PreToolUse`
+  hook for `Write`/`Edit`/`MultiEdit`/`NotebookEdit` watches the first write that is **not** a task
+  artifact and calls `mark-build` on the newest plan. This covers the one path the marker cannot:
+  an agent that leaves plan mode, writes `1_spec.md` + `2_plan.md` and edits code without ever
+  running `/monorepo-harness-build`. It edits nothing itself, depends only on coreutils (jq when
+  present, a unique-match fallback when not), and always exits 0 — a hook that cannot answer must
+  never stand between an agent and its edit.
+  - **Wired for claude-code** in `.claude/settings.json` (`Write|Edit|MultiEdit|NotebookEdit`).
+  - **Codex keeps the prose path**, by design: Codex has no equivalent file-write hook whose matcher
+    could be verified, so its `update_plan` reminder names `task-state.sh mark-build` explicitly. The
+    gate itself is identical on every agent — only the arming differs (`PORTABILITY.md`).
+- **`tests/memory-gate.test.sh` — 40 cases, repo-local.** Spec-only and plan-only pass; a build without
+  memory or verify is blocked; `stop_hook_active` true is silent and false/malformed/absent still
+  blocks; `N/A` verification plans need memory alone; kb coverage is unchanged; a newer spec-only dir
+  does not mask a build; `stage` and `mark-build` are write-once; the hook arms on a code write, never
+  on a `.agents/` write, and arms nothing when it cannot tell which file was edited. Each case runs
+  against a throwaway installed-layout git fixture. The file is deliberately **not** in
+  `core/install-manifest.txt` — `core/` ships whole, and a test tree must not reach a consumer.
+
+### Changed
+
+- **`core/root-AGENTS.md` (the installable root guidelines) — gotcha 5 now describes the real
+  contract**: the memory gate scans every workspace and blocks a task from ending only once it has
+  `build_started` and is missing `3_memory.md` (and `4_verify.md` when required) — a spec-only or
+  plan-only task is never blocked, and a spec-only task is never gated at all.
+- `core/skills/agent-workflow/SKILL.md`, `PORTABILITY.md`, `README.md`, `adapters/AGENTS.md`, the
+  three adapter READMEs, all three adapter INSTALL guides, the root `INSTALL.md` smoke test, and
+  `core/skills/ci-integration/SKILL.md` describe the same staged contract. The build command's
+  new step 3 is `task-state.sh mark-build`; the three adapters keep identical step numbers.
+
+### Upgrade Notes
+
+- **One manual step for claude-code and codex installs.** Both adapter settings files are `merge` rows
+  and both gained content, so an already-installed copy needs the new `PreToolUse` hook
+  (claude-code) or the reworded `update_plan` reminder (codex). Run the normal adapter refresh, then
+  accept the `.harness-proposed` changes in `.claude/settings.json` and `.codex/hooks.json`.
+- **No commands to run and no manifest rows owed.** `core/install-manifest.txt` already copies the
+  whole `core/` directory, so `core/scripts/hook-arm-build.sh` ships with the normal sync; no adapter
+  gained or lost a file.
+- **Nothing to migrate, and a task already in flight is not retro-blocked.** Plans written before this
+  version have no `build_started`, so they read as `plan` and the gate stays quiet until the first
+  write outside `.agents/` or the first `/monorepo-harness-build` marks them. That is intentional: a
+  finished 0.4.0-rc.8 build keeps its own memory and verify files and needs no marker.
+- **CI and pre-commit now allow spec-only and plan-only commits** — the intended effect, not a
+  regression. Re-run your gate (`bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh`) if
+  you expected a build-stage task to be blocked and it is not.
+- See `changelogs/version-0.4.0-rc.9.md`.
+
 ## [0.4.0-rc.8] - 2026-09-29
 
 ### Added

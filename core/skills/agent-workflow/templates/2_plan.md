@@ -3,6 +3,9 @@ phase: plan
 date: <YYYY-MM-DD>
 slug: <slug>
 status: approved
+# build_started: <ISO-8601> — written by `task-state.sh mark-build` when the build starts. Never
+# fill it in by hand and never remove it: it is how the memory-gate tells a task that is being
+# built from one that is still waiting.
 ---
 
 # Plan: <Task title>

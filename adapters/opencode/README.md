@@ -10,7 +10,7 @@ This adapter wires the harness into **opencode**. Because opencode has no `ExitP
 - **`/monorepo-harness-plan <spec.md>`** — write `2_plan.md`, gated on a valid spec, asking about plan mode first.
 - **`/monorepo-harness-build <2_plan.md>`** — run the implementation, gated on the full spec/plan/intent chain, then write `3_memory.md` + `4_verify.md`.
 - **`/monorepo-harness-changeset <2_plan.md>`** — draft a changesets-compatible release entry into `.changeset/` from the task's spec/plan/memory (deterministic filename, revision-based multi-changeset flow), gated on `check-plan` and user-confirmed bumps. No `@changesets/cli` dependency — it consumes your project's own `changeset` CLI later.
-- **Universal hard gate** — the git pre-commit / CI version of `core/scripts/memory-gate.sh` blocks commits until `3_memory.md` exists, and `4_verify.md` too whenever the spec's Test/verification plan is not `N/A` (Feedback Loop enforcement).
+- **Universal hard gate** — the git pre-commit / CI version of `core/scripts/memory-gate.sh` blocks a commit until `3_memory.md` exists, and `4_verify.md` too whenever the spec's Test/verification plan is not `N/A` (Feedback Loop enforcement). A task only owes that once its build has started (`build_started` on `2_plan.md`, written by `/monorepo-harness-build`), so a spec-only or plan-only commit passes.
 - **`/monorepo-harness-update`** — check the installed harness version against upstream and, on your consent, upgrade the core and every installed adapter.
 - **Automatic ADR capture** — the `adr-workflow` SKILL.md (listed in `opencode.jsonc` `instructions`) fires automatically while `1_spec.md`/`2_plan.md` are written whenever the task makes an architecture-affecting decision, producing `adr/NNNN-<title>.md` records referenced from the spec's `## Architectural decisions` section.
 - **`/monorepo-self-improve`** — harvest recurring patterns from lessons and task memories, then propose durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`). Requires explicit approval before writing anything.
@@ -140,4 +140,4 @@ instead. The version check alone is
 ## Notes
 
 - `/monorepo-harness-spec`/`-plan`/`-build` are the way to drive the SDLC on opencode; there is no automatic plan-mode hook, so each stage is invoked explicitly and validated by `task-state.sh`.
-- Memory-gate enforcement is the universal hard gate (`core/scripts/memory-gate.sh`) installed as a git pre-commit hook or CI step; opencode cannot block its own stop.
+- Memory-gate enforcement is the universal hard gate (`core/scripts/memory-gate.sh`) installed as a git pre-commit hook or CI step; opencode cannot block its own stop. It applies the same build-stage rule as the other adapters, so committing after `/monorepo-harness-spec` or `/monorepo-harness-plan` is fine.

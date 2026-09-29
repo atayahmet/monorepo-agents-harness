@@ -27,8 +27,9 @@ requires your judgement.
 
 **`.claude/settings.json` and the root `CLAUDE.md` are never overwritten.** If you already have
 either, the adapter's version is written as `<file>.harness-proposed` and reported. For
-`settings.json` the merge is two additions — append the `"ExitPlanMode"` matcher object under
-`hooks.PostToolUse`, and the memory-gate block under `hooks.Stop`:
+`settings.json` the merge is three additions — the gate-arming block under `hooks.PreToolUse`, the
+`"ExitPlanMode"` matcher object under `hooks.PostToolUse`, and the memory-gate block under
+`hooks.Stop`:
 
 ```bash
 git diff --no-index .claude/settings.json .claude/settings.json.harness-proposed
@@ -44,8 +45,9 @@ so they coexist with your existing hooks safely.
 | Rules / instructions | `AGENTS.md` (native to Claude Code) | root `CLAUDE.md` = thin `@AGENTS.md` pointer |
 | Plan/spec/memory + monorepo templates | `core/skills/**/SKILL.md` | symlinked into `.claude/skills/` (auto-registration) |
 | Plan/spec reminder (plan-mode exit) | — | `PostToolUse[ExitPlanMode]` hook (inline reminder) |
+| Gate arming when implementation starts | `core/scripts/hook-arm-build.sh` | `PreToolUse` hook on `Write`/`Edit` (writes `build_started` on the plan) |
 | Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` + `core/scripts/task-state.sh` | `/monorepo-harness-spec` · `/monorepo-harness-plan` · `/monorepo-harness-build` |
-| Memory-gate (incl. `4_verify.md` when required) | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (**hard block**) |
+| Memory-gate (incl. `4_verify.md` when required, once the build started) | `core/scripts/memory-gate.sh` + `task-state.sh stage` | `Stop` hook → script `--json` (**hard block**, stands down on `stop_hook_active`) |
 | Verifier subagent | `core/skills/agent-workflow/SKILL.md` Phase 4 | `.claude/agents/verifier.md` (isolated, read-only) |
 | Update check | `core/scripts/harness-update.sh` + `core/prompts/harness-update.md` + `core/skills/harness-update/SKILL.md` | `/monorepo-harness-update` → `.claude/commands/monorepo-harness-update.md` |
 | CI wiring · PR review · intent capture | `core/skills/{ci-integration,pr-review,intent-workflow}/SKILL.md` | `/monorepo-harness-ci` · `/monorepo-harness-review` · `/monorepo-harness-intent` |

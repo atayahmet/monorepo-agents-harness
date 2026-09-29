@@ -28,6 +28,12 @@ read it before scanning task directories, and keep it searchable (rules below).*
 Workspaces are seeded by `.agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh`
 (creates `artifacts/{AGENTS.md,index.md}`); re-run it after adding a workspace.
 
+**`2_plan.md` frontmatter carries one machine-written field:** `build_started: <ISO-8601>`, added by
+`core/scripts/task-state.sh mark-build` before implementation starts. It is how the memory-gate tells
+a task that is being built from one that is still at a stage boundary, so the gate blocks only the
+former. It is **not** an index concern — no row, no `◆`, no column — and it must never be hand-filled
+or removed. A task with `build_started` and no `3_memory.md` is owed memory, whatever the index says.
+
 ## Index format (`<workspace>/.agents/artifacts/index.md`)
 
 Optimized for token-efficient lookup and mechanical search: one line per task, grouped by module,

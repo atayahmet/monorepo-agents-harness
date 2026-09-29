@@ -46,7 +46,7 @@ audit (below) reports each missing entry by exact path, so run it after every up
 | Rules / instructions | `AGENTS.md` (native to opencode) | — (no extra wiring) |
 | Plan/spec/memory + monorepo templates | `core/skills/**/SKILL.md` | referenced via `opencode.jsonc` `instructions` |
 | Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` + `core/scripts/task-state.sh` | `/monorepo-harness-spec` · `/monorepo-harness-plan` · `/monorepo-harness-build` |
-| Memory-gate (incl. `4_verify.md` when required) | `core/scripts/memory-gate.sh` | the universal git/CI gate (hard) — the only enforcement here |
+| Memory-gate (incl. `4_verify.md` when required, once the build started) | `core/scripts/memory-gate.sh` + `task-state.sh stage` | the universal git/CI gate (hard) — the only enforcement here |
 | Verifier | `core/skills/agent-workflow/SKILL.md` Phase 4 | — (no subagent primitive; run the same verification inline) |
 | Update check | `core/scripts/harness-update.sh` + `core/prompts/harness-update.md` + `core/skills/harness-update/SKILL.md` | `/monorepo-harness-update` → `.opencode/commands/monorepo-harness-update.md` |
 | CI wiring · PR review · intent capture | `core/skills/{ci-integration,pr-review,intent-workflow}/SKILL.md` | `/monorepo-harness-ci` · `/monorepo-harness-review` · `/monorepo-harness-intent` |
@@ -74,7 +74,8 @@ For the end-to-end memory-gate smoke test see `../../INSTALL.md` §5.
 - **The memory-gate is enforced only by the universal hard gate.** opencode cannot block its own
   stop, so `memory-gate.sh` as `.git/hooks/pre-commit` and/or a CI step (wired by
   `install-harness.sh`) *is* the enforcement. If that slot was already taken, the installer says so
-  in its `Needs you:` list — act on it, or the gate is unenforced.
+  in its `Needs you:` list — act on it, or the gate is unenforced. It enforces the same build-stage
+  rule as the other adapters, so committing after `-spec` or `-plan` passes.
 - **No skill symlinks.** opencode reads the shared `SKILL.md` files through `opencode.jsonc`
   `instructions`, so there is nothing to link into a skills directory. The trade-off is that new
   shared skills are a manual merge on every upgrade instead of an automatic symlink — `audit-install.sh`

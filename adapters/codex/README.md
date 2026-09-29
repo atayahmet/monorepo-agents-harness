@@ -11,7 +11,8 @@ This adapter wires the harness into **Codex CLI**. Codex toggles plan mode with 
 - **`/monorepo-harness-plan <spec.md>`** — write `2_plan.md`, gated on a valid spec, asking about plan mode first.
 - **`/monorepo-harness-build <2_plan.md>`** — run the implementation, gated on the full spec/plan/intent chain, then write `3_memory.md` + `4_verify.md`.
 - **`/monorepo-harness-changeset <2_plan.md>`** — draft a changesets-compatible release entry into `.changeset/` from the task's spec/plan/memory (deterministic filename, revision-based multi-changeset flow), gated on `check-plan` and user-confirmed bumps. No `@changesets/cli` dependency — it consumes your project's own `changeset` CLI later.
-- **Memory reminder + universal hard gate** — the `Stop` hook warns if `3_memory.md` or (when required) `4_verify.md` is missing; the git pre-commit / CI gate actually blocks commits.
+- **Memory reminder + universal hard gate** — the `Stop` hook warns if a task in its **build stage** is missing `3_memory.md` or (when required) `4_verify.md`; the git pre-commit / CI gate actually blocks commits. A task only owes those once `build_started` is on its plan, so a spec-only or plan-only task never gets a reminder it cannot act on.
+- **Gate arming without a file-write hook** — the same `update_plan` reminder that asks for `1_spec.md` + `2_plan.md` also asks for `task-state.sh mark-build <2_plan.md>` before the first implementation write, because Codex hook matchers on file writes cannot be relied on (see `PORTABILITY.md`). The capability matches the other adapters; only the trigger differs.
 - **`/monorepo-harness-update`** — check the installed harness version against upstream and, on your consent, upgrade the core and every installed adapter.
 - **Automatic ADR capture** — the `adr-workflow` skill (symlinked into `.agents/skills/`, so it also appears in the slash list) fires automatically while `1_spec.md`/`2_plan.md` are written whenever the task makes an architecture-affecting decision, producing `adr/NNNN-<title>.md` records referenced from the spec's `## Architectural decisions` section.
 - **`/monorepo-self-improve`** — harvest recurring patterns from lessons and task memories, then propose durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`). Requires explicit approval before writing anything.
@@ -138,4 +139,4 @@ instead. The version check alone is
 ## Notes
 
 - The automatic reminder and `/monorepo-harness-spec`/`-plan`/`-build` all share the same `core/skills/agent-workflow/SKILL.md` instructions and `core/scripts/task-state.sh` gates.
-- Codex `Stop` hooks are **soft reminders** only — the real enforcement is the universal hard gate installed as a git pre-commit hook or CI step.
+- Codex `Stop` hooks are **soft reminders** only — the real enforcement is the universal hard gate installed as a git pre-commit hook or CI step. Both are scoped to a task that reached the build stage, exactly like claude-code's hard block.

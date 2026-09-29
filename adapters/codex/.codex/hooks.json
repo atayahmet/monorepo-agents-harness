@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -n '{\"systemMessage\":\"<system-reminder>\\nPlan updated. Before the first implementation Edit/Write, create the task directory under the target workspace (<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/) and write 1_spec.md (phase: spec) first, then 2_plan.md (phase: plan, status: approved), following the agent-workflow skill templates.\\n</system-reminder>\"}'",
+            "command": "jq -n '{\"systemMessage\":\"<system-reminder>\\nPlan updated. Before the first implementation Edit/Write, create the task directory under the target workspace (<workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/) and write 1_spec.md (phase: spec) first, then 2_plan.md (phase: plan, status: approved), following the agent-workflow skill templates.\\n\\nThen, still before the first implementation Edit/Write, run `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh mark-build <2_plan.md>` — it records build_started on the plan, which is what arms the memory-gate for this task. Codex has no file-write hook to arm it for you (see PORTABILITY.md).\\n</system-reminder>\"}'",
             "statusMessage": "Agent-workflow plan reminder"
           }
         ]
