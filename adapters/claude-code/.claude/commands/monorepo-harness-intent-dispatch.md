@@ -1,5 +1,5 @@
 ---
-description: Turn an approved intent into phased tracker issues - check the intent's PR for an approval, record it, ask before filing work that may already be open, open one issue per phase, then ask before merging the intent PR; writing no spec, plan or task directory (no implementation)
+description: Turn an approved intent into phased tracker issues - check the intent's PR for an approval, record it, ask before filing work that may already be open, ask whether 2+ phases should be grouped under one parent epic issue, file the epic and its child issues, record every number back on the intent, then ask before merging the intent PR; writing no spec, plan or task directory (no implementation)
 ---
 
 Follow the shared instructions in
@@ -22,7 +22,11 @@ Follow the shared instructions in
 2. If the intent has a `pr:` field, push the commit carrying its `## Review` section to that PR's
    branch (`git push <remote> <sha>:<branch>`) and report the remote ref. No `pr:` field → skip.
 3. Confirm the workspace scope (primary + secondary) and propose 3-5 phases — a phase is worth its
-   own review. Ask "Start these N phases?" and write nothing before an explicit yes.
+   own review. Ask **"Start these N phases?"** and write nothing before an explicit yes.
+   **At 2 or more phases, ask about the epic in the same breath:** add an **Epic** row to the table
+   (title + tracker) and ask **"Start these N phases under an epic?"** (`yes` / `no epic` / `edit` /
+   `fewer`). At **1 phase** there is no epic, no row and no extra question — never invent a second
+   phase to justify one. Propose the intent's own short title as the epic title.
 4. Find the tracker and **confirm it with the developer** before any issue exists (skill step 6):
    use `<repo-root>/.agents/tracker.md` if it records one, otherwise run
    `bash .agents/monorepo-agents-harness/core/scripts/tracker-issue.sh --infer` and show the result,
@@ -44,22 +48,40 @@ Follow the shared instructions in
    → say in those words that the check could **not** be run and why, then carry on. Unknown is never
    "nothing is open", so do not answer the question yourself either. It reads only: never comment,
    label, assign or close what it finds.
-6. For each approved phase, put the scope, workspace, verification command and the intent link in the
-   issue body, then dispatch the `tracker` subagent (`.claude/agents/tracker.md`) once per phase. It
-   runs exactly this and returns the issue URL:
+6. **File the epic, or reuse one — only if step 3 asked and got a "yes", and before any phase exists.**
+   Reuse in this order: the epic named in the intent's newest `## Dispatch` block (create nothing —
+   this is what makes a re-run safe), then an issue the developer nominates from step 5's rows in this
+   turn (create nothing). Only if neither, create it through the `tracker` subagent (step 7) with no
+   `--parent` and **keep the `number=` it prints** — every phase links to it. Exit 3 from that create
+   (a `jira`/`linear` tracker, no `gh`, or a `gh` too old for `--parent`) → **no epic; carry on and file
+   the phases flat.** Never block a phase on its parent. Never match a candidate yourself, and never
+   link children under an issue the developer did not name this turn.
+7. For each approved phase, put the scope, workspace, verification command and the intent link in the
+   issue body, then dispatch the `tracker` subagent (`.claude/agents/tracker.md`) — once for the epic
+   if there is one, then once per phase, passing `--parent <epic number>` on **every** phase when there
+   is an epic and on none when there is not. It runs exactly this and returns the number and URL:
 
    ```
    bash .agents/monorepo-agents-harness/core/scripts/tracker-issue.sh \
-     --title "<issue title>" --body-file <file> --create
+     --title "<issue title>" --body-file <file> [--parent <epic number>] --create
    ```
 
-   **Write no file of your own**: no `task_<YYYY_MM_DD>_<phase_slug>/`, no `0_intent.md`, no
+   Then **append the intent's `## Dispatch` block**: today's date, the tracker, the `Epic:` line
+   (omitted entirely when there is no epic) and one `Phases:` line per phase slug with the `#<number>`
+   and URL that came back, or `no issue yet (<reason>)` for a phase that was not filed. Append a new
+   block; never rewrite the previous one. Record **only what the script printed** — never a number
+   inferred from a title or carried over from an earlier turn. Format and full rules:
+   `core/governance/intents/AGENTS.md`.
+
+   **Write no other file of your own**: no `task_<YYYY_MM_DD>_<phase_slug>/`, no `0_intent.md`, no
    `1_spec.md`, no `2_plan.md`, no `index.md` row. Those belong to `/monorepo-harness-spec` and
-   `/monorepo-harness-plan`, which scope one task at a time; delete the throwaway body file when
-   done. If the subagent reports exit 3 (`gh` missing or unauthenticated, or a confirmed `jira` /
-   `linear` project), tell the user how to open the phase by hand, keep going with the remaining
-   phases, and never report an issue that does not exist.
-7. **Ask whether to merge the intent PR — the last step** (skill step 9). No `pr:` field → skip
+   `/monorepo-harness-plan`, which scope one task at a time; delete the throwaway body files when
+   done. If the subagent reports exit 3 (`gh` missing or unauthenticated, an old `gh` that cannot set
+   a parent, or a confirmed `jira` / `linear` project), tell the user how to open the phase by hand,
+   record it as `no issue yet`, keep going with the remaining phases, and never report an issue that
+   does not exist. Exit 1 means nothing was created — including a refused `--parent` link, which is
+   atomic — so do not name that phase as filed.
+8. **Ask whether to merge the intent PR — the last step** (skill step 9). No `pr:` field → skip
    silently. Otherwise show the read-only summary first, then ask:
 
    ```
@@ -74,7 +96,8 @@ Follow the shared instructions in
    was merged** — the script names the MCP server or project skill that could reach it. Read the PR
    that way with your own tools, merge only on a fresh yes and only with a merge commit, or give them
    the PR URL. Never report a merge that did not happen.
-8. Report each phase's issue URL, whether the open-work check could run, what happened to the intent
-   PR (merged / left open with its URL / no `pr:` field), and the next command
-   (`/monorepo-harness-spec <intent.md>`), then **stop**. This command does not implement and does
-   not plan: no source edits, no task directory, no spec or plan.
+9. Report the epic (number and URL, or "no epic", or "no issue yet" with the reason), each phase's
+   issue number and URL, the `## Dispatch` block you appended, whether the open-work check could run,
+   what happened to the intent PR (merged / left open with its URL / no `pr:` field), and the next
+   command (`/monorepo-harness-spec <intent.md>`), then **stop**. This command does not implement and
+   does not plan: no source edits, no task directory, no spec or plan.

@@ -9,7 +9,12 @@
 #                    Read-only: the duplicate check dispatch runs before it files anything. Never
 #                    writes, never comments, never labels, never closes.
 #   (default)        --dry-run: print exactly what would be created.
-#   --create         create the issue and print its URL.
+#   --create         create the issue and print 'created number=<n>' then its URL, URL last.
+#
+# One epic per multi-phase dispatch: the epic is an ordinary issue created by this same call, and
+# every child is created with --parent <epic number>, which is a real parent/child relation on the
+# tracker (GitHub sub-issues) rather than a label or a line of prose. There is no separate epic mode:
+# one create path, one platform table, one guard.
 #
 # The tracker belongs to the CONSUMER project, never to the harness. It is resolved in this order,
 # first hit wins:
@@ -31,8 +36,8 @@
 #   tracker-issue.sh --infer
 #   tracker-issue.sh --list-open --search <text> [--search <text> ...]
 #   tracker-issue.sh --title <text> (--body <text> | --body-file <path>)
-#                    [--plan <2_plan.md>] [--tracker <platform>] [--repo <owner/name>]
-#                    [--dry-run] [--create]
+#                    [--parent <number-or-url>] [--plan <2_plan.md>] [--tracker <platform>]
+#                    [--repo <owner/name>] [--dry-run] [--create]
 #
 #   --infer          print 'platform=<p> target=<t> source=cache|inferred|none origin=<url>' and
 #                    exit 0. No plan, no title, no body needed. Writes nothing.
@@ -51,16 +56,26 @@
 #   --title <text>   issue title (one line)
 #   --body <text>    issue body (may be multi-line)
 #   --body-file <p>  read the body from a file instead (preferred for multi-line bodies)
+#   --parent <ref>   OPTIONAL. File this issue as a sub-issue of <ref> (a number or an issue URL) -
+#                    the parent phase/epic this one hangs under. This is how an epic groups its
+#                    children: the epic is an ordinary issue, and every child passes --parent.
+#                    Only read in the create modes. On 'jira'/'linear' the harness creates nothing,
+#                    so the link is not applied by it: the note goes to stderr and the paste-ready
+#                    block carries a 'parent: <ref>' line for the developer to set by hand. If the
+#                    installed 'gh' has no --parent flag (an older CLI), nothing is created: the
+#                    script prints the paste-ready text and exits 3, the same floor as no 'gh' at all.
 #   --tracker <name> platform override; see the platform table above
 #   --repo <o/n>     target repository (default: the cache's target, else the 'origin' remote)
 #   --dry-run        print the issue that would be created, create nothing (default)
-#   --create         create the issue and print its URL
+#   --create         create the issue; prints 'tracker-issue: created number=<n>' and then the URL,
+#                    URL last, so a caller that only wants the link keeps working unchanged.
 #
 # Exit codes: 0 = success (inferred / open work listed / dry-run printed / issue created), 1 = guard
 #             failure, 2 = usage error, 3 = NOT DONE, reason printed (gh missing or unauthenticated,
-#             or a recognized platform the harness does not implement) - the caller records "no
-#             issue yet" and continues. In --list-open, 3 means the check could not be performed at
-#             all, which the caller must report rather than treat as "nothing is open".
+#             an installed gh too old for --parent, or a recognized platform the harness does not
+#             implement) - the caller records "no issue yet" and continues. In --list-open, 3 means
+#             the check could not be performed at all, which the caller must report rather than treat
+#             as "nothing is open".
 # Dependencies: git + coreutils; 'gh' only for --create and --list-open, and its absence is a
 # supported path.
 # Knobs (env): HARNESS_UPSTREAM - upstream git URL of this harness, added to the never-target list.
@@ -130,22 +145,23 @@ BUNDLE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
 [ $# -ge 1 ] || usage
 
 plan=""; title=""; body=""; body_file=""; tracker=""; repo=""; create_mode=0; infer_mode=0
-list_mode=0; searches=""
+list_mode=0; searches=""; parent=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --infer)      infer_mode=1; shift ;;
     --list-open)  list_mode=1; shift ;;
     --search)     [ -n "${2:-}" ] || usage; searches="$searches $2"; shift 2 ;;
-    --plan)      [ -n "${2:-}" ] || usage; plan="$2"; shift 2 ;;
-    --title)     [ -n "${2:-}" ] || usage; title="$2"; shift 2 ;;
-    --body)      [ -n "${2:-}" ] || usage; body="$2"; shift 2 ;;
-    --body-file) [ -n "${2:-}" ] || usage; body_file="$2"; shift 2 ;;
-    --tracker)   tracker="${2:-}"; shift 2 ;;
-    --repo)      [ -n "${2:-}" ] || usage; repo="$2"; shift 2 ;;
-    --dry-run)   create_mode=0; shift ;;
-    --create)    create_mode=1; shift ;;
-    -h|--help)   print_usage; exit 0 ;;
+    --plan)       [ -n "${2:-}" ] || usage; plan="$2"; shift 2 ;;
+    --title)      [ -n "${2:-}" ] || usage; title="$2"; shift 2 ;;
+    --body)       [ -n "${2:-}" ] || usage; body="$2"; shift 2 ;;
+    --body-file)  [ -n "${2:-}" ] || usage; body_file="$2"; shift 2 ;;
+    --parent)     [ -n "${2:-}" ] || usage; parent="$2"; shift 2 ;;
+    --tracker)    tracker="${2:-}"; shift 2 ;;
+    --repo)       repo="${2:-}"; shift 2 ;;
+    --dry-run)    create_mode=0; shift ;;
+    --create)     create_mode=1; shift ;;
+    -h|--help)    print_usage; exit 0 ;;
     *) echo "tracker-issue: unknown argument: $1" >&2; usage ;;
   esac
 done
@@ -320,6 +336,11 @@ case "$task_rel" in "$plan") task_rel="$plan" ;; esac
 footer="<!-- monorepo-harness phase: $task_rel -->"
 
 paste_ready() {
+  # --parent is a line, not a flag, on this path: the harness creates nothing here, so the developer
+  # sets the relationship in their own tool. Naming it here beats dropping it silently.
+  if [ -n "$parent" ]; then
+    printf '\n--- parent ---\n%s\n' "$parent"
+  fi
   printf '\n--- target ---\n%s\n--- title ---\n%s\n--- body ---\n%s\n%s\n' \
     "${repo:-<none recorded>}" "$title" "$body" "$footer"
 }
@@ -328,6 +349,7 @@ paste_ready() {
 if [ "$create_mode" -eq 0 ]; then
   printf 'tracker-issue: would create a %s issue in %s (run with --create to create it)\n' \
     "$tracker" "${repo:-<none recorded>}"
+  [ -n "$parent" ] && printf 'tracker-issue: as a sub-issue of %s\n' "$parent"
   printf '\n--- title ---\n%s\n--- body ---\n%s\n%s\n' "$title" "$body" "$footer"
   exit 0
 fi
@@ -337,6 +359,7 @@ fi
 # text to paste into their own tool, and the caller records "no issue yet" and keeps going.
 if [ "$tracker" != "github" ]; then
   echo "tracker-issue: '$tracker' is not implemented by this harness - issue NOT created. Use your own MCP server, project skill, or CLI for '$tracker', or paste this by hand:" >&2
+  [ -n "$parent" ] && echo "tracker-issue: --parent is not applied on '$tracker' - set the parent relationship yourself from the block below" >&2
   paste_ready
   exit 3
 fi
@@ -352,8 +375,31 @@ if ! gh auth status >/dev/null 2>&1; then
   exit 3
 fi
 
-url="$(gh issue create --repo "$repo" --title "$title" --body "$body"$'\n'"$footer" 2>&1)" || {
+# --parent needs a gh that knows the flag. Ask the installed one rather than pinning a version: a
+# machine with an older gh could still file this issue flat, so it is not made to fail over a link it
+# cannot express. Same exit 3 as a missing gh - nothing is created either way.
+if [ -n "$parent" ] && ! gh issue create --help 2>/dev/null | grep -q -- '--parent'; then
+  echo "tracker-issue: this 'gh' has no '--parent' flag (too old to link a child issue) - issue NOT created; file it without --parent, or open it by hand:" >&2
+  paste_ready
+  exit 3
+fi
+
+# GitHub's create is atomic in its parent field: the child is created AND linked, or nothing is
+# created. So there is no "created but unlinked" state to report - a refused link (no triage access
+# on the parent, parent not found) is a create failure like any other, and the phase is "no issue yet".
+create_args=(--repo "$repo" --title "$title" --body "$body"$'\n'"$footer")
+[ -n "$parent" ] && create_args+=(--parent "$parent")
+
+url="$(gh issue create "${create_args[@]}" 2>&1)" || {
   printf 'tracker-issue: gh issue create failed:\n%s\n' "$url" >&2
   exit 1
 }
-printf '%s\n' "$url" | tail -n 1
+
+# Machine-readable first, URL last. The URL stays the final line on purpose: the tracker subagent and
+# every installed copy of it read "the last stdout line is the URL", and they must keep working.
+final_url="$(printf '%s\n' "$url" | tail -n 1)"
+issue_number="$(printf '%s\n' "$final_url" | sed -n 's#.*/\([0-9][0-9]*\)$#\1#p')"
+if [ -n "$issue_number" ]; then
+  printf 'tracker-issue: created number=%s\n' "$issue_number"
+fi
+printf '%s\n' "$final_url"
