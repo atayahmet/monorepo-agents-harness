@@ -17,6 +17,65 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.8] - 2026-09-29
+
+### Added
+
+- **A multi-phase intent can get one parent issue.** `tracker-issue.sh --create` takes `--parent
+  <number-or-url>`, which maps to `gh issue create --parent` — a real parent/child relation on the
+  tracker, not a label. Dispatch asks *"Start these N phases under an epic?"* inside the existing
+  step 5 sign-off table, so the epic is consented to in the same turn as the phase list; on a "yes"
+  it creates the epic (an ordinary issue, no new script) and files every phase as its sub-issue.
+  - **At `N >= 2` only.** A single-phase intent gets no epic, no row and no extra question, and a
+    second phase is never invented to justify one.
+  - **`no epic` is an explicit answer**; it files the phases flat, exactly as before.
+  - **A re-run never files a second epic.** The epic named in the intent's newest `## Dispatch` block
+    is reused, and an open-work candidate becomes the epic only when the developer nominates it in the
+    current turn — the automatic-dedupe prohibition of ADR
+    `0002-dispatch_gates_open_work_and_consents_pr_merge.md` is unchanged.
+  - **GitHub's create is atomic in its parent field**, so a child and its parent either both exist or
+    neither does. There is no "created but unlinked" state to report, and a refused link is an
+    ordinary exit-1 create failure recorded as `no issue yet (<reason>)` like any other.
+- **`## Dispatch` — the intent records what it produced** (`core/governance/intents/AGENTS.md`).
+  One append-only block per dispatch run (newest last) holding the tracker, the `Epic:` line (omitted
+  entirely when there is no epic) and one `Phases:` line per phase slug with the key and URL the
+  create actually returned, or `no issue yet (<reason>)`. It is the second thing dispatch records on
+  the intent file and closes the traceability gap left once the PR is merged — **the number of files
+  dispatch writes stays at two** (intent file + tracker cache); `## Dispatch` is a section of the
+  existing intent, not a new file. No key is ever inferred from a title or carried over from an
+  earlier turn, and a partial run records the partial truth.
+
+### Changed
+
+- **`tracker-issue.sh --create` now prints `tracker-issue: created number=<n>` before the URL.** The
+  number is what a parent link and a `## Dispatch` row need, and deriving it from the URL meant every
+  caller re-parsed a string it was never meant to parse. The URL is still the last line, so
+  `tail -1` keeps working.
+- **A `gh` too old for `--parent` degrades to flat, it does not fail.** The script probes
+  `gh issue create --help` for the flag when `--parent` is used; without it (present in `gh` 2.100.0)
+  it prints paste-ready title and body and exits 3 — the same floor as "`gh` not found". The phases
+  are filed without a parent, the report says the epic is unlinked, and no dispatch is blocked. No
+  version check exists anywhere else and no floor is pinned.
+
+### Documentation
+
+- `PORTABILITY.md` records the epic decision and the parent link as agent-neutral: same sign-off
+  question, same `--parent` flag, same reuse rule on claude-code, opencode and codex, with the
+  `tracker` subagent and the two inline agents changed together.
+- The three adapter READMEs and the shared workflow paragraph in `README.md` describe the epic
+  question, the sub-issue link and the `## Dispatch` record. `INSTALL.md` needed no change — no file
+  was added to either manifest, so installation is unchanged.
+
+### Upgrade Notes
+
+- No commands, no manifest rows, no artifact-layout change, and nothing to migrate: intents dispatched
+  under earlier versions simply have no `## Dispatch` block, and the first dispatch that follows writes
+  one with no earlier epic to reuse.
+- Optional: if you want the epic link, `gh` must be **2.100.0 or newer** (`gh --version`). On an older
+  `gh` every phase still gets an issue, just without the parent link — there is no harness setting to
+  change.
+- See `changelogs/version-0.4.0-rc.8.md`.
+
 ## [0.4.0-rc.7] - 2026-09-28
 
 ### Added

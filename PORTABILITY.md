@@ -41,7 +41,7 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 | CI provider detection + `memory-gate.sh` integration (`/monorepo-harness-ci`) | `core/scripts/detect-ci-provider.sh` + `core/skills/ci-integration/SKILL.md` | `.claude/commands/monorepo-harness-ci.md` → `/monorepo-harness-ci` | `.opencode/commands/monorepo-harness-ci.md` → `/monorepo-harness-ci` | `.agents/skills/monorepo-harness-ci/SKILL.md` → `/monorepo-harness-ci` | run `.agents/monorepo-agents-harness/core/scripts/detect-ci-provider.sh --provider` directly and follow `core/skills/ci-integration/SKILL.md` by hand |
 | PR review (`/monorepo-harness-review`) | `core/root-REVIEW.md` (installed policy) + `core/skills/pr-review/SKILL.md` | `.claude/commands/monorepo-harness-review.md` → `/monorepo-harness-review` | `.opencode/commands/monorepo-harness-review.md` → `/monorepo-harness-review` | `.agents/skills/monorepo-harness-review/SKILL.md` → `/monorepo-harness-review` | follow `core/skills/pr-review/SKILL.md` by hand — it's plain `git diff` + read/report, no agent-specific mechanism needed |
 | Intent capture + review (`/monorepo-harness-intent`) | `core/governance/intents/` + `core/skills/intent-workflow/SKILL.md` | `.claude/commands/monorepo-harness-intent.md` → `/monorepo-harness-intent` | `.opencode/commands/monorepo-harness-intent.md` → `/monorepo-harness-intent` | `.agents/skills/monorepo-harness-intent/SKILL.md` → `/monorepo-harness-intent` | follow `core/skills/intent-workflow/SKILL.md` by hand — plain file read/write + the consent questions, plus native `git` branch/commit when the author approves them |
-| Intent dispatch (`/monorepo-harness-intent-dispatch`) | `core/skills/intent-workflow/SKILL.md` "Workflow — Dispatch" + `core/scripts/tracker-issue.sh` (tracker inference via `--infer`, open-work check via `--list-open`, issue creation via `gh`) + `core/scripts/task-state.sh` (`merge-intent-pr`, gated on the developer's answer) | `.claude/commands/monorepo-harness-intent-dispatch.md` → `/monorepo-harness-intent-dispatch`; issues created by the `.claude/agents/tracker.md` subagent | `.opencode/commands/monorepo-harness-intent-dispatch.md` → `/monorepo-harness-intent-dispatch`; the shared skill reaches opencode by path from the command, so no new `instructions` entry is needed | `.agents/skills/monorepo-harness-intent-dispatch/SKILL.md` → `/monorepo-harness-intent-dispatch`; issues created inline in the main session (no subagent primitive) | run `tracker-issue.sh --create` directly and follow the skill's Dispatch section by hand — the consent questions, tracker inference and issue creation are script- and instruction-driven, agent-agnostic |
+| Intent dispatch (`/monorepo-harness-intent-dispatch`) | `core/skills/intent-workflow/SKILL.md` "Workflow — Dispatch" + `core/scripts/tracker-issue.sh` (tracker inference via `--infer`, open-work check via `--list-open`, issue creation via `--create`, sub-issues via `--parent`) + `core/scripts/task-state.sh` (`merge-intent-pr`, gated on the developer's answer) | `.claude/commands/monorepo-harness-intent-dispatch.md` → `/monorepo-harness-intent-dispatch`; the epic and its child issues are created by the `.claude/agents/tracker.md` subagent | `.opencode/commands/monorepo-harness-intent-dispatch.md` → `/monorepo-harness-intent-dispatch`; the shared skill reaches opencode by path from the command, so no new `instructions` entry is needed | `.agents/skills/monorepo-harness-intent-dispatch/SKILL.md` → `/monorepo-harness-intent-dispatch`; the epic and its child issues are created inline in the main session (no subagent primitive) | run `tracker-issue.sh --create [--parent <n>]` directly and follow the skill's Dispatch section by hand — the consent questions, tracker inference, issue creation and the parent link are script- and instruction-driven, agent-agnostic |
 | Changeset drafting (`/monorepo-harness-changeset`) | `core/skills/changeset-workflow/SKILL.md` + `core/scripts/draft-changeset.sh` (structured output, deterministic names, duplicate guard) | `.claude/commands/monorepo-harness-changeset.md` → `/monorepo-harness-changeset`; skill symlinked into `.claude/skills/` | `.opencode/commands/monorepo-harness-changeset.md` → `/monorepo-harness-changeset`; the shared skill reaches opencode only via the `instructions` entry in the project's own `opencode.jsonc` — a `merge` row an upgrade cannot rewrite, so `audit-install.sh` Check 6 reports it when missing | `.agents/skills/monorepo-harness-changeset/SKILL.md` → `/monorepo-harness-changeset`; skill symlinked into `.agents/skills/` | run `draft-changeset.sh --dry-run` directly and follow the skill by hand — the draft/revision/guard logic is script-driven, agent-agnostic |
 | Self-improvement (`/monorepo-self-improve`) | `core/skills/self-improvement-workflow/SKILL.md` + project-owned `.agents/rules/*.md`, `.agents/skills/*/SKILL.md` and `.agents/self-improve-proposals/*.md` (declined/deferred reports) | `.claude/commands/monorepo-self-improve.md` → `/monorepo-self-improve`; skill symlinked into `.claude/skills/` | `.opencode/commands/monorepo-self-improve.md` → `/monorepo-self-improve`; the shared skill reaches opencode only via the `instructions` entry in the project's own `opencode.jsonc` — a `merge` row an upgrade cannot rewrite, so `audit-install.sh` Check 6 reports it when missing | `.agents/skills/monorepo-self-improve/SKILL.md` → `/monorepo-self-improve`; skill symlinked into `.agents/skills/` | follow `core/skills/self-improvement-workflow/SKILL.md` by hand — read lessons/memory/index, detect patterns, propose rules/skills, ask before writing |
 | Knowledge base (Karpathy "LLM Wiki": compiled repo-root `knowledge/`, task-end incremental ingest) | `core/skills/knowledge-base/SKILL.md` + `core/knowledge-template/` (seed) + `core/scripts/kb-ingest.sh` + `task-state.sh check-kb` | `-build` step 5 runs `kb-ingest.sh`; skill symlinked into `.claude/skills/` | `-build` step 5 runs `kb-ingest.sh`; the shared skill reaches opencode only via the `instructions` entry in the project's own `opencode.jsonc` — a `merge` row an upgrade cannot rewrite, so `audit-install.sh` Check 6 reports it when missing | `-build` step 5 runs `kb-ingest.sh`; skill symlinked into `.agents/skills/` | run `kb-ingest.sh <task_dir>` directly and follow the skill by hand — the ingest/check logic is script-driven, agent-agnostic, and the `check-kb` gate is the same universal hard gate as the memory-gate |
@@ -102,27 +102,41 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
   `/monorepo-harness-intent-dispatch` checks the approval — an approving review on the intent's PR
   first, the intent file's own `status:` second — records it, confirms the workspace scope, splits
   the intent into 3-5 phases, records the developer's sign-off, **checks whether that work is already
-  open on the tracker** (and asks before filing it anyway), opens one tracker issue per phase, then
-  **asks whether to merge the intent's PR** and merges it only on a yes. It writes no
+  open on the tracker** (and asks before filing it anyway), then — at two or more phases only — asks
+  whether to group them under one **parent epic issue**, opens that epic and files every phase as its
+  sub-issue, then **asks whether to merge the intent's PR** and merges it only on a yes. A single
+  phase gets no epic, no extra question and no extra issue. It writes no
   `task_<date>_<slug>/`, no `0_intent.md`, no `1_spec.md`, no `2_plan.md` and no `index.md` row:
   `/monorepo-harness-spec` and `/monorepo-harness-plan` own those, one task at a time, so the plan
-  approval and the work that follows it never happen in the same turn. The two new consent steps
-  write nothing either — the found issues and the merge outcome are reported, not recorded. All four
-  mechanics are script-driven and therefore byte-identical across agents: the approval check
+  approval and the work that follows it never happen in the same turn. The consent steps write nothing
+  else either — the found issues, the epic decision and the merge outcome are reported, not recorded;
+  the only other thing dispatch appends is the intent's `## Dispatch` block, one per run, listing the
+  keys the creates returned. All five mechanics are script-driven and therefore byte-identical across
+  agents: the approval check
   (`task-state.sh check-intent-approved`, with the PR's reviewer and date, read through
   `core/scripts/forge.sh`), the open-work read (`tracker-issue.sh --list-open`, also through
-  `forge.sh`), issue creation (`tracker-issue.sh --create`, GitHub Issues via `gh`) and the merge
+  `forge.sh`), issue creation (`tracker-issue.sh --create`, GitHub Issues via `gh`, with `--parent` for
+  a sub-issue) and the merge
   (`task-state.sh merge-intent-pr`, which re-checks the approval itself and merges with a merge
   commit only). Only the delivery differs — claude-code dispatches the `tracker`
   subagent, opencode and codex run the same scripts inline, per the "no subagent primitive" note
   above.
-- **The two dispatch consent questions are identical on every agent, and the merge is the same
+- **The epic decision is identical on every agent, and a sub-issue is a real link everywhere.**
+  "Start these N phases under an epic?" is asked inside the step 5 sign-off table, only at N >= 2, with
+  `yes` / `no epic` / `edit` / `fewer` on the table on all three agents. The epic is an ordinary issue
+  (no special mode, no new script) and the phases link to it with `tracker-issue.sh --create --parent`,
+  which GitHub renders as a parent/child relation. A re-run reuses the epic named in the intent's
+  newest `## Dispatch` block, and an open-work match becomes the epic only when the developer nominates
+  it in the current turn — the automatic-dedupe prohibition is unchanged. When the epic cannot be
+  created (`jira`/`linear`, no `gh`, or a `gh` too old for `--parent`) the phases are filed flat and the
+  report says so; grouping is never worth blocking the work for.
+- **The dispatch consent questions are identical on every agent, and the merge is the same
   decision everywhere.** "This work may already be open — create these phases anyway?" is asked
   against `tracker-issue.sh --list-open` on all three; matches are shown, never auto-deduplicated, and
   nothing is created without a yes. "Merge the intent PR (#N) now?" is asked last, after every issue
-  URL is reported, and only a yes runs `merge-intent-pr --yes`. There is no agent variance to reason
+  key is reported, and only a yes runs `merge-intent-pr --yes`. There is no agent variance to reason
   about: the scripts, the questions and their wording are the shared skill's, so the same consumer
-  project gets the same two questions in the same order on claude-code, opencode and codex. The
+  project gets the same questions in the same order on claude-code, opencode and codex. The
   refusal to merge an unapproved PR, to pass `--admin`, or to delete the branch is a script fact, not
   an instruction an agent can forget.
 - **No credential is ever installed, asked for, or stored, on any agent.** The harness uses whatever

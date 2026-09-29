@@ -50,11 +50,17 @@ Claude Code, opencode, Cursor, Codex, and more.
   the rest of the way: it checks the intent's PR for an approving review (falling back to the file's
   own `status:`), records that decision on the intent, confirms the workspace scope, splits the intent
   into 3-5 phases (each worth its own review), records the developer's sign-off, **checks whether
-  that work is already open on the tracker and asks before filing it anyway**, opens one tracker
-  issue per phase, then **asks whether to merge the intent's PR** — and stops. **It writes no spec,
-  no plan and no task directory**: those
+  that work is already open on the tracker and asks before filing it anyway**, then — at two or more
+  phases — **asks whether to group them under one parent epic issue**, opens that epic and files every
+  phase as its sub-issue (a real parent/child link, not a label), then **asks whether to merge the
+  intent's PR** — and stops. A single phase gets no epic and no extra question, and a re-run reuses
+  the epic instead of filing a second one. **It writes no spec, no plan and no task directory**:
+  those
   belong to `/monorepo-harness-spec` and `/monorepo-harness-plan`, which scope one task at a time, so
-  the chain starts there with the approved intent as its input. A phase is tracked by its issue.
+  the chain starts there with the approved intent as its input. A phase is tracked by its issue, and
+  the intent records what it produced: dispatch appends a `## Dispatch` block with the epic and every
+  phase key the creates actually returned, so the approved decision stays linked to its work after the
+  PR is merged.
   Issues are created with `core/scripts/tracker-issue.sh` (GitHub Issues via the `gh` CLI the
   developer already has authenticated; the harness installs and stores no credential). **The tracker
   is the consumer project's own, never the harness's.** The script's `--infer` reads the project's
@@ -75,7 +81,9 @@ Claude Code, opencode, Cursor, Codex, and more.
   intent file's own `status: approved` in place of a human decision. (Issue **creation** is still
   GitHub-only.)
   Both questions are asked on every agent, in the same order, because both end in a write to a shared
-  system — and both write nothing to your repo.
+  system — and neither writes anything to your repo beyond that `## Dispatch` block.
+  A `gh` too old for `--parent` is not a failure either: the phases are filed flat, the report says
+  the epic is unlinked, and every phase still gets an issue.
   Later runs reuse it and never re-ask; `--tracker` overrides it on purpose. `jira` and `linear` are
   recognized but need an MCP server, project skill, or CLI that **you** install, and any other
   platform is asked about rather than guessed at. If `gh` is missing, the command prints paste-ready

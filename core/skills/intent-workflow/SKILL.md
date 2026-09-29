@@ -1,6 +1,6 @@
 ---
 name: intent-workflow
-description: Capture a stakeholder's problem description as an intent file before it becomes a plan-mode task, let a product owner or manager review pending intents and approve or reject them, and dispatch an approved intent into scoped phases with one tracker issue per phase - asking first whether the work is already open and whether the intent's PR should be merged - writing no spec, plan or task directory of its own. Use when the user types /monorepo-harness-intent or /monorepo-harness-intent-dispatch, describes a new feature/problem without being in an active coding task, asks to review pending intents, or asks to turn an approved intent into work.
+description: Capture a stakeholder's problem description as an intent file before it becomes a plan-mode task, let a product owner or manager review pending intents and approve or reject them, and dispatch an approved intent into scoped phases with one tracker issue per phase - filing a single parent issue that groups them when there is more than one, asking first whether the work is already open and whether the intent's PR should be merged, and recording every issue it filed back on the intent - writing no spec, plan or task directory of its own. Use when the user types /monorepo-harness-intent or /monorepo-harness-intent-dispatch, describes a new feature/problem without being in an active coding task, asks to review pending intents, or asks to turn an approved intent into work.
 ---
 
 # Intent Capture, Review, and Dispatch
@@ -77,14 +77,18 @@ become real work. It records the approval and opens the tasks; it **never implem
 `/monorepo-harness-plan`, one task at a time. A task here **is** a tracker issue.
 
 **Dispatch writes exactly two files, and only when each is justified: the existing intent file's
-status and `## Review` section (step 1) and the confirmed tracker cache (step 6). Nothing else — no
-`task_<date>_<slug>/`, no `0_intent.md`, no `1_spec.md`, no `2_plan.md`, no `index.md` row, and never
-a new intent file. The two consent steps in between (7 and 8) write nothing either.** Each phase's
-scope, workspace and verification command live in its issue body, which is where a phase is tracked
-from now on. (ADR
+status, `## Review` section (step 1) and `## Dispatch` section (step 8), and the confirmed tracker
+cache (step 6). Nothing else — no `task_<date>_<slug>/`, no `0_intent.md`, no `1_spec.md`, no
+`2_plan.md`, no `index.md` row, and never a new intent file. Every step in between is a question, a
+tracker read, or a create — none of them writes anything else either.** Each phase's scope, workspace
+and verification command live in its issue body, which is where a phase is tracked from now on; the
+`## Dispatch` block only points at the issues, it never scopes one. (ADR
 `0001-dispatch_creates_issues_not_plan_artifacts.md` — this reverses the 2026-09-25 task's ADR 0001,
-whose "one task directory per phase" premise no longer holds. The duplicate check and the merge
-question are in ADR `0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
+whose "one task directory per phase" premise no longer holds, and its "two files" contract is amended
+by ADR `0002-dispatch-records-issue-keys-in-a-dispatch-block.md`. The duplicate check and the merge
+question are in ADR `0002-dispatch_gates_open_work_and_consents_pr_merge.md`; the epic and the
+parent link are in ADR
+`0001-the-epic-is-a-parent-issue-on-the-ordinary-create-path.md`.)
 
 1. **Confirm the approval, PR first.** The human decision lives on the intent's PR; the local file is
    the record of it. Read the intent's optional `pr:` field, then run:
@@ -131,6 +135,17 @@ question are in ADR `0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
 5. **Get the sign-off.** Show the phase table — number, title, workspace, verification — and ask
    **"Start these N phases?"** (yes / edit / fewer). A "fewer" answer means re-split and ask again.
    No issue exists before an explicit yes in the current turn.
+   - **Two or more phases means one parent issue, so ask about it in the same breath.** At **N ≥ 2**
+     the table grows an **Epic** row (its title and the tracker it will live on), and the question
+     becomes **"Start these N phases under an epic?"** (`yes` / `no epic` / `edit` / `fewer`). The
+     epic is a consent, not a detail: the developer's "no epic" answer is as valid as "yes", and
+     without a "yes" no epic is created — the phases are then filed flat, which is exactly what
+     happens today.
+   - **At N = 1 there is no epic, no epic row and no extra question.** One phase grouped under a
+     parent of its own is an extra issue on the board that groups nothing. Never invent a second phase
+     to justify one.
+   - Propose the epic title yourself: the intent's own short title, since the epic *is* the intent
+     on the board. Do not paste the intent's whole body into the epic — the phases carry the detail.
 6. **Find the tracker, then confirm it with the developer.** The tracker belongs to **this
    consumer project**, never to the harness. In this order:
    a. **If `<repo-root>/.agents/tracker.md` already records a platform, use it.** Do not ask
@@ -168,11 +183,13 @@ question are in ADR `0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
    Pick **1-2 distinctive words** from the intent's *proposed outcome* and the phase titles — nouns a
    search will actually match, not a sentence. It prints `open-match count=<n>`, then one
    `#<number>\t<title>\t<url>` row per open item.
-   - **count=0** → nothing to ask. Go to step 8.
+   - **count=0** → nothing to ask. Go to step 7.5, or to step 8 when there is no epic.
    - **count>0** → show **every** row and ask **"This work may already be open — create these phases
      anyway?"** (create anyway / stop / re-split). Nothing is created without an explicit yes in the
      current turn. "stop" and "re-split" both end the dispatch here: leave the intent approved, file
-     no issues, and say what is already open so the developer can merge the phase list into it.
+     no issues, and say what is already open so the developer can merge the phase list into it. On
+     "create anyway", one of those rows may still become the epic in step 7.5 — but only if the
+     developer names it.
     - **exit 3** (no mechanism reaches that tracker — CLI missing or unauthenticated, no token the
       project exports — or a platform the harness recognizes but does not implement) → the check could
       **not** be performed. Say so in those words — "I could not check whether this is already open" —
@@ -183,18 +200,51 @@ question are in ADR `0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
    - **exit 1** (guard failure — e.g. the harness repo itself as the target) → report and stop.
    - **exit 2** (usage error, e.g. no `--search`) → that is a bug in the call, not a board state.
      Fix the call and retry once; if it still fails, report it and continue.
-   This step **writes nothing**: no comment, no label, no assignment, no close, no edit on what it
-   finds. It reads the board so the same work is not filed twice. (ADR
-   `0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
-8. **Open the issue. Write no file.** For each approved phase, compose the issue title and body from
-   the phase row — scope, workspace, verification command, and a link to the intent file — then run
-   `core/scripts/tracker-issue.sh --title "<issue title>" --body-file <file> --create` and report the
-   returned URL. Open **all** phases' issues before reporting back, not one phase per turn.
-   **The body is the phase record now.** Do not create `task_<YYYY_MM_DD>_<phase_slug>/`, do not write
-   `0_intent.md`, `1_spec.md` or `2_plan.md`, and do not add a row to `artifacts/index.md`: those are
-   `/monorepo-harness-spec` and `/monorepo-harness-plan`'s to write, one task at a time, and an
-   `index.md` row indexes a task directory that does not exist here. Delete the throwaway body file
-   you passed to `--body-file`.
+    This step **writes nothing**: no comment, no label, no assignment, no close, no edit on what it
+    finds. It reads the board so the same work is not filed twice. (ADR
+    `0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
+7.5. **File the epic, or reuse one. Only when step 5 asked for one and got a "yes".** An epic is
+   nothing special to the script: it is an ordinary issue, and the children hang off it with
+   `--parent`. It is created **here**, after the open-work check (so a candidate is already known) and
+   **before** step 8, because the children's link needs the epic's number. In order:
+   - **Reuse the epic this intent already filed.** If the intent's newest `## Dispatch` block names an
+     epic, use that number and **create nothing**. This is what makes a re-run of dispatch safe.
+     Report that you reused it, and skip to step 8.
+   - **Reuse an issue the developer nominates.** If the open-work check in step 7 found a candidate and
+     the developer says in this turn that one of those is the epic, that issue becomes the parent and
+     no new epic is created. **Only on that answer** — never match a title yourself, and never link
+     children under something the developer did not name in this turn.
+   - **Otherwise create it.** `core/scripts/tracker-issue.sh --title "<epic title>" --body-file <file>
+     --create` with a body carrying the intent's problem in a few lines, a link to the intent file, and
+     the list of phase titles it will hold. The script prints `tracker-issue: created number=<n>` and
+     then the URL — **keep that number**, step 8 links every child to it.
+   - **exit 3** (a `jira`/`linear` tracker the harness does not create on, no `gh`, or an installed
+     `gh` too old to set a parent) → **no epic, and the phases are still filed, flat, without
+     `--parent`.** The epic is "no issue yet" in the report and in the `## Dispatch` block. The
+     grouping is worth having; it is never worth blocking the work for. **Never** skip a phase because
+     its parent is missing.
+   - **exit 1** (guard failure, e.g. the harness repo as the target) → report and stop, as step 7 does.
+8. **Open the issues, then record them on the intent.** Three parts, in this order:
+   - **Open all phases' issues before reporting back**, not one phase per turn. For each approved phase,
+     compose the issue title and body from the phase row — scope, workspace, verification command, and
+     a link to the intent file — then run
+     `core/scripts/tracker-issue.sh --title "<issue title>" --body-file <file> [--parent <epic number>]
+     --create`. Pass `--parent` **only** when step 7.5 produced an epic number, and pass the same
+     number to every phase. The script prints `created number=<n>` and then the URL; **keep both**.
+   - **Append the `## Dispatch` block to the intent file.** One block per run, appended after any
+     existing one, never rewritten, holding today's date, the tracker, the epic (omitted entirely when
+     there is no epic) and one line per phase slug with the `#<number>` and URL the create actually
+     returned — or `no issue yet (<reason>)` for a phase that did not get filed. Format and rules:
+     `core/governance/intents/AGENTS.md`. **Only what the script printed goes in it**: never infer a key
+     from a title, never carry one over from an earlier turn, never invent one for a phase that
+     returned exit 3. A dispatch that filed two of three phases records two keys and one
+     `no issue yet` — a partial run records the partial truth, which is the truth.
+   - **Write no other file.** The body is the phase record; the `## Dispatch` block is only a pointer
+     at the issues. Do not create `task_<YYYY_MM_DD>_<phase_slug>/`, do not write `0_intent.md`,
+     `1_spec.md` or `2_plan.md`, and do not add a row to `artifacts/index.md`: those are
+     `/monorepo-harness-spec` and `/monorepo-harness-plan`'s to write, one task at a time, and an
+     `index.md` row indexes a task directory that does not exist here. Delete the throwaway body files
+     you passed to `--body-file`.
 9. **Ask whether to merge the intent PR — and merge only on a yes.** The intent's PR is where the
    approval is visible to other people, and leaving it open forever is the one piece of unfinished
    business this command creates. So it is the **last** step, and it is a question:
@@ -226,21 +276,27 @@ question are in ADR `0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
    Merging last is deliberate: if a phase fails to file, or the duplicate check stopped the run, the
    approval is still sitting on an open PR where a human can pick it up — rather than merged as work
    that was never dispatched.
-10. **Hand off and stop.** Report each phase's issue URL, whether the open-work check could be run,
-    and what happened to the intent PR (merged, left open with its URL, or no `pr:` field), then the
-    command that starts the work:
-    `/monorepo-harness-spec <intent.md>` — it refuses an unapproved intent, links the intent as
-    `0_intent.md`, and writes `1_spec.md`; then `/monorepo-harness-plan` and `/monorepo-harness-build`,
-    one phase at a time. There is no `<2_plan.md>` to hand over, because dispatch never writes one. A
-    phase's scope is re-derived from its issue plus the intent, so read the issue before scoping it.
+10. **Hand off and stop.** Report the epic (its number and URL, or that there was none, or "no issue
+     yet" with the reason), each phase's issue number and URL, the `## Dispatch` block you wrote on the
+     intent, whether the open-work check could be run, and what happened to the intent PR (merged, left
+     open with its URL, or no `pr:` field), then the command that starts the work:
+     `/monorepo-harness-spec <intent.md>` — it refuses an unapproved intent, links the intent as
+     `0_intent.md`, and writes `1_spec.md`; then `/monorepo-harness-plan` and `/monorepo-harness-build`,
+     one phase at a time. There is no `<2_plan.md>` to hand over, because dispatch never writes one. A
+     phase's scope is re-derived from its issue plus the intent, so read the issue before scoping it —
+     and start with the epic issue, which is the parent of all of them.
 
 **`tracker-issue.sh` exit codes** — 0 done (tracker inferred, open work listed, dry-run printed, or
 the issue created), 1 guard failure, 2 usage error, **3 not done** (no mechanism can read that
-board — CLI missing or unauthenticated, or no token the project exports; or a confirmed platform the
-harness recognizes but does not implement, such as `jira` or `linear`). On 3
+board — CLI missing or unauthenticated, or no token the project exports; a confirmed platform the
+harness recognizes but does not implement, such as `jira` or `linear`; or an installed `gh` too old
+to set a parent, which only bites when `--parent` is passed). On 3
 from step 8, tell the user how to open the phase by hand or with their own tooling, note it in your
 report, and continue with the remaining phases; on 3 from step 7, say the duplicate check could not
-run. On 1, report and stop. Never report an issue that does not exist, and never report a merge that
+run; on 3 from step 7.5, say the epic could not be filed and carry on **without** `--parent` on the
+phases. On 1, report and stop — including a phase whose `--parent` link the tracker refused, which
+means that phase was **not** created, so the report must not name it. Never report an issue that does
+not exist, and never report a merge that
 did not happen.
 
 **`merge-intent-pr` exit codes** — 0 the PR is merged, or already was, or (without `--yes`) nothing
@@ -253,6 +309,10 @@ differently and never report either as a merge.
 **Hard never's for this phase:** no source-file edits, no `task_<date>_<slug>/` directory, no
 `0_intent.md` / `1_spec.md` / `2_plan.md` / `3_memory.md` / `4_verify.md`, no `artifacts/index.md`
 row, no new or renamed intent file, no implementation of any phase, no issue without an explicit yes,
+**no epic unless the sign-off table asked for one and got a "yes"**, **no epic for a single-phase
+dispatch**, **no second epic when the intent's newest `## Dispatch` block already names one**, **no
+child linked to a parent the developer did not name in this turn** (whether that is a created epic or
+a nominated existing issue), **no issue key in a `## Dispatch` block that the script did not print**,
 **no automatic duplicate matching** (show the candidates, let the developer decide — never skip, merge
 or silently retitle a phase because an issue looks similar), **no comment, label, assignment, close or
 edit on any issue the open-work check finds**, **no PR merge without an explicit yes in this turn**,
@@ -268,16 +328,18 @@ the harness docs or the session history.
 An approved intent is optional input to plan-mode work, not a requirement — see
 `core/governance/intents/AGENTS.md`'s "Relationship to the plan/spec/memory/verify workflow" and
 `core/skills/agent-workflow/SKILL.md` Phase 1. **Capture** and **Review** create nothing beyond the
-intent file itself, and **Dispatch** adds only the intent's status/`## Review` section and the
-tracker cache. Every task artifact — `0_intent.md`, `1_spec.md`, `2_plan.md`, the `index.md` row —
-belongs to `/monorepo-harness-spec` and `/monorepo-harness-plan`, which run one task at a time with
+intent file itself, and **Dispatch** adds only the intent's status/`## Review` section, the intent's
+`## Dispatch` section, and the tracker cache. Every task artifact — `0_intent.md`, `1_spec.md`,
+`2_plan.md`, the `index.md` row —belongs to `/monorepo-harness-spec` and `/monorepo-harness-plan`, which run one task at a time with
 their own gates, exactly as they do for an ad-hoc task. Dispatch is the step that decides how many
 tasks there are and files each one as an issue; it is not a faster route through the chain. (ADR
-`0001-dispatch_creates_issues_not_plan_artifacts.md`.) It also asks two questions the rest of the chain
-never has to: **is this work already open on the tracker** (step 7) and **should the intent's PR be
+`0001-dispatch_creates_issues_not_plan_artifacts.md`.) It also asks three questions the rest of the
+chain never has to: **is this work already open on the tracker** (step 7), **should the phases be
+grouped under an epic** (step 5, when there is more than one) and **should the intent's PR be
 merged now** (step 9). Each one ends in a write to a shared system that cannot be undone by re-reading
 the conversation, which is why each is a question first and a script second. (ADR
-`0002-dispatch_gates_open_work_and_consents_pr_merge.md`.)
+`0002-dispatch_gates_open_work_and_consents_pr_merge.md`; the epic is ADR
+`0001-the-epic-is-a-parent-issue-on-the-ordinary-create-path.md`.)
 
 ## Edge cases
 
@@ -296,7 +358,24 @@ the conversation, which is why each is a question first and a script second. (AD
   the list or running two rounds. A follow-up intent is a valid answer when the work is genuinely two
   projects.
 - **The intent is too small to be a phase list**: one phase is allowed. Do not invent extra phases to
-  reach three.
+  reach three — and note that a single phase means **no epic at all**, so reaching three would also be
+  the only reason an epic would appear.
+- **Dispatch is re-run on an intent that already has a `## Dispatch` block**: the epic is **reused**,
+  never filed twice, and the phases are re-filed as new sibling issues under the same epic. That is
+  existing behaviour (re-running re-opens issues rather than overwriting anything), and the epic reuse
+  is what keeps it from becoming a problem. Append a **new** block; never edit the old one.
+- **The recorded epic no longer matches the current split**: the split changed, the epic did not. Reuse
+  it, say in the report that the epic now covers a different phase list, and let the developer open a
+  new epic by hand if they want one. Do not close, retitle or edit the old epic.
+- **The developer says "no epic" to the step 5 question**: file the phases flat, write no epic in the
+  `## Dispatch` block, and do not raise the question again in this run.
+- **The epic was filed but the developer's token cannot set a parent** (the tracker's create is
+  atomic, so this means the child was **not** created): that phase is `no issue yet (<reason>)` in the
+  block and in the report. Re-run just that phase without `--parent` and say so — never report a phase
+  as filed when the create failed.
+- **The `gh` on this machine is too old for `--parent`**: exit 3 on the epic's children. File the
+  phases flat, report that the epic exists but is unlinked, and move on. This is the designed
+  degradation, not a failure to work around.
 - **The intent's PR was approved but the local file still says `pending`**: normal, and the reason
   step 1 checks the PR first. Take the reviewer and date from the script's output rather than asking
   again, and report which source the approval came from.
@@ -318,8 +397,8 @@ the conversation, which is why each is a question first and a script second. (AD
   deleting them.
 - **No git remote, or a non-GitHub one**: `--infer` reports `platform=unknown` (or `bitbucket` /
   `gitlab`) and step 6 asks the developer where this project's work is tracked. On a non-GitHub
-  origin with `tracker: github` the script still needs `--repo <owner/name>`; a repository with no
-  remote at all still gets its task directories, and the issue is simply left to the developer.
+  origin with `tracker: github` the script still needs `--repo <owner/name>`; with no remote at all
+  there is no issue to file, so every phase is recorded "no issue yet" and left to the developer.
 - **The developer names a tracker the harness does not implement**: ask how they work in it (step
   6d), record the answer, and let their own MCP server, project skill, or CLI create the issue — or
   print the paste-ready text and record "no issue yet". Never substitute a GitHub repository they
@@ -329,7 +408,9 @@ the conversation, which is why each is a question first and a script second. (AD
 - **The open-work check finds something that looks like the same work**: show it and let the
   developer decide — usually the answer is one phase merged into an existing issue, which you cannot
   do (dispatch never edits an issue it did not create). Offer the honest options: stop and let them
-  do it, re-split, or create the phase anyway. Never decide that two titles are "the same work".
+  do it, re-split, or create the phase anyway. Never decide that two titles are "the same work". If
+  they say to file the phases under one of those candidates, that is their answer, not yours — use
+  that issue as the parent in step 7.5.
 - **The search finds nothing but you expected it to**: the keyword was too generic. Try once more
   with a word from the proposed outcome, then move on. Do not keep searching until something turns
   up — a check that hunts for a match will find one.

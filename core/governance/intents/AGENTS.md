@@ -86,6 +86,50 @@ comment thread). `/monorepo-harness-intent-dispatch` then pushes the **commit th
 approval** — the one adding the `## Review` section — to that PR's branch, so the PR shows the
 decision. Only a branch the user names is pushed, never a force-push.
 
+**`## Dispatch`** is the record of what a dispatch actually filed, appended by dispatch and by nothing
+else. It is what keeps an approved decision traceable to its work after the PR is merged and the
+conversation is gone:
+
+```markdown
+## Dispatch — 2026-09-29
+- Tracker: github acme/web
+- Epic: #412 (https://github.com/acme/web/issues/412)
+- Phases:
+  - add_login_form: #413 (https://github.com/acme/web/issues/413)
+  - login_error_copy: #414 (https://github.com/acme/web/issues/414)
+  - verify_email_flow: no issue yet (jira is not implemented by this harness)
+```
+
+Its rules:
+
+1. **Append-only, one block per dispatch run, newest last.** Never rewrite or delete an earlier block.
+   A re-run appends a new one, which is what lets it find the epic it must reuse.
+2. **The `Epic` line is omitted entirely when there is no epic** — a single-phase intent, or a
+   developer who answered "no epic". A line reading "no epic" would be indistinguishable from a
+   decision that was made and rejected.
+3. **One line per phase, with the phase slug**, so a later reader can match it to the phase list. A
+   phase that did not get filed reads `no issue yet (<reason>)`; the reason is the script's, never
+   yours.
+4. **Only what the script printed.** A key is never inferred from a title, carried over from an
+   earlier turn, or written for an issue that does not exist. A dispatch that filed two of three
+   phases records two keys and one `no issue yet` — a partial run records the partial truth.
+5. **The block points at the issues; it never scopes one.** The phase's scope, workspace and
+   verification command stay in the issue body, and the task artifacts stay with
+   `/monorepo-harness-spec` and `/monorepo-harness-plan`.
+6. **The key is the tracker's own.** A GitHub `#413`, a Jira `MOBP-123`, a Linear `ENG-9` — whatever
+   the platform uses, copied from what the create actually returned. The harness only creates on
+   GitHub today, so on `jira` / `linear` most lines are `no issue yet` until the developer files them
+   and the next dispatch records what they report.
+
+**One parent issue groups the phases.** When a dispatch splits an intent into more than one phase, the
+developer is asked, in the sign-off step, whether to file the phases **under an epic**. On a "yes" the
+harness creates one parent issue and files every phase as its sub-issue — a real parent/child relation
+on the tracker, so the board itself shows the grouping rather than a label or a line of prose. A
+single-phase intent gets no epic, and "no epic" is always an answer the developer can give. An epic
+already recorded in the newest `## Dispatch` block is **reused** on a re-run, so dispatch never files
+two. A candidate from the open-work check can become the epic, but only when the developer names it in
+that turn.
+
 **A dispatch reads the tracker before it writes to it, and merges only on an explicit answer.** Before
 creating anything, the command checks whether the same work is already open
 (`tracker-issue.sh --list-open`, read-only — it never comments, labels, assigns or closes) and asks
@@ -143,7 +187,8 @@ and omit both the frontmatter line and the trailing clause.
 it calls `core/scripts/write-intent-ref.sh`, which refuses an unapproved intent.
 `/monorepo-harness-intent-dispatch` writes **no** task artifact: no `0_intent.md`, no `1_spec.md`, no
 `2_plan.md`, no `artifacts/index.md` row. It records the approval on the intent file itself (see
-`core/skills/intent-workflow/SKILL.md` Dispatch step 1) and opens one tracker issue per phase; the
-phase scope lives in the issue body, not on disk. Two writers for the stub would let it disagree with
-itself about `source:`, and an `index.md` row for a directory nobody scoped is an index entry for work
-that does not exist. One file, one writer.
+`core/skills/intent-workflow/SKILL.md` Dispatch step 1), the **`## Dispatch` block** listing the
+issues it filed (step 8, and the only writer of that section), and it opens one tracker issue per
+phase under an optional epic; the phase scope lives in the issue body, not on disk. Two writers for
+the stub would let it disagree with itself about `source:`, and an `index.md` row for a directory
+nobody scoped is an index entry for work that does not exist. One file, one writer.
