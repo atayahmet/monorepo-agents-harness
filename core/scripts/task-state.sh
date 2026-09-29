@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# task-state — read-only validation of the per-SDLC-stage artifact chain. Agent-agnostic.
+# task-state — validation of the per-SDLC-stage artifact chain, and the one write the build stage
+# needs. Agent-agnostic.
 #
 # The stage commands (/monorepo-harness-spec, -plan, -build) call this before acting so a stage can
 # never be run against a stale or unwarranted input. It mirrors the frontmatter-parsing style of
 # memory-gate.sh (plain grep/sed, no dependencies).
+#
+# `stage` (a read) and `mark-build` (the only write) are the two halves of one question — "has this
+# task reached the build stage?" — and they live here so there is exactly one answer to it.
 #
 # Subcommands (each prints a reason on stdout and exits 1 on failure, 0 on success):
 #   check-intent-approved <intent.md> [--pr <pr-ref>]
@@ -39,6 +43,20 @@
 #                                        when 4_verify.md exists). Exit 0 when nothing to gate
 #                                        (research-only / N/A task, no memory) or fully covered;
 #                                        exit 1 (in non-advisory mode) on gaps.
+#   stage <task_dir>                     — prints the task's stage and exits 0, always:
+#                                          none   — no spec in the dir (nothing to enforce)
+#                                          spec   — spec, no plan (the spec stage is waiting)
+#                                          plan   — plan, no `build_started` on it (research-only
+#                                                   or plan stage; the build has not started)
+#                                          build  — the plan carries `build_started`, so the
+#                                                   task is being implemented and memory/verify
+#                                                   are owed. A dir that does not exist is `none`;
+#                                          this subcommand never fails the caller.
+#   mark-build <plan.md>                 — the one write: record `build_started: <ISO-8601>` in the
+#                                          plan's frontmatter. Refuses anything that is not
+#                                          `phase: plan`, and is write-once — a re-run leaves the
+#                                          first timestamp, so the record of when the build
+#                                          started cannot be rewritten by a later one.
 #   merge-intent-pr <intent.md> [--pr <ref>] [--yes]
 #                                        — merge the intent's own PR, but only on an explicit answer
 #                                          and only when the PR itself carries an approving review.
@@ -65,11 +83,15 @@
 #        apps/api/.agents/artifacts/task_2026_08_27_add_auth/2_plan.md
 #   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-adr \
 #        apps/api/.agents/artifacts/task_2026_08_27_add_auth/1_spec.md
+#   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh stage \
+#        apps/api/.agents/artifacts/task_2026_08_27_add_auth
+#   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh mark-build \
+#        apps/api/.agents/artifacts/task_2026_08_27_add_auth/2_plan.md
 
 set -euo pipefail
 
 cmd="${1:-}"
-[ -n "$cmd" ] || { echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--path <kb>]" >&2; exit 2; }
+[ -n "$cmd" ] || { echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb|stage|mark-build|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--path <kb>]" >&2; exit 2; }
 path="${2:-}"
 [ -n "$path" ] || { echo "usage: task-state.sh $cmd <path>" >&2; exit 2; }
 shift 2 2>/dev/null || true
@@ -430,9 +452,63 @@ case "$cmd" in
     fi
     fail "spec '$path' has '## Architectural decisions' but references no adr/ files — write the ADR(s) or state N/A"
     ;;
+  stage)
+    # The one answer to "which stage is this task in". Exits 0 whatever it finds — a caller asks this
+    # to decide what to enforce, and a dir with no spec is a legitimate answer, not an error.
+    dir="$path"
+    if [ ! -d "$dir" ]; then
+      printf 'none\n'
+      exit 0
+    fi
+    # Legacy layout backcompat, same as the gate: a pre-rename task dir exposes its spec as
+    # 2_spec.md and its plan as 1_plan.md.
+    spec="$dir/1_spec.md"; [ -f "$spec" ] || spec="$dir/2_spec.md"
+    plan="$dir/2_plan.md"; [ -f "$plan" ] || plan="$dir/1_plan.md"
+    # The marker is asked first, and it is the only signal that counts on its own. A build whose
+    # spec was deleted afterwards is still a build — and the gate must be able to say so, rather
+    # than read the dir as "nothing started".
+    if [ -f "$plan" ] && [ -n "$(frontmatter_field "$plan" build_started || true)" ]; then
+      printf 'build\n'
+    elif [ -f "$spec" ]; then
+      if [ -f "$plan" ]; then printf 'plan\n'; else printf 'spec\n'; fi
+    else
+      printf 'none\n'
+    fi
+    ;;
+  mark-build)
+    [ -f "$path" ] || fail "plan file '$path' missing"
+    value="$(frontmatter_field "$path" phase || true)"
+    [ "$value" = "plan" ] || fail "'$path' is not a plan (phase: '${value:-<none>}')"
+    # Write-once. The field records when the build started; a second call is a re-run of the same
+    # build, and letting it move the timestamp would make the record a function of how often the
+    # command was repeated.
+    existing="$(frontmatter_field "$path" build_started || true)"
+    if [ -n "$existing" ]; then
+      echo "task-state: build already started — $path (build_started: $existing)"
+      exit 0
+    fi
+    stamped="$(date +%Y-%m-%dT%H:%M:%S%z)"
+    # Inserted as a new frontmatter line right after `phase: plan`, so the rest of the file — and any
+    # line numbers a tool cached — is untouched. awk rewrites in place through a temp file; a failure
+    # leaves the original plan exactly as it was.
+    tmp="$path.task-state.$$"
+    if ! awk -v ts="$stamped" '
+      NR==1 && $0 !~ /^---[[:space:]]*$/ { print; next }
+      { print }
+      !done && $0 ~ /^[[:space:]]*phase[[:space:]]*:[[:space:]]*plan[[:space:]]*$/ { print "build_started: " ts; done=1 }
+    ' "$path" >"$tmp" 2>/dev/null; then
+      rm -f "$tmp"
+      fail "could not write 'build_started' into '$path'"
+    fi
+    if ! mv "$tmp" "$path"; then
+      rm -f "$tmp"
+      fail "could not replace '$path' with the marked plan"
+    fi
+    echo "task-state: build started — $path (build_started: $stamped)"
+    ;;
   *)
     echo "task-state: unknown subcommand '$cmd'" >&2
-    echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--path <kb>]" >&2
+    echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb|stage|mark-build|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--path <kb>]" >&2
     exit 2
     ;;
 esac

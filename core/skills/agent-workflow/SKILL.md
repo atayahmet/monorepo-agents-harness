@@ -55,7 +55,7 @@ Pick `<workspace>` from the file paths the task will touch:
 - Cross-workspace task → pick the **primary** workspace (where the bulk of work happens) and mention the secondary workspace in the plan's "Affected files / modules" section.
 - Other `packages/**` changes (shared utilities, root configs, `turbo.json`) → pick the workspace whose consumer is the actual driver; if truly orthogonal, default to `api`.
 
-The memory-gate scans `apps/*/.agents/artifacts/` and `packages/*/.agents/artifacts/` for today's task — placement matters for the gate to find it.
+The memory-gate scans `apps/*/.agents/artifacts/` and `packages/*/.agents/artifacts/` for today's task — placement matters for the gate to find it. It enforces only the tasks that reached the **build** stage; a spec-only or plan-only task can always end. See "Build stage" below.
 
 **Important**: All files for one task live in the **same directory**. The numeric prefix (`1_`, `2_`, `3_`, `4_`) indicates phase order — and matches the AI-native SDLC artifact order `intent → spec → plan → memory → verify`, so the **spec (`1_spec.md`) is written before the plan (`2_plan.md`)**. `4_verify.md` is required whenever `1_spec.md`'s "Test / verification plan" section is not `N/A` — see Phase 4.
 
@@ -63,14 +63,14 @@ The memory-gate scans `apps/*/.agents/artifacts/` and `packages/*/.agents/artifa
 
 The workflow is driven one stage at a time by dedicated slash commands, each validating its input
 before writing anything. Use them in order; a stage refuses to run against a stale or unwarranted
-input (see `core/scripts/task-state.sh` for the read-only checks):
+input (see `core/scripts/task-state.sh` for the checks):
 
 | Command | Validates | Writes |
 | ------- | --------- | ------ |
 | `/monorepo-harness-intent [review]` | — | `<workspace>/.agents/intents/intent_*.md` (`status: pending`, then `approved`) |
 | `/monorepo-harness-spec <intent.md?>` | intent **approved** (only when a path is given) | `1_spec.md` (+ `0_intent.md` = reference stub linking the approved intent) |
 | `/monorepo-harness-plan <spec.md>` | spec present (`phase: spec`) + plan-mode consent | `2_plan.md` |
-| `/monorepo-harness-build <plan.md>` | chain: plan + spec present; intent approved **if** the task is intent-seeded | implementation (**confined to the spec/plan scope**, see Build scope below) + `3_memory.md` + `4_verify.md` + `kb-ingest.sh <task_dir>` + `check-kb` |
+| `/monorepo-harness-build <plan.md>` | chain: plan + spec present; intent approved **if** the task is intent-seeded | `build_started` on the plan, then implementation (**confined to the spec/plan scope**, see Build scope below) + `3_memory.md` + `4_verify.md` + `kb-ingest.sh <task_dir>` + `check-kb` |
 
 **Intent-approval policy:** an approved intent is mandatory only when a task was seeded by one (i.e.
 its directory contains a `0_intent.md`). Ad-hoc tasks (no intent behind them) are exempt — this is
@@ -83,8 +83,9 @@ file itself stays the single source of truth, never copied.
 verifiable implementation (spec → plan → code → memory/verify), so they do **not** apply to
 research-only work. A research-only task writes `2_plan.md` **by hand** (`status: approved`) without
 `/monorepo-harness-plan` or `/monorepo-harness-build`; it is exempt from `1_spec.md`, `3_memory.md`,
-and `4_verify.md` (nothing verifiable was ever claimed). Because the commands are never invoked, the
-gates never see a missing spec — see Edge cases.
+and `4_verify.md` (nothing verifiable was ever claimed). The memory-gate agrees: with no
+`build_started` on the plan the task reads as plan-stage and nothing is enforced on it. See Edge
+cases.
 
 Each command stub lives in your agent adapter (`.claude/commands/`, `.opencode/commands/`, or a
 codex skill) and is purposely thin: it calls the relevant `task-state.sh` check, handles the only
@@ -157,6 +158,8 @@ could follow.
 the index updated, **do not** start implementation on your own. Report that the plan is approved and
 that the user must run `/monorepo-harness-build <task_dir>/2_plan.md` next. Implementation only
 begins when that command gates the plan/spec chain (`task-state.sh check-chain`) successfully.
+Stopping here is a legal end to a turn: the task is in the plan stage, and the memory-gate does not
+enforce memory/verify on a plan-stage task (see "Build stage" below).
 
 ## Build scope — `-build` implements the approved artifacts, nothing else
 
@@ -177,11 +180,36 @@ Hard rules:
 3. Any file, app, or package touched that is not in those lists is a scope violation — treat it like a
    broken gate: do not paper it over, surface it and stop.
 
+## Build stage — how the memory-gate knows a task is being built
+
+The memory-gate only enforces a task that reached the build stage, and it learns that from one field
+on one file: `build_started: <ISO-8601>` in the plan's frontmatter. Write it with the script, never
+by hand:
+
+```bash
+bash <bundle>/core/scripts/task-state.sh mark-build <task_dir>/2_plan.md
+```
+
+- `/monorepo-harness-build` runs this as its first step, so the ordinary path is armed by the command
+  itself. It is **write-once**: a re-run leaves the first timestamp, so "when the build started"
+  cannot be rewritten by running the command again.
+- `task-state.sh stage <task_dir>` is the reader. It answers `none` / `spec` / `plan` / `build`, and
+  the gate asks it — there is one answer to "which stage is this?", not two.
+- **Implementation that starts without `-build`** (leaving plan mode writes the spec and plan, then
+  edits code) is armed by the adapter's write hook, `core/scripts/hook-arm-build.sh`, on the first
+  write outside the task-artifacts directory. An adapter without such a hook names the `mark-build`
+  command in its plan-mode reminder instead (`PORTABILITY.md` records which). Either way, run the
+  command yourself if you are starting implementation by hand.
+
+**Never** add `build_started` to a plan by hand, and never edit or remove it: it is the record that
+distinguishes "the build is running" from "the build has not started", and hand-editing it turns the
+memory-gate into a comment.
+
 ## Phase 3 — `3_memory.md` (task end / via `/monorepo-harness-build`)
 
 When the task ends, write `3_memory.md` **in the same task directory**. Without it, the memory-gate
-(agent stop-hook, editor plugin, or git/CI check — depending on your adapter) will not let the task
-close. `/monorepo-harness-build <plan.md>` runs `task-state.sh check-chain`, then on completion of
+(agent stop-hook, editor plugin, or git/CI check — depending on your adapter) will not let a
+build-stage task close. `/monorepo-harness-build <plan.md>` runs `task-state.sh check-chain`, then on completion of
 the implementation **automatically** writes `3_memory.md` (below) and `4_verify.md` (Phase 4) and
 updates the workspace index — so the memory/verify stages need no separate command.
 
@@ -229,9 +257,12 @@ lost, see `PORTABILITY.md`), delegate the verification run to it and transcribe 
 
 - **Implementation without plan mode**: Skill is inactive; hooks do not warn. If you are writing the
   plan via `/monorepo-harness-plan`, it will have asked about plan mode first.
+- **Ending the turn at a stage boundary**: stopping after Phase 1 or Phase 2 is normal and must not be
+  blocked. The task has no `build_started`, so the gate has nothing to enforce. It blocks at most once
+  per stop anyway — a hook that already blocked sees `stop_hook_active: true` and stands down.
 - **Plan exists, no implementation (research only)**: see "Research-only tasks" in Stage commands —
   plan written **by hand** (`status: approved`) outside `-plan`/`-build`; spec, memory, and verify
-  are skipped (nothing verifiable was ever claimed), so the gates are never invoked.
+  are skipped (nothing verifiable was ever claimed), and the gate enforces nothing on the task.
 - **Un-approved intent or broken chain via the commands**: `-spec`/`-plan`/`-build` refuse to write
   and print the reason from `task-state.sh`; they never silently proceed on a stale input.
 - **Spec's verification plan is `N/A`**: `4_verify.md` is not required (mirrors the research-only

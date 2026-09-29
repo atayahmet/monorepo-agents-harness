@@ -9,13 +9,20 @@
 # created under the old naming (where the spec was 2_spec.md and the plan was 1_plan.md) exposes its
 # spec as 2_spec.md only, so when 1_spec.md is absent the gate falls back to 2_spec.md as the spec.
 #
-# Two modes:
-#   default (git pre-commit / CI):  exit 1 when today's latest task dir is missing its spec
-#                                   (1_spec.md, or legacy 2_spec.md), 3_memory.md, or (when
-#                                   required) 4_verify.md. Works with ANY agent — or none.
-#   --json (Claude Code Stop hook): print a {"decision":"block",...} JSON object when
-#                                   3_memory.md or (when required) 4_verify.md is missing;
-#                                   silent exit 0 otherwise.
+# Two modes, one contract:
+#   default (git pre-commit / CI):  exit 1 when a task dir that reached the BUILD stage is missing
+#                                   its spec (1_spec.md, or legacy 2_spec.md), 3_memory.md, or
+#                                   (when required) 4_verify.md. Works with ANY agent — or none.
+#   --json (Claude Code Stop hook): print a {"decision":"block",...} JSON object under those same
+#                                   conditions; silent exit 0 otherwise. Reads the hook's own input
+#                                   and stands down silently when `stop_hook_active` is true, so a
+#                                   block can never repeat itself.
+#
+# The gate only asks about tasks that REACHED THE BUILD STAGE. `/monorepo-harness-spec` and
+# `/monorepo-harness-plan` stop at a stage boundary by design, so a spec-only or plan-only task is
+# not "missing memory" — it is not finished being built. The stage is read from one place
+# (task-state.sh stage), which answers `build` exactly when the task's plan carries the
+# `build_started` field that `/monorepo-harness-build` writes before it implements anything.
 #
 # 4_verify.md (Feedback Loop enforcement) is only required when the spec's "## Test /
 # verification plan" section is not N/A — mirrors the existing research-only exemption for
@@ -60,13 +67,45 @@ for parent in "${workspace_parents[@]}"; do
   scan_patterns+=("$parent"/*/.agents/artifacts/task_${TODAY}_*)
 done
 
-# Newest task dir created today across all discovered workspaces.
-LATEST=""
+# Every task dir created today across all discovered workspaces, newest first.
+TODAY_DIRS=()
 if [ "${#scan_patterns[@]}" -gt 0 ]; then
-  LATEST="$(ls -td "${scan_patterns[@]}" 2>/dev/null | head -1 || true)"
+  while IFS= read -r d; do
+    [ -n "$d" ] && TODAY_DIRS+=("$d")
+  done < <(ls -td "${scan_patterns[@]}" 2>/dev/null || true)
 fi
-[ -z "$LATEST" ] && exit 0   # no task started today → nothing to enforce
-rel="${LATEST#"$ROOT"/}"
+[ "${#TODAY_DIRS[@]}" -eq 0 ] && exit 0   # no task started today → nothing to enforce
+
+# The stage reader is task-state.sh, and it is the only implementation of "which stage is this
+# task in" — the gate asks, it never re-reads the plan itself.
+TASK_STATE="${TASK_STATE:-$RUNTIME_DIR/core/scripts/task-state.sh}"
+[ -f "$TASK_STATE" ] || TASK_STATE="$BUNDLE_DIR/core/scripts/task-state.sh"
+
+# The task dirs worth enforcing, newest first: the ones that reached the build stage. Picking the
+# newest *build* dir rather than the newest dir of the day is what stops a spec written minutes
+# later from moving the gate's attention off a build that is still owed memory.
+build_dirs=()
+stage_readable=1
+for d in "${TODAY_DIRS[@]}"; do
+  s=""
+  if [ -f "$TASK_STATE" ]; then
+    s="$(bash "$TASK_STATE" stage "$d" 2>/dev/null || true)"
+  fi
+  case "$s" in
+    build) build_dirs+=("$d") ;;
+    none|spec|plan) : ;;
+    *) stage_readable=0; break ;;   # the reader is missing or unusable
+  esac
+done
+if [ "$stage_readable" -eq 0 ]; then
+  # No reader means no way to tell a waiting task from a running one. Enforcing the newest dir is
+  # what this gate did before and is the safe direction: a gate that cannot read its own stage
+  # must not decide there is nothing to enforce.
+  build_dirs=("${TODAY_DIRS[@]:0:1}")
+fi
+# No build in flight today → the day is a spec, a plan or a research task, and there is nothing
+# to enforce. This is the case issue #17 is about: a spec-only task must be allowed to end.
+[ "${#build_dirs[@]}" -eq 0 ] && exit 0
 
 # 4_verify.md is only required when the spec's "## Test / verification plan" section (resolved from
 # 1_spec.md, or legacy 2_spec.md via resolve_spec) says something other than N/A. No spec → nothing
@@ -94,41 +133,71 @@ verify_required() {
   esac
 }
 
+# stop_hook_active — ask the agent's hook input whether this stop is the retry after a block this
+# gate already issued. The harness sends the flag; ignoring it is what turned one interruption into
+# an unbounded loop. Anything unreadable answers "not a retry": a fix for a blocking loop must never
+# double as a way to switch the gate off. stdin is only read when it is a pipe (a hook), never when
+# it is a terminal, and never for longer than the timeout below.
+stop_hook_active() {
+  [ -t 0 ] && return 1
+  command -v jq >/dev/null 2>&1 || return 1
+  input=""
+  while IFS= read -r -t 2 line || [ -n "$line" ]; do
+    input="$input$line"
+    [ "${#input}" -gt 65536 ] && break
+  done
+  :   # the loop's last test is a negative one; a function must not return it under `set -e`
+  printf '%s' "$input" | jq -e '.stop_hook_active == true' >/dev/null 2>&1
+}
+
 if [ "$JSON_MODE" -eq 1 ]; then
-  # Stop-hook mode: gates on 3_memory.md always, and on 4_verify.md whenever required (spec may
-  # legitimately be absent for research-only plans — see the skill's edge cases).
-  json_missing=()
-  [ -f "$LATEST/3_memory.md" ] || json_missing+=("3_memory.md")
-  if verify_required "$LATEST" && [ ! -f "$LATEST/4_verify.md" ]; then
-    json_missing+=("4_verify.md")
+  # The agent has already been told to finish the task once. Say nothing and let it stop.
+  if stop_hook_active; then
+    exit 0
   fi
-  [ "${#json_missing[@]}" -eq 0 ] && exit 0
-  command -v jq >/dev/null 2>&1 || exit 0   # fail-open without jq
-  jq -n --arg dir "$rel" --arg files "${json_missing[*]}" '{"decision":"block","reason":("agent-workflow: Task is ending but " + $dir + " is missing: " + $files + ". Write the missing artifact(s) following the agent-workflow skill templates, then you may stop.")}'
+  # Stop-hook mode: gates on 3_memory.md, and on 4_verify.md whenever required (the spec itself is
+  # not re-checked here — a build-stage dir always has one, and default mode reports a missing one).
+  for dir in "${build_dirs[@]}"; do
+    json_missing=()
+    [ -f "$dir/3_memory.md" ] || json_missing+=("3_memory.md")
+    if verify_required "$dir" && [ ! -f "$dir/4_verify.md" ]; then
+      json_missing+=("4_verify.md")
+    fi
+    [ "${#json_missing[@]}" -eq 0 ] && continue
+    command -v jq >/dev/null 2>&1 || exit 0   # fail-open without jq
+    # `|| exit 0` covers a jq that is present but unusable: a Stop hook must never exit non-zero
+    # from here, or the agent reports a hook failure instead of a missing artifact.
+    jq -n --arg dir "${dir#"$ROOT"/}" --arg files "${json_missing[*]}" '{"decision":"block","reason":("agent-workflow: Task is ending but " + $dir + " is missing: " + $files + ". Write the missing artifact(s) following the agent-workflow skill templates, then you may stop.")}' || exit 0
+    exit 0
+  done
   exit 0
 fi
 
-missing=()
-MISSING_SPEC="$(basename "$(resolve_spec "$LATEST")")"
-[ -f "$(resolve_spec "$LATEST")" ] || missing+=("$MISSING_SPEC")
-[ -f "$LATEST/3_memory.md" ] || missing+=("3_memory.md")
-if verify_required "$LATEST" && [ ! -f "$LATEST/4_verify.md" ]; then
-  missing+=("4_verify.md")
-fi
-
-# Knowledge-base coverage gate: once memory exists, the compiled knowledge/ must be current too
-# (kb-ingest.sh is driven by /monorepo-harness-build; task-state.sh check-kb validates the result).
-TASK_STATE="${TASK_STATE:-$RUNTIME_DIR/core/scripts/task-state.sh}"
-if [ -f "$LATEST/3_memory.md" ] && [ -f "$TASK_STATE" ]; then
-  if ! bash "$TASK_STATE" check-kb "$LATEST" >/dev/null 2>&1; then
-    missing+=("knowledge-base coverage (check-kb)")
+# Default mode, same stage check, same requirements — an agent that cannot block its own stop gets
+# the same answer at pre-commit and in CI.
+for dir in "${build_dirs[@]}"; do
+  rel="${dir#"$ROOT"/}"
+  missing=()
+  MISSING_SPEC="$(basename "$(resolve_spec "$dir")")"
+  [ -f "$(resolve_spec "$dir")" ] || missing+=("$MISSING_SPEC")
+  [ -f "$dir/3_memory.md" ] || missing+=("3_memory.md")
+  if verify_required "$dir" && [ ! -f "$dir/4_verify.md" ]; then
+    missing+=("4_verify.md")
   fi
-fi
 
-if [ "${#missing[@]}" -gt 0 ]; then
-  echo "agent-workflow gate: $rel is missing: ${missing[*]}" >&2
-  echo "Write the missing artifact(s) following the agent-workflow skill templates, then retry." >&2
-  exit 1
-fi
+  # Knowledge-base coverage gate: once memory exists, the compiled knowledge/ must be current too
+  # (kb-ingest.sh is driven by /monorepo-harness-build; task-state.sh check-kb validates the result).
+  if [ -f "$dir/3_memory.md" ] && [ -f "$TASK_STATE" ]; then
+    if ! bash "$TASK_STATE" check-kb "$dir" >/dev/null 2>&1; then
+      missing+=("knowledge-base coverage (check-kb)")
+    fi
+  fi
+
+  if [ "${#missing[@]}" -gt 0 ]; then
+    echo "agent-workflow gate: $rel is missing: ${missing[*]}" >&2
+    echo "Write the missing artifact(s) following the agent-workflow skill templates, then retry." >&2
+    exit 1
+  fi
+done
 
 exit 0

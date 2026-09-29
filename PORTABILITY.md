@@ -34,7 +34,7 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 | Monorepo guidance | `.agents/monorepo-agents-harness/core/skills/monorepo/SKILL.md` | same as above | same as above | same as above | link from `AGENTS.md` |
 | Plan/spec reminder (start of impl.) | `AGENTS.md` gotcha #4 | `PostToolUse[ExitPlanMode]` hook + `/monorepo-harness-spec`/`-plan` commands | `AGENTS.md` mandate + `/monorepo-harness-spec`/`-plan` commands | `PostToolUse[update_plan]` hook + `SessionStart` reminder + `/monorepo-harness-spec`/`-plan` skills | `AGENTS.md` mandate |
 | Per-SDLC-stage commands (intent → spec → plan → build) | `core/skills/agent-workflow/SKILL.md` (stage entry points) + `core/scripts/task-state.sh` (read-only chain validation) | `.claude/commands/monorepo-harness-{spec,plan,build}.md` | `.opencode/commands/monorepo-harness-{spec,plan,build}.md` | `.agents/skills/monorepo-harness-{spec,plan,build}/SKILL.md` | run the `task-state.sh` checks and follow the stage phases by hand |
-| **Memory-gate** (no finish without `3_memory.md`, plus `4_verify.md` when the spec's Test/verification plan is not N/A) | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (**hard block**) | universal hard gate (git pre-commit / CI) | `Stop` hook → script `--json` (soft reminder) | **script default mode as git pre-commit / CI — hard block, universal** |
+| **Memory-gate** (no finish without `3_memory.md`, plus `4_verify.md` when the spec's Test/verification plan is not N/A — enforced only on a task that reached the **build** stage, i.e. whose plan carries `build_started`) | `core/scripts/memory-gate.sh` (stage from `task-state.sh stage`) | `Stop` hook → script `--json` (**hard block**, and it stands down on `stop_hook_active`); `PreToolUse[Write\|Edit\|…]` → `hook-arm-build.sh` (arms the gate when implementation starts) | universal hard gate (git pre-commit / CI) | `Stop` hook → script `--json` (soft reminder); arming via the `update_plan` reminder (no file-write matcher) | **script default mode as git pre-commit / CI — hard block, universal** |
 | Verifier subagent (produces the `4_verify.md` evidence) | `core/skills/agent-workflow/SKILL.md` Phase 4 | `.claude/agents/verifier.md` (isolated context, read-only) | — main session runs the same verification commands inline | — same as opencode | Universal: verification commands run in the main session per the skill's Phase 4 instructions — no capability lost, just no isolated context |
 | Update check / upgrade | `.agents/monorepo-agents-harness/core/scripts/harness-update.sh` + `.agents/monorepo-agents-harness/core/skills/harness-update/SKILL.md` + `core/prompts/harness-update.md` (the paste-in prompt, single source) | `.claude/commands/monorepo-harness-update.md` → `/monorepo-harness-update` | `.opencode/commands/monorepo-harness-update.md` → `/monorepo-harness-update` | `.agents/skills/monorepo-harness-update/SKILL.md` → `/monorepo-harness-update` | paste the prompt in `core/prompts/harness-update.md`, or run `harness-update.sh check` directly and follow the skill by hand |
 | Root `AGENTS.md` reconciliation (install + upgrade) | `.agents/monorepo-agents-harness/core/skills/agents-md-merge/SKILL.md` | performed by the active agent — no adapter wiring needed | same | same | run the skill's `git merge-file` one-liners by hand |
@@ -70,6 +70,17 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 - **No `ExitPlanMode` tool on Codex.** Codex toggles plan mode with the `/plan` slash command; the
   closest local function tool is `update_plan`, so the Codex adapter uses `PostToolUse[update_plan]`
   for the plan→spec reminder. The root `AGENTS.md` mandate remains the universal fallback.
+- **Arming the gate when implementation starts without `-build`.** The memory-gate enforces only a
+  task whose plan carries `build_started` (see *The universal hard gate*). `-build` writes that field
+  itself, so the ordinary path needs nothing; an implementation that begins straight out of plan mode
+  is armed by `core/scripts/hook-arm-build.sh` on the agent's first write outside the artifacts
+  directory. The **capability** (a plan-mode-exit build is still gated) is identical everywhere and
+  the script is agent-neutral; only the *trigger* differs: claude-code wires it as a
+  `PreToolUse[Write|Edit|MultiEdit]` hook, while codex — whose hook matchers on file writes cannot be
+  verified from the harness — names the `mark-build` command in the same `update_plan` reminder that
+  already asks for the spec and plan. An agent with neither must run `task-state.sh mark-build
+  <task_dir>/2_plan.md` before its first implementation write; that is the fallback, and the root
+  `AGENTS.md` mandate remains the universal last resort.
 - **Codex slash commands come from skills.** Codex does not support user-defined slash commands
   directly; skills under `.agents/skills/` auto-register and appear in the slash list. The harness
   update check therefore ships as the skill `.agents/skills/monorepo-harness-update/SKILL.md`, which
@@ -203,9 +214,16 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 
 ## The universal hard gate (every agent, or none)
 
-`core/scripts/memory-gate.sh` fails when today's task dir is missing its spec (`1_spec.md`, or legacy
-`2_spec.md`) / `3_memory.md`.
-It depends only on `git` + coreutils, so it works with any agent — or none.
+`core/scripts/memory-gate.sh` fails when a task dir that reached the **build** stage is missing its
+spec (`1_spec.md`, or legacy `2_spec.md`) / `3_memory.md` / `4_verify.md`. The stage is not guessed:
+`task-state.sh stage` answers `build` exactly when the task's plan carries `build_started`, the field
+`/monorepo-harness-build` writes (via `task-state.sh mark-build`) before it implements anything. A
+spec-only, plan-only or research-only task therefore ends without a block, which is what keeps
+`/monorepo-harness-spec` and `/monorepo-harness-plan` usable as the stage boundaries they are.
+
+The same script is the stop-hook side of the gate: in `--json` mode it also reads the hook's own
+`stop_hook_active` flag, so a block can never repeat itself on the retry. It depends only on `git` +
+coreutils (+ `jq` for the JSON mode), so it works with any agent — or none.
 
 ```bash
 # as a git pre-commit hook

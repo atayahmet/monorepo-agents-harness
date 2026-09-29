@@ -19,6 +19,13 @@ guides, but does not write anything itself. This is a deliberate scope boundary,
 **Write in simple English.** Every file and developer message this skill produces follows
 `../../governance/rules/simple-english.md` — short sentences, common words, active voice.
 
+**What the CI step enforces.** The same script, the same answer as the stop hook: a task dir that
+reached the **build** stage (its plan carries `build_started`) must have `3_memory.md`, plus
+`4_verify.md` when the spec's verification plan is not `N/A`. A commit that only adds a spec or a
+plan passes. That is why no extra flags or inputs appear in the snippets below — the stage is read
+from the artifacts, and CI on a fresh clone reads the same committed `build_started` field the
+developer's machine did.
+
 ## Workflow
 
 1. **Detect**:

@@ -1,13 +1,13 @@
 # Agent Harness — Install Guide
 
 Two commands install the harness into any JavaScript/TypeScript monorepo. Every file-level step runs from a
-manifest-driven script (`core/install-manifest.txt`, `adapters/<agent>/manifest.txt`), so nothing depends on
-prose being read correctly. What the harness *is*: [`README.md`](README.md).
+manifest-driven script (`core/install-manifest.txt`, `adapters/<agent>/manifest.txt`), so nothing depends on prose
+being read correctly. What the harness *is*: [`README.md`](README.md).
 
 ## 1. Prerequisites
 
-- A JS/TS monorepo (Turborepo, Nx, Lerna, npm/yarn/pnpm workspaces) with an `apps/*` layout (optionally
-  `packages/*` or `libs/*`); `git`, `bash`, coreutils, symlink support; `jq` only if your hooks need it.
+- A JS/TS monorepo (Turborepo, Nx, Lerna, npm/yarn/pnpm workspaces) with an `apps/*` layout (or
+  `packages/*` / `libs/*`); `git`, `bash`, coreutils, symlink support; `jq` if your hooks need it.
 
 ## 2. Phase 1 — core (identical for every agent)
 
@@ -68,8 +68,10 @@ Compares your project against the installed manifests: every bundle row, every a
 your `AGENTS.md` provenance marker, and every workspace's scaffold seeds. Exit 0 means complete;
 anything else names the exact paths. Then commit.
 
-To prove the hard gate is live, add a throwaway `apps/<n>/.agents/artifacts/task_<date>_smoke/` and run
-`memory-gate.sh` while adding its files: exit 1 until they all exist, then 0.
+To prove the hard gate is live, add a throwaway `apps/<n>/.agents/artifacts/task_<date>_smoke/` with
+a `1_spec.md` and run `memory-gate.sh`: exit 0 — a task that has not started building owes nothing
+(also with `2_plan.md` added). Then `task-state.sh mark-build <2_plan.md>`, which is what
+`/monorepo-harness-build` does: exit 1 naming `3_memory.md` and `4_verify.md`. Delete the dir after.
 
 ## 6. Optional extras
 
@@ -82,11 +84,9 @@ To prove the hard gate is live, add a throwaway `apps/<n>/.agents/artifacts/task
   intent, then asks whether to merge the intent's PR. It writes no spec, plan or task directory —
   those come from `/monorepo-harness-spec` and `-plan`. It suggests a tracker from this repo's
   `origin` (`tracker-issue.sh --infer`), asks you to confirm, and remembers it in
-  `.agents/tracker.md`. The PR read goes through `core/scripts/forge.sh`, so an unreachable PR
-  yields "approval unknown", never a merge; the merge is a merge commit only, and issue creation is
-  GitHub-only.
-- **Self-improvement** — `/monorepo-self-improve` proposes project-owned rules and skills; declined
-  proposals are kept under `.agents/self-improve-proposals/`, yours to track or ignore in git.
+  `.agents/tracker.md`; the PR read goes through `core/scripts/forge.sh`, so an unreachable PR yields
+  "approval unknown", never a merge. Full flow: `core/skills/intent-workflow/SKILL.md`.
+- **Self-improvement** — `/monorepo-self-improve` proposes project-owned rules and skills.
 - **Changeset release entries** — `/monorepo-harness-changeset` drafts a changesets-compatible
   `.changeset/*.md` entry without adding `@changesets/cli`; bumps are user-confirmed policy.
 - **Knowledge base** — every finished task is ingested into the repo-root `knowledge/` compiled layer,

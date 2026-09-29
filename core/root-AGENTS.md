@@ -41,8 +41,10 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
    Every add/update/delete on a task directory must be reflected in that workspace's searchable
    index `<workspace>/.agents/artifacts/index.md` in the same commit. The memory-gate (your agent
    adapter's stop-hook and/or `core/scripts/memory-gate.sh` at git pre-commit/CI) scans every
-   workspace's artifacts dir and blocks until today's task dir has `3_memory.md` and (when
-   required) `4_verify.md`.
+   workspace's artifacts dir and blocks a task from ending until its dir has `3_memory.md` and
+   (when required) `4_verify.md` — but only once the build has started, which it reads as
+   `build_started` on the plan (`task-state.sh mark-build`). A spec-only or plan-only task is never
+   blocked, so a stage boundary is a legal place to end the turn.
 
 5. **Build within the approved scope only.** During implementation (`/monorepo-harness-build`), touch
    only what `1_spec.md` (`## Scope`, `## Acceptance criteria`) and `2_plan.md`

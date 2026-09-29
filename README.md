@@ -18,9 +18,11 @@ Claude Code, opencode, Cursor, Codex, and more.
   alternatives — and PR review verifies the record exists at merge time (`task-state.sh check-adr`).
 - **Per-workspace working state** — each app/package owns `.agents/{session-log,lessons,todo}.md`;
   agents read them before work and record what they learned after.
-- **Enforced follow-through (Feedback Loop)** — the memory-gate blocks the task from ending until
-  `3_memory.md` exists, and until `4_verify.md` exists whenever the spec's Test/verification plan
-  is not `N/A` (agent stop-hook where supported, git pre-commit / CI everywhere else).
+- **Enforced follow-through (Feedback Loop)** — once a task's build has started, the memory-gate
+  blocks the task from ending until `3_memory.md` exists, and until `4_verify.md` exists whenever
+  the spec's Test/verification plan is not `N/A` (agent stop-hook where supported, git pre-commit /
+  CI everywhere else). It knows the build started from a `build_started` field the build command
+  writes on the plan, so a spec-only or plan-only task always ends cleanly.
 - **Deterministic install and update** — what lands in your repo is data (`core/install-manifest.txt`,
   `adapters/<agent>/manifest.txt`), executed by scripts and verified against those same manifests.
   Nothing depends on an agent correctly following a prose checklist, and an update runs the very
@@ -334,8 +336,8 @@ Chose a deterministic key over a random UUID specifically so redeliveries of the
 produce the *same* key — a random key would defeat the entire point.
 ```
 
-The memory-gate now finds both `3_memory.md` and `4_verify.md` (the spec's plan isn't `N/A`) and lets
-the task close. The same commit adds an index row:
+Once the build has started, the memory-gate finds both `3_memory.md` and `4_verify.md` (the spec's
+plan isn't `N/A`) and lets the task close. The same commit adds an index row:
 
 ```
 | 08-21 | E | [webhook_retry](task_2026_08_21_webhook_retry/1_spec.md) ◆ | Idempotency key on order.created delivery |
@@ -544,9 +546,9 @@ installs the current one.
 
 | Adapter       | Enforcement provided                                                                                                                                                               |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-intent-dispatch` intent dispatch, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting, `verifier` + `tracker` subagents  |
+| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `PreToolUse` hook on file writes (arms the gate when implementation starts), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-intent-dispatch` intent dispatch, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting, `verifier` + `tracker` subagents  |
 | `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-intent-dispatch` intent dispatch, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting                                                        |
-| `codex`       | `PostToolUse[update_plan]` hook (plan reminder), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-spec` · `-plan` · `-build`, `/monorepo-harness-ci`, `/monorepo-harness-review`, `/monorepo-harness-intent`, `/monorepo-harness-intent-dispatch`, `/monorepo-harness-changeset`, `/monorepo-harness-update`, and `/monorepo-self-improve` skills |
+| `codex`       | `PostToolUse[update_plan]` hook (plan reminder + arms the gate), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-spec` · `-plan` · `-build`, `/monorepo-harness-ci`, `/monorepo-harness-review`, `/monorepo-harness-intent`, `/monorepo-harness-intent-dispatch`, `/monorepo-harness-changeset`, `/monorepo-harness-update`, and `/monorepo-self-improve` skills |
 | yours         | Follow the capability matrix in [PORTABILITY.md](PORTABILITY.md) — new adapters are the intended growth path                                                                       |
 
 ## Documentation map

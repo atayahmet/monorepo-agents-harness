@@ -48,7 +48,7 @@ they coexist with your existing hooks safely.
 | Plan/spec reminder (start of impl.) | — | `PostToolUse[update_plan]` hook (`systemMessage` reminder) |
 | Session-start reminder | — | `SessionStart` hook (`additionalContext` reminder) |
 | Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` + `core/scripts/task-state.sh` | `/monorepo-harness-spec` · `/monorepo-harness-plan` · `/monorepo-harness-build` skills |
-| Memory-gate (incl. `4_verify.md` when required) | `core/scripts/memory-gate.sh` | `Stop` hook → script `--json` (soft reminder) + the universal git/CI gate (hard) |
+| Memory-gate (incl. `4_verify.md` when required, once the build started) | `core/scripts/memory-gate.sh` + `task-state.sh stage` | `Stop` hook → script `--json` (soft reminder) + the universal git/CI gate (hard); `mark-build` is named in the `update_plan` reminder |
 | Verifier | `core/skills/agent-workflow/SKILL.md` Phase 4 | — (no subagent primitive; run the same verification inline) |
 | Update check | `core/scripts/harness-update.sh` + `core/prompts/harness-update.md` + `core/skills/harness-update/SKILL.md` | `/monorepo-harness-update` → `.agents/skills/monorepo-harness-update/SKILL.md` |
 | CI wiring · PR review · intent capture | `core/skills/{ci-integration,pr-review,intent-workflow}/SKILL.md` | `/monorepo-harness-ci` · `/monorepo-harness-review` · `/monorepo-harness-intent` skills |

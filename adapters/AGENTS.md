@@ -68,12 +68,20 @@ enforcement layer must support exactly these expectations (native mechanism or f
    implementation Edit/Write*, it must be nudged to create the task dir and write `1_spec.md`
    (`phase: spec`) then `2_plan.md` (frontmatter `phase: plan`, `status: approved`) in the same
    directory. Templates come from the agent-workflow skill (`SKILL.md` + `templates/`) — never
-   redefined per adapter.
-3. **Memory-gate at task end** — a task may not close until today's task dir contains
-   `3_memory.md` (`phase: memory`, `commits:` listing SHAs written *after* committing), plus
-   `4_verify.md` whenever the spec's Test/verification plan section is not `N/A` (Feedback Loop
-   enforcement). Wire `core/scripts/memory-gate.sh`; hard-block if the agent API allows blocking,
-   otherwise install the git pre-commit/CI gate (see Golden Rule).
+   redefined per adapter. Because that path never runs `/monorepo-harness-build`, the adapter must
+   also **arm the memory-gate for it**: wire `core/scripts/hook-arm-build.sh` as a pre-write hook
+   (claude-code) or name `task-state.sh mark-build <2_plan.md>` in the same reminder (codex, and
+   any agent without a file-write matcher). The capability — a plan-mode-exit build is still gated —
+   is mandatory; only the trigger is per-agent, and `PORTABILITY.md` records the difference.
+3. **Memory-gate at task end** — a task that reached the **build** stage may not close until its
+   dir contains `3_memory.md` (`phase: memory`, `commits:` listing SHAs written *after* committing),
+   plus `4_verify.md` whenever the spec's Test/verification plan section is not `N/A` (Feedback Loop
+   enforcement). "Reached the build stage" is not the adapter's judgement: it is
+   `build_started` on `2_plan.md`, written by `/monorepo-harness-build` via
+   `core/scripts/task-state.sh mark-build`, and read by `task-state.sh stage`. Wire
+   `core/scripts/memory-gate.sh`; hard-block if the agent API allows blocking, otherwise install the
+   git pre-commit/CI gate (see Golden Rule). The adapter must also make sure the marker exists for
+   implementation that starts **without** `-build` — see expectation 2.
 4. **Index sync** — any task-dir change must land with an updated
    `<workspace>/.agents/artifacts/index.md` row in the same commit (rules:
    `core/governance/artifacts/AGENTS.md`). Adapters must not duplicate or bypass indexing rules.
@@ -82,7 +90,11 @@ enforcement layer must support exactly these expectations (native mechanism or f
    the secondary in the plan. Adapters must not change this rule.
 6. **Edge cases to preserve** — research-only tasks (spec without implementation) may skip
    plan/memory; updating a task appends a `revisions:` log to `2_plan.md` instead of opening a new
-   dir; no task dir → hooks stay silent (implementation without plan mode is out of scope).
+   dir; no task dir → hooks stay silent (implementation without plan mode is out of scope); a
+   spec-only or plan-only task (no `build_started`) must never be blocked, which is why an adapter
+   must not add its own "task must have memory" rule on top of the script; a hook that already
+   blocked stands down when the agent's hook input carries `stop_hook_active: true`, so the gate can
+   never loop.
 
 When authoring or reviewing an adapter, verify each row above against the "what maps to what"
 table in its README.
