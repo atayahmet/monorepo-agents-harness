@@ -17,6 +17,72 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.10] - 2026-10-03
+
+### Fixed
+
+- **The arming hook now arms only what the gate would enforce** (issues #19, #20). `rc.9` gave the
+  memory gate a build-stage marker, but the hook that writes it was left unscoped: it marked the
+  newest task dir of **any** date, in **any** workspace, ordered by file modification time. Three
+  consequences, all fixed by making the hook's candidate list identical to the gate's:
+  - **A finished task was marked again by an unrelated write.** A task that already has
+    `3_memory.md` is skipped, so a later edit anywhere in the repo can no longer stamp
+    `build_started` into a committed, finished task dir and dirty it.
+  - **A write in one workspace armed another workspace's plan.** A plan is now armed only when the
+    written path is inside that plan's own workspace — the path in front of the task's own
+    `.agents/artifacts/`, so the rule needs no lookup table and cannot disagree with where the dir
+    lives. A path that cannot be placed arms nothing.
+  - **An old task dir with a fresh mtime won.** "Newest" is now the **date in the directory name**
+    (`task_<YYYY_MM_DD>_<slug>`), with mtime only as a tie-break inside one date, and only among
+    dirs created today — the gate reads no other date. A `git checkout`, rebase or stash pop rewrites
+    mtime, so mtime is not the task's age.
+  - The stage question is no longer re-implemented in the hook: it calls `task-state.sh stage`, the
+    same reader the gate uses, legacy plan filenames included.
+  - `harness_task_dirs_newest_first` in `core/scripts/harness-common.sh` is the single order both
+    scripts use, so the hook and the gate cannot drift apart. Each script falls back to its previous
+    order when that library is absent — a shared library must never be able to switch a gate off.
+
+### Added
+
+- **`task-state.sh sync-commits <3_memory.md>` — keeps a memory's `commits:` list true after a
+  rewritten history** (issue #21). A sha is a name a commit has on one branch: a rebase, squash or
+  force-push leaves it pointing at nothing while the change itself survives, so a finished task's
+  memory silently became a list of dead references.
+  - **Identity by content.** A sha still reachable from the ref is kept as is; one that is not is
+    matched by `git patch-id --stable` — the identity of the change rather than of one branch's
+    history — and rewritten to the sha carrying the same content.
+  - **Refused to guess.** `--ref` defaults to `origin/HEAD`, then `main`, then `master`, and the ref
+    used is always printed. A sha with no unique match is left exactly as written, named in the
+    report, and the command exits 1; a history that is not reachable at all exits 3 with nothing
+    compared. Dry run by default, `--write` applies.
+  - **`patch_ids:` in the memory frontmatter**, the durable join key for tools, written by
+    `sync-commits` next to the shas it verified. The memory-gate does not require it, so a memory
+    written before this version stays valid.
+
+### Changed
+
+- `core/root-AGENTS.md` (installed as the consumer's `AGENTS.md`): the memory bullet now names
+  `patch_ids:` and points at `sync-commits` for a rewritten history. Follow-up: a few files the
+  `-build` command writes are not covered by the file-write hook (`4_verify.md`, `index.md`).
+- `hook-arm-build.sh` is now documented as workspace-scoped and today-scoped in `PORTABILITY.md`,
+  `adapters/AGENTS.md` and the claude-code README, so an adapter author reads the real contract.
+- The `agent-workflow` skill says plainly that `ls -t` orders by mtime, not by task age, and keeps
+  it only as a same-day tie-break.
+
+### Upgrade Notes
+
+- No new bundle or adapter file, so no manifest row and no copy step: `core/` ships whole and
+  `sync-commits` is a new subcommand of a script that already ships. Run the normal update
+  (`/monorepo-harness-update`, or `core/scripts/install-harness.sh --sync-only`) and refresh the
+  adapter.
+- Behaviour change with no action needed: a `PreToolUse` hook in an installed claude-code copy will
+  now arm **less** often — only for today's plans, in the workspace being written to, without a
+  `3_memory.md`. If arming seems too quiet, check that the workspace really has a task dir created
+  today: `ls -d apps/*/.agents/artifacts/task_$(date +%Y_%m_%d)_*`.
+- To repair memories whose commits were already rewritten:
+  `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh sync-commits <task_dir>/3_memory.md --write`
+  (dry run without `--write`).
+
 ## [0.4.0-rc.9] - 2026-09-29
 
 ### Fixed

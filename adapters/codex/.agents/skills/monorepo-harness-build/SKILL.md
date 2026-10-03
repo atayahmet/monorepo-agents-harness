@@ -19,8 +19,9 @@ Follow the shared instructions in
    create or touch an app, package, or file neither lists. If the scope must grow, stop and get the
    spec/plan extended and approved first.
 5. On completion, write `3_memory.md` (frontmatter `phase: memory`, with `commits:` filled after the
-   implementation commits) and `4_verify.md` (whenever the spec's "Test / verification plan" is not
-   `N/A`) per Phase 3/4, and update `<workspace>/.agents/artifacts/index.md`. Commit the work.
+   implementation commits and the matching `patch_ids:`) and `4_verify.md` (whenever the spec's "Test /
+   verification plan" is not `N/A`) per Phase 3/4, and update
+   `<workspace>/.agents/artifacts/index.md`. Commit the work.
 6. Ingest this task into the repo-root knowledge base (Karpathy "LLM Wiki" pattern) **in the same
    commit**: run
    `bash .agents/monorepo-agents-harness/core/scripts/kb-ingest.sh <task_dir>` (skip quietly when the

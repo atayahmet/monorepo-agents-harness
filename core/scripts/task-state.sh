@@ -57,6 +57,25 @@
 #                                          `phase: plan`, and is write-once — a re-run leaves the
 #                                          first timestamp, so the record of when the build
 #                                          started cannot be rewritten by a later one.
+#   sync-commits <memory.md> [--ref <ref>] [--write]
+#                                        — repair the `commits:` list of a 3_memory.md after the
+#                                          branch was rebased, squashed or force-pushed. A sha is
+#                                          the name a commit has ON ONE BRANCH; the change itself
+#                                          has an identity that survives the rewrite, its
+#                                          `git patch-id --stable`. A sha that is still reachable
+#                                          from <ref> is kept as is; one that is not is matched by
+#                                          patch-id against the commits on <ref> and rewritten to
+#                                          the sha that carries the same change. The frontmatter is
+#                                          normalized to the template's shape: `commits: [a, b]`
+#                                          plus `patch_ids: [p1, p2]`, the durable join key for
+#                                          tools. <ref> defaults to origin/HEAD, then main, then
+#                                          master, and the ref actually used is always printed.
+#                                          DRY RUN by default; --write applies. A sha that cannot
+#                                          be mapped is left in place, named in the report, and the
+#                                          command exits 1 — a mapping this script could not read is
+#                                          not a mapping it may invent (ADR: a task's commit identity
+#                                          is its patch-id). Exit 3 means NOT DONE: the ref itself
+#                                          does not resolve, so nothing was compared.
 #   merge-intent-pr <intent.md> [--pr <ref>] [--yes]
 #                                        — merge the intent's own PR, but only on an explicit answer
 #                                          and only when the PR itself carries an approving review.
@@ -87,20 +106,23 @@
 #        apps/api/.agents/artifacts/task_2026_08_27_add_auth
 #   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh mark-build \
 #        apps/api/.agents/artifacts/task_2026_08_27_add_auth/2_plan.md
+#   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh sync-commits \
+#        apps/api/.agents/artifacts/task_2026_08_27_add_auth/3_memory.md --ref main --write
 
 set -euo pipefail
 
 cmd="${1:-}"
-[ -n "$cmd" ] || { echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb|stage|mark-build|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--path <kb>]" >&2; exit 2; }
+[ -n "$cmd" ] || { echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb|stage|mark-build|sync-commits|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--path <kb>] [--ref <branch>] [--write]" >&2; exit 2; }
 path="${2:-}"
 [ -n "$path" ] || { echo "usage: task-state.sh $cmd <path>" >&2; exit 2; }
 shift 2 2>/dev/null || true
 
 # Options, each allowed only by the subcommands that read it. --pr is the PR that carries the human
-# approval; --yes is the developer's in-turn answer to "merge it now?"; --path relocates the KB.
-# Any option a subcommand does not read is refused rather than ignored, so a typo in a gate argument
-# can never read as "no PR, check the file only" and pass, nor "no --yes" silently become a merge.
-pr_ref=""; merge_now=0; kb_path=""
+# approval; --yes is the developer's in-turn answer to "merge it now?"; --path relocates the KB;
+# --ref / --write belong to sync-commits alone. Any option a subcommand does not read is refused
+# rather than ignored, so a typo in a gate argument can never read as "no PR, check the file only"
+# and pass, nor "--yes" silently become a merge, nor a dry run silently become a write.
+pr_ref=""; merge_now=0; kb_path=""; commit_ref=""; commit_write=0
 opt_err() {
   echo "task-state: $cmd — '$1' is not a supported option for this subcommand" >&2
   exit 2
@@ -117,6 +139,12 @@ while [ $# -gt 0 ]; do
       case "$cmd" in check-kb) ;; *) opt_err "$1" ;; esac
       [ -n "${2:-}" ] || { echo "usage: task-state.sh $cmd <path> --path <kb>" >&2; exit 2; }
       kb_path="$2"; shift 2 ;;
+    --ref)
+      case "$cmd" in sync-commits) ;; *) opt_err "$1" ;; esac
+      [ -n "${2:-}" ] || { echo "usage: task-state.sh $cmd <path> --ref <branch>" >&2; exit 2; }
+      commit_ref="$2"; shift 2 ;;
+    --write)
+      case "$cmd" in sync-commits) commit_write=1; shift ;; *) opt_err "$1" ;; esac ;;
     *) opt_err "$1" ;;
   esac
 done
@@ -138,6 +166,43 @@ frontmatter_field() {
 }
 
 fail() { echo "task-state: $cmd — $1" >&2; exit 1; }
+
+# frontmatter_list <file> <key> — print a frontmatter list field's values, one per line, for BOTH
+# shapes the same field arrives in: the template's inline flow (`commits: [a, b]`) and the block list
+# an agent writes by hand (`commits:` then `  - a`). frontmatter_field cannot read either: it takes
+# the first line and stops at the newline.
+#
+# Only the first fenced `---` block is frontmatter, and a block list ends at the first line that is
+# neither blank nor a `- ` item — so `patch_ids:` after `commits:` is never swallowed as part of it.
+frontmatter_list() {
+  local file="$1" key="$2"
+  [ -f "$file" ] || return 1
+  awk -v k="$key" '
+    function trim(s) { gsub(/^[ \t\r]+|[ \t\r]+$/, "", s); return s }
+    NR==1 && $0 !~ /^---[ \t]*$/ { exit }
+    NR==1 { in_fm=1; next }
+    in_fm && $0 ~ /^---[ \t]*$/ { exit }
+    in_fm && !seen && match($0, "^[ \t]*" k "[ \t]*:[ \t]*") {
+      seen=1
+      v=trim(substr($0, RSTART+RLENGTH))
+      if (v != "" && v != "[]") {
+        gsub(/^\[/, "", v); gsub(/\]$/, "", v)
+        n=split(v, parts, ",")
+        for (i=1;i<=n;i++) { s=trim(parts[i]); gsub(/^["'\'']|["'\'']$/, "", s); if (s != "") print s }
+      }
+      block=1
+      next
+    }
+    block && match($0, "^[ \t]*-[ \t]*") {
+      s=trim(substr($0, RSTART+RLENGTH))
+      gsub(/^["'\'']|["'\'']$/, "", s)
+      if (s != "") print s
+      next
+    }
+    block && $0 ~ /^[ \t]*$/ { next }
+    block { exit }
+  ' "$file"
+}
 
 # --- The PR review reader, shared by the gate and the merge -------------------------------------
 # Two subcommands answer "is this PR approved?", so the answer is one reader. 0.4.0-rc.5 had this
@@ -506,9 +571,129 @@ case "$cmd" in
     fi
     echo "task-state: build started — $path (build_started: $stamped)"
     ;;
+  sync-commits)
+    # Repair the `commits:` list of a 3_memory.md after the branch was rebased, squashed or
+    # force-pushed. Nothing here guesses: a sha is kept when it is still reachable from the ref, and
+    # otherwise replaced only by a commit that carries byte-identical content (same patch-id).
+    [ -f "$path" ] || fail "memory file '$path' missing"
+    # The ref is resolved, never assumed, and always printed: mapping shas against the wrong branch
+    # would be worse than not mapping them at all.
+    if [ -z "$commit_ref" ]; then
+      for candidate in refs/remotes/origin/HEAD main master; do
+        if git rev-parse --verify --quiet "$candidate" >/dev/null 2>&1; then commit_ref="$candidate"; break; fi
+      done
+    fi
+    [ -n "$commit_ref" ] || {
+      echo "task-state: $cmd — none of origin/HEAD, main, master resolve here; nothing was compared. Pass --ref <branch>" >&2
+      exit 3
+    }
+
+    shas=()
+    while IFS= read -r line; do [ -n "$line" ] && shas+=("$line"); done < <(frontmatter_list "$path" commits || true)
+    [ "${#shas[@]}" -gt 0 ] || fail "'$path' has no 'commits:' list in its frontmatter — nothing to sync"
+
+    # The patch-id map for the ref, built at most once and only when a sha actually needs it: for a
+    # memory whose commits are all still reachable the whole command never walks the history.
+    map_file=""
+    build_patch_map() {
+      [ -n "$map_file" ] && return 0
+      map_file="$(mktemp "${TMPDIR:-/tmp}/harness-patch-map.XXXXXX")"
+      trap 'rm -f "$map_file"' EXIT
+      git log --no-color -p --format='commit %H' "$commit_ref" 2>/dev/null \
+        | git patch-id --stable >"$map_file" 2>/dev/null || : >"$map_file"
+    }
+    patch_of() { git show --format= "$1" 2>/dev/null | git patch-id --stable 2>/dev/null | cut -d' ' -f1 || true; }
+    # "" none, a sha, or "ambiguous:<n>" — two commits with the same patch-id (a cherry-pick, or a
+    # change and its revert) cannot be told apart by content, so neither is offered as the answer.
+    sha_of_patch() {
+      local pid="$1" n=0 hit="" p s
+      while read -r p s; do
+        [ "$p" = "$pid" ] || continue
+        n=$((n + 1)); hit="$s"
+      done <"$map_file"
+      if [ "$n" -eq 1 ]; then printf '%s' "$hit"; else printf 'ambiguous:%s' "$n"; fi
+    }
+
+    keep=(); mapped=(); unresolved=(); final=(); pids=()
+    for sha in "${shas[@]}"; do
+      if git cat-file -e "${sha}^{commit}" 2>/dev/null \
+        && git merge-base --is-ancestor "$sha" "$commit_ref" 2>/dev/null; then
+        keep+=("$sha"); final+=("$sha"); pids+=("$(patch_of "$sha")")
+        continue
+      fi
+      pid="$(patch_of "$sha")"
+      if [ -z "$pid" ]; then
+        keep+=("$sha"); final+=("$sha")
+        unresolved+=("$sha (no patch-id to match on: not a commit in this repository, or no diff)")
+        continue
+      fi
+      build_patch_map
+      hit="$(sha_of_patch "$pid")"
+      case "$hit" in
+        ambiguous:*) keep+=("$sha"); final+=("$sha"); unresolved+=("$sha ($hit commits on $commit_ref share its patch-id)") ;;
+        "")          keep+=("$sha"); final+=("$sha"); unresolved+=("$sha (patch-id $pid is on no commit of $commit_ref)") ;;
+        *)           mapped+=("$sha -> $hit"); final+=("$hit"); pids+=("$pid") ;;
+      esac
+    done
+
+    echo "task-state: sync-commits — $path against $commit_ref"
+    for line in "${mapped[@]+"${mapped[@]}"}"; do echo "  remapped  $line"; done
+    if [ "${#keep[@]}" -gt 0 ]; then echo "  unchanged ${keep[*]}"; fi
+    for line in "${unresolved[@]+"${unresolved[@]}"}"; do echo "  UNMAPPED  $line"; done
+
+    if [ "${#unresolved[@]}" -gt 0 ]; then
+      echo "task-state: sync-commits — ${#unresolved[@]} of ${#shas[@]} commit(s) could not be mapped; left exactly as written. Amend the list by hand or pass --ref <branch>"
+      exit 1
+    fi
+    # Dry run by default: a rewrite of a committed artifact is not something a caller should get
+    # because it forgot --write, and the report above is the answer on its own.
+    [ "$commit_write" -eq 1 ] || { echo "task-state: sync-commits — dry run, nothing written (pass --write to apply)"; exit 0; }
+
+    # One inline `commits:`/`patch_ids:` pair, replacing whatever shape they had. Normalizing is
+    # deliberate: after this command the two fields are read by tools, and one shape is easier to
+    # read than two.
+    flat() { local out="" first=1 v; for v in "$@"; do out="$out$( [ "$first" -eq 1 ] || printf ', ' )$v"; first=0; done; printf '[%s]' "$out"; }
+    commits_line="commits: $(flat "${final[@]+"${final[@]}"}")"
+    patch_ids_line="patch_ids: $(flat "${pids[@]+"${pids[@]}"}")"
+    tmp="$path.task-state.$$"
+    if ! awk -v cl="$commits_line" -v pl="$patch_ids_line" '
+      NR==1 && $0 !~ /^---[[:space:]]*$/ { print; next }
+      NR==1 { in_fm=1; print; next }
+      in_fm && $0 ~ /^---[[:space:]]*$/ {
+        if (!commits_done) { print cl; print pl; commits_done=1 }
+        in_fm=0; print; next
+      }
+      in_fm && !commits_done && match($0, /^[ \t]*commits[ \t]*:[ \t]*/) {
+        v=substr($0, RSTART+RLENGTH); gsub(/^[ \t]+|[ \t]+$/, "", v)
+        print cl; print pl; commits_done=1
+        if (v == "" || v == "[]") skip=1
+        next
+      }
+      in_fm && match($0, /^[ \t]*patch_ids[ \t]*:[ \t]*/) {
+        v=substr($0, RSTART+RLENGTH); gsub(/^[ \t]+|[ \t]+$/, "", v)
+        if (v == "" || v == "[]") skip=1
+        next
+      }
+      skip && $0 ~ /^[ \t]*-[ \t]*/ { next }
+      skip && $0 ~ /^[ \t]*$/ { next }
+      { skip=0; print }
+      END { if (in_fm && !commits_done) { print cl; print pl } }
+    ' "$path" >"$tmp" 2>/dev/null; then
+      rm -f "$tmp"; fail "could not rewrite the frontmatter of '$path'"
+    fi
+    # Read back before replacing: a rewrite that silently dropped the list would leave a memory that
+    # claims no commits, which is worse than the stale shas it replaced.
+    if ! grep -Fxq "$commits_line" "$tmp" || ! grep -Fxq "$patch_ids_line" "$tmp"; then
+      rm -f "$tmp"; fail "the rewritten frontmatter of '$path' did not contain the synced commits — nothing was changed"
+    fi
+    if ! mv "$tmp" "$path"; then
+      rm -f "$tmp"; fail "could not replace '$path' with the synced memory"
+    fi
+    echo "task-state: sync-commits — wrote $path"
+    ;;
   *)
     echo "task-state: unknown subcommand '$cmd'" >&2
-    echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb|stage|mark-build|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--path <kb>]" >&2
+    echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb|stage|mark-build|sync-commits|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--path <kb>] [--ref <branch>] [--write]" >&2
     exit 2
     ;;
 esac

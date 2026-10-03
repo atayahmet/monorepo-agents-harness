@@ -122,11 +122,15 @@ This is a {{MONOREPO_FRAMEWORK}} monorepo. Default context is the repository roo
 5. **Verification Before Done** — Never mark complete without proof. Prefer narrowest scope first.
 6. **Demand Elegance** — For non-trivial changes, pause and ask "is there a more elegant way?" Don't over-engineer obvious fixes.
 7. **Autonomous Bug Fixing** — Treat bugs as execution tasks: investigate, fix root cause, verify.
-8. **Memory / Knowledge Base** — Record durable outcomes in the task's `3_memory.md`; promote
+8. **Memory / Knowledge Base** — Record durable outcomes in the task's `3_memory.md`, with the
+   implementation commits in `commits:` and their `patch_ids:`; promote
    architecture-affecting decisions into ADRs (`core/skills/adr-workflow/SKILL.md`) and recurring
    decisions/reusable patterns into specs and `lessons.md`. On task end, `-build` also ingests the
    task into the repo-root `knowledge/` (Karpathy "LLM Wiki" pattern, `core/skills/knowledge-base/SKILL.md`)
-   so durable knowledge compounds instead of staying buried in per-workspace artifact trees.
+   so durable knowledge compounds instead of staying buried in per-workspace artifact trees. A rebase,
+   squash or force-push leaves a `commits:` sha pointing at nothing while the change itself survives:
+   repair it with `task-state.sh sync-commits <3_memory.md> --ref <branch> --write`, which remaps by
+   patch-id and never rewrites a sha it cannot match.
 9. **Query Knowledge First** — Before scanning per-workspace artifact trees, read `knowledge/index.md`
    and the compiled pages it links; scan raw artifacts only when the KB lacks coverage.
 
