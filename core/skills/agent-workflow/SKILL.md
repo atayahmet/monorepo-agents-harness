@@ -251,7 +251,7 @@ lost, see `PORTABILITY.md`), delegate the verification run to it and transcribe 
 
 - **Slug**: `snake_case`, only `[a-z0-9_]`, 3–5 words. Decide it in the plan phase and reuse the same directory in later phases.
 - **Directory name**: `task_<YYYY_MM_DD>_<slug>` — dashes in the date also become `_` (the `date:` field in frontmatter stays in ISO `YYYY-MM-DD` format).
-- If unsure, find the latest directory across all workspaces: `ls -td apps/*/.agents/artifacts/task_* packages/*/.agents/artifacts/task_* | head -1`.
+- If unsure, find the latest directory across all workspaces: `ls -td apps/*/.agents/artifacts/task_* packages/*/.agents/artifacts/task_* | head -1`. Note that `ls -t` orders by file modification time, which is not the task's age — a dir touched today by an unrelated edit sorts first. When the choice is between two dirs dated the same day, `ls -t` is the right tie-break; when the dates differ, the date in the name is authoritative (`memory-gate.sh` and `hook-arm-build.sh` share `harness_task_dirs_newest_first` in `core/scripts/harness-common.sh` for exactly this).
 
 ## Edge cases
 
@@ -273,6 +273,14 @@ lost, see `PORTABILITY.md`), delegate the verification run to it and transcribe 
   commits land, so the `commits:` list is populated.
   `4_verify.md` has no such ordering constraint relative to `3_memory.md` — both are required by
   task end, in either order.
+- **A rewritten history**: a `commits:` sha is a name a commit has on one branch, so a rebase, a squash
+  or a force-push leaves it pointing at nothing while the change itself survives. Write
+  `patch_ids:` alongside `commits:` (see `templates/3_memory.md`) — a `git patch-id --stable` value
+  is the identity of the change, not of the history. To repair an existing memory:
+  `bash <bundle>/core/scripts/task-state.sh sync-commits <task_dir>/3_memory.md [--ref <branch>] --write`
+  — a dry run without `--write`, `--ref` defaults to `origin/HEAD`, then `main`, then `master`, and a
+  sha it cannot map by content is left alone and reported rather than guessed. The memory-gate does not
+  require `patch_ids:`, so a memory written before this field existed stays valid.
 - **No matching approved intent**: normal and expected for most tasks — `0_intent.md` is simply
   omitted; nothing warns about this, unlike the mandatory prior-art search above. As long as the
   task dir also has no `0_intent.md`, `task-state.sh check-chain` treats it as a valid ad-hoc task.

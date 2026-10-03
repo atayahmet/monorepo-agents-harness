@@ -71,8 +71,11 @@ enforcement layer must support exactly these expectations (native mechanism or f
    redefined per adapter. Because that path never runs `/monorepo-harness-build`, the adapter must
    also **arm the memory-gate for it**: wire `core/scripts/hook-arm-build.sh` as a pre-write hook
    (claude-code) or name `task-state.sh mark-build <2_plan.md>` in the same reminder (codex, and
-   any agent without a file-write matcher). The capability — a plan-mode-exit build is still gated —
-   is mandatory; only the trigger is per-agent, and `PORTABILITY.md` records the difference.
+   any agent without a file-write matcher). The hook arms only a plan in the workspace being
+   written to, and only among task dirs created today that have no `3_memory.md` — the same scope
+   the gate itself enforces, so arming can never claim a task the gate would not enforce. The
+   capability — a plan-mode-exit build is still gated — is mandatory; only the trigger is per-agent,
+   and `PORTABILITY.md` records the difference.
 3. **Memory-gate at task end** — a task that reached the **build** stage may not close until its
    dir contains `3_memory.md` (`phase: memory`, `commits:` listing SHAs written *after* committing),
    plus `4_verify.md` whenever the spec's Test/verification plan section is not `N/A` (Feedback Loop

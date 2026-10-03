@@ -27,7 +27,7 @@ silent() { if [ -z "$2" ]; then ok "$1"; else bad "$1" "expected no output, got:
 new_fixture() {
   rm -rf "$FIXTURE"; mkdir -p "$FIXTURE"
   ( cd "$FIXTURE" && git init -q . && git config user.email t@example.com && git config user.name test )
-  mkdir -p "$FIXTURE/.agents/monorepo-agents-harness" "$FIXTURE/apps/api/src"
+  mkdir -p "$FIXTURE/.agents/monorepo-agents-harness" "$FIXTURE/apps/api/src" "$FIXTURE/apps/web/src"
   cp -R "$REPO/core" "$FIXTURE/.agents/monorepo-agents-harness/core"
 }
 
@@ -48,6 +48,11 @@ NOJQ="$(mktemp -d "${TMPDIR:-/tmp}/harness-mg-nojq.XXXXXX")"
 printf '#!/bin/sh\nexit 127\n' > "$NOJQ/jq"; chmod +x "$NOJQ/jq"
 
 task_dir() { printf '%s/apps/api/.agents/artifacts/task_%s_%s' "$FIXTURE" "$TODAY" "$1"; }
+# A task dir for an arbitrary date, in either workspace — the hook's scope and the gate's scope are
+# both "created today", so a case that needs a different day has to name it.
+task_dir_on() { # task_dir_on <YYYY_MM_DD> <slug> [workspace]
+  printf '%s/apps/%s/.agents/artifacts/task_%s_%s' "$FIXTURE" "${3:-api}" "$1" "$2"
+}
 
 write_spec() { # write_spec <dir> [verification plan section]
   mkdir -p "$1"
@@ -188,6 +193,47 @@ new_fixture; d="$(task_dir arm_ambiguous)"; write_spec "$d"; write_plan "$d"
     "$FIXTURE/apps/api/src/a.ts" "$FIXTURE/apps/api/src/b.ts" \
   | PATH="$NOJQ:$PATH" $S/hook-arm-build.sh >/dev/null 2>&1 )
 is "without jq, an ambiguous payload arms nothing" "$(task_state stage "$d")" "plan"
+
+# --- the hook arms only what the gate enforces (issues #19, #20) ----------------------------------------
+# An older task dir whose file modification time is NEWER must still lose: the date in the dir name is
+# the task's age, mtime is only what the filesystem last touched.
+new_fixture
+yesterday="$(task_dir_on 2026_01_01 opened_yesterday web)"
+write_spec "$yesterday"; write_plan "$yesterday"; sleep 1; touch "$yesterday"
+hook_arm "{\"tool_input\":{\"file_path\":\"$FIXTURE/apps/api/src/index.ts\"}}"
+is "an older plan with a newer mtime is not armed" "$(task_state stage "$yesterday")" "plan"
+
+# A finished task: it has its memory, so there is nothing left to arm, and marking it would dirty a
+# committed, finished task dir on somebody else's write.
+new_fixture; d="$(task_dir arm_finished)"; write_spec "$d"; write_plan "$d"; write_memory "$d"
+hook_arm "{\"tool_input\":{\"file_path\":\"$FIXTURE/apps/api/src/index.ts\"}}"
+is "a task that already has 3_memory.md is not armed" "$(task_state stage "$d")" "plan"
+
+# Workspace scoping: a docs edit says nothing about whether the api task is being built.
+new_fixture
+api="$(task_dir arm_ws_api)"; web="$(task_dir_on "$TODAY" arm_ws_web web)"
+write_spec "$api"; write_plan "$api"; write_spec "$web"; write_plan "$web"
+hook_arm "{\"tool_input\":{\"file_path\":\"$FIXTURE/apps/web/src/page.tsx\"}}"
+is "a write in another workspace does not arm this plan" "$(task_state stage "$api")" "plan"
+is "a write in a workspace arms that workspace's plan" "$(task_state stage "$web")" "build"
+
+# Same date, two plans: mtime breaks the tie, so the most recently touched plan is armed first.
+new_fixture
+older="$(task_dir_on "$TODAY" tie_older)"; newer="$(task_dir_on "$TODAY" tie_newer web)"
+write_spec "$older"; write_plan "$older"; write_spec "$newer"; write_plan "$newer"; sleep 1; touch "$older"
+hook_arm "{\"tool_input\":{\"file_path\":\"$FIXTURE/apps/api/src/index.ts\"}}"
+is "with two plans of the day the newest mtime wins" "$(task_state stage "$older")" "build"
+is "and the older one is left alone" "$(task_state stage "$newer")" "plan"
+
+# The order both scripts share, read directly: newest by the DATE IN THE NAME, mtime only as tie-break.
+new_fixture
+d1="$(task_dir_on 2026_01_01 order_old)"; d2="$(task_dir_on 2026_02_02 order_mid)"; d3="$(task_dir_on "$TODAY" order_new)"
+mkdir -p "$d1" "$d2" "$d3"; touch "$d1"; sleep 1; touch "$d3"; sleep 1; touch "$d2"
+rel() { printf '%s' "${1#"$FIXTURE"/}"; }
+is "shared task-dir order is by dir-name date, not mtime" \
+  "$( ( cd "$FIXTURE" && . .agents/monorepo-agents-harness/core/scripts/harness-common.sh \
+       && harness_task_dirs_newest_first "apps/*/.agents/artifacts/task_*" ) | tr '\n' ' ' | sed 's/ *$//' )" \
+  "$(rel "$d3") $(rel "$d2") $(rel "$d1")"
 
 # --- the gate fails safe when it cannot read the stage -------------------------------------------------
 new_fixture; d="$(task_dir no_reader)"; write_spec "$d"; write_plan "$d"; arm_build "$d/2_plan.md"

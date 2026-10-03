@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
 #
-# harness-common.sh - shared helpers for the harness install/audit scripts.
+# harness-common.sh - shared helpers for the harness scripts.
 #
 # SOURCED, never executed:  . "$(dirname "${BASH_SOURCE[0]}")/harness-common.sh"
 #
 # Exists so install-harness.sh, install-adapter.sh and audit-install.sh cannot drift apart on
-# manifest parsing, placeholder substitution, or the move-aside trash convention.
+# manifest parsing, placeholder substitution, or the move-aside trash convention — and so the two
+# gate scripts cannot drift apart on which task dir is "the newest one" (see
+# harness_task_dirs_newest_first below).
+#
+# Every consumer must keep working when this file is missing: it is a library of shared answers,
+# never a dependency. A caller that cannot source it keeps its own behaviour and says nothing.
+#
 # Dependencies: git + coreutils (jq optional, only as a nicety for package.json).
 
 # Repo root of the *target* project (falls back to CWD outside a git repo).
@@ -110,4 +116,42 @@ harness_trash_dir() {
   local t="$1/.agents/.harness-trash/$(date +%Y%m%d_%H%M%S)_$$"
   mkdir -p "$t" || return 1
   printf '%s\n' "$t"
+}
+
+# Task dirs, NEWEST FIRST — the one order both gate scripts use (core/scripts/memory-gate.sh and
+# core/scripts/hook-arm-build.sh).
+#
+# Usage:  harness_task_dirs_newest_first <glob> [<glob> ...]     (globs, not literal paths)
+# Prints one existing directory per line, nothing else, exit 0 even when nothing matches.
+#
+# The order is the DATE IN THE DIRECTORY NAME (task_<YYYY_MM_DD>_<slug>), newest first, descending.
+# Zero-padded, so a plain lexicographic compare is chronological; dashes are accepted because the
+# name is the only place a task carries a date.
+#
+# Modification time is a TIE-BREAK inside one date and nothing else. It is not the task's age: a
+# `git checkout`, a rebase, a stash pop or a one-line fix to an old memory all rewrite it. Sorting by
+# mtime is how hook-arm-build.sh came to arm a task nobody was building and how the gate came to
+# report the wrong dir of the day.
+#
+# A name with no parseable date sorts last. It is never the newest task, which is the safe direction:
+# a dir that cannot say when it was opened must not be armed ahead of one that can.
+harness_task_dirs_newest_first() {
+  local pattern d base dt mt
+  local -a hits=()
+  # compgen -G expands one glob as a single word, so a path containing a space survives; the usual
+  # `for x in $pattern` would split it into two words and arm nothing.
+  for pattern in "$@"; do
+    while IFS= read -r d; do
+      [ -n "$d" ] && hits+=("$d")
+    done < <(compgen -G "$pattern" 2>/dev/null || true)
+  done
+  [ "${#hits[@]}" -eq 0 ] && return 0
+  for d in "${hits[@]}"; do
+    base="$(basename "$d")"
+    dt="$(printf '%s\n' "$base" | grep -oE '[0-9]{4}[_-][0-9]{2}[_-][0-9]{2}' | head -1 | sed 's/[-]/_/g')"
+    [ -n "$dt" ] || dt="0000_00_00"
+    # `stat -c` is GNU, `stat -f %m` is BSD/macOS; a dir we cannot stat just sorts by its date.
+    mt="$(stat -c %Y "$d" 2>/dev/null || stat -f %m "$d" 2>/dev/null || echo 0)"
+    printf '%s\t%s\t%s\n' "$dt" "${mt:-0}" "$d"
+  done | LC_ALL=C sort -t$'\t' -k1,1r -k2,2nr | cut -f3-
 }

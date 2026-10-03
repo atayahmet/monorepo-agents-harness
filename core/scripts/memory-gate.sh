@@ -48,6 +48,15 @@ BUNDLE_DIR="${BUNDLE_DIR:-$RUNTIME_DIR}"
 DETECT_SCRIPT="${DETECT_SCRIPT:-$RUNTIME_DIR/core/scripts/detect-monorepo-framework.sh}"
 [ ! -x "$DETECT_SCRIPT" ] && DETECT_SCRIPT="$BUNDLE_DIR/core/scripts/detect-monorepo-framework.sh"
 
+# The task-dir order is shared with hook-arm-build.sh, so the two scripts cannot disagree about which
+# dir of the day is the newest one. Sourced when present and optional on purpose: without it the gate
+# keeps the raw glob order below, which changes the ORDER it reports in and nothing else — a library
+# that is missing must never be able to switch this gate off.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/harness-common.sh" ]; then
+  . "$SCRIPT_DIR/harness-common.sh"
+fi
+
 # Discover workspace directories using the framework detector.
 workspace_parents=()
 if [ -x "$DETECT_SCRIPT" ]; then
@@ -67,12 +76,19 @@ for parent in "${workspace_parents[@]}"; do
   scan_patterns+=("$parent"/*/.agents/artifacts/task_${TODAY}_*)
 done
 
-# Every task dir created today across all discovered workspaces, newest first.
+# Every task dir created today across all discovered workspaces, newest first BY THE DATE IN ITS
+# NAME (see harness_task_dirs_newest_first — not by file mtime, which a checkout or a rebase moves).
+# TODAY is the gate's scope, and hook-arm-build.sh arms nothing outside it: what the hook marks and
+# what the gate reads can never be two different sets of task dirs.
 TODAY_DIRS=()
 if [ "${#scan_patterns[@]}" -gt 0 ]; then
   while IFS= read -r d; do
     [ -n "$d" ] && TODAY_DIRS+=("$d")
-  done < <(ls -td "${scan_patterns[@]}" 2>/dev/null || true)
+  done < <(if declare -F harness_task_dirs_newest_first >/dev/null 2>&1; then
+             harness_task_dirs_newest_first "${scan_patterns[@]}"
+           else
+             ls -td "${scan_patterns[@]}" 2>/dev/null || true
+           fi)
 fi
 [ "${#TODAY_DIRS[@]}" -eq 0 ] && exit 0   # no task started today → nothing to enforce
 
