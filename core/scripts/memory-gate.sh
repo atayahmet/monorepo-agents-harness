@@ -73,24 +73,28 @@ fi
 scan_patterns=()
 for parent in "${workspace_parents[@]}"; do
   [ -d "$parent" ] || continue
-  scan_patterns+=("$parent"/*/.agents/artifacts/task_${TODAY}_*)
+  scan_patterns+=("$parent"/*/.agents/artifacts/task_*)
 done
+# Also scan repo root if present
+if [ -d "$ROOT/.agents/artifacts" ]; then
+  scan_patterns+=("$ROOT/.agents/artifacts/task_*")
+fi
 
-# Every task dir created today across all discovered workspaces, newest first BY THE DATE IN ITS
+# All task dirs across discovered workspaces across all discovered workspaces, newest first BY THE DATE IN ITS
 # NAME (see harness_task_dirs_newest_first — not by file mtime, which a checkout or a rebase moves).
 # TODAY is the gate's scope, and hook-arm-build.sh arms nothing outside it: what the hook marks and
 # what the gate reads can never be two different sets of task dirs.
-TODAY_DIRS=()
+CANDIDATE_DIRS=()
 if [ "${#scan_patterns[@]}" -gt 0 ]; then
   while IFS= read -r d; do
-    [ -n "$d" ] && TODAY_DIRS+=("$d")
+    [ -n "$d" ] && CANDIDATE_DIRS+=("$d")
   done < <(if declare -F harness_task_dirs_newest_first >/dev/null 2>&1; then
              harness_task_dirs_newest_first "${scan_patterns[@]}"
            else
              ls -td "${scan_patterns[@]}" 2>/dev/null || true
            fi)
 fi
-[ "${#TODAY_DIRS[@]}" -eq 0 ] && exit 0   # no task started today → nothing to enforce
+[ "${#CANDIDATE_DIRS[@]}" -eq 0 ] && exit 0   # no task dirs → nothing to enforce
 
 # The stage reader is task-state.sh, and it is the only implementation of "which stage is this
 # task in" — the gate asks, it never re-reads the plan itself.
@@ -102,7 +106,7 @@ TASK_STATE="${TASK_STATE:-$RUNTIME_DIR/core/scripts/task-state.sh}"
 # later from moving the gate's attention off a build that is still owed memory.
 build_dirs=()
 stage_readable=1
-for d in "${TODAY_DIRS[@]}"; do
+for d in "${CANDIDATE_DIRS[@]}"; do
   s=""
   if [ -f "$TASK_STATE" ]; then
     s="$(bash "$TASK_STATE" stage "$d" 2>/dev/null || true)"
@@ -117,7 +121,7 @@ if [ "$stage_readable" -eq 0 ]; then
   # No reader means no way to tell a waiting task from a running one. Enforcing the newest dir is
   # what this gate did before and is the safe direction: a gate that cannot read its own stage
   # must not decide there is nothing to enforce.
-  build_dirs=("${TODAY_DIRS[@]:0:1}")
+  build_dirs=("${CANDIDATE_DIRS[@]:0:1}")
 fi
 # No build in flight today → the day is a spec, a plan or a research task, and there is nothing
 # to enforce. This is the case issue #17 is about: a spec-only task must be allowed to end.

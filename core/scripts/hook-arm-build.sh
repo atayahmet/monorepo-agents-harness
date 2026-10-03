@@ -9,7 +9,7 @@
 # NOT a task artifact — the same boundary the plan-reminder hook already describes in prose.
 #
 # It arms only what the gate would actually enforce, and the three rules that make that true are one
-# list: candidates are the task dirs created TODAY (the gate reads no other date), a dir that already
+# list: candidates are the task dirs (the gate reads no other date), a dir that already
 # has 3_memory.md is skipped (nothing left to arm), and a plan is armed only when the written path is
 # inside that plan's own workspace. Marking a task the gate never reads produced a dirty tracked file
 # on every unrelated write, and arming a plan-only task blocked the Stop hook for work never built.
@@ -128,7 +128,7 @@ in_workspace() {
 [ -f "$TASK_STATE" ] || exit 0
 
 # --- the plan to arm ----------------------------------------------------------------------------
-# The candidates are exactly the gate's candidates: task dirs created TODAY, newest first by the date
+# The candidates are exactly the gate's candidates: task dirs, newest first by the date
 # in the dir name. "Any date counts" was wrong twice over — it marked finished tasks the gate then
 # never reads again, and it let an unrelated write arm a plan-only task into a Stop block for work
 # that was never built. If the gate does not enforce a dir, this hook has no business marking it.
@@ -143,9 +143,13 @@ fi
 patterns=()
 for parent in "${workspace_parents[@]}"; do
   [ -d "$parent" ] || continue
-  patterns+=("$parent"/*/.agents/artifacts/task_${TODAY}_*)
+  patterns+=("$parent"/*/.agents/artifacts/task_*)
 done
-[ "${#patterns[@]}" -gt 0 ] || exit 0   # no task has been opened today — nothing to arm
+# Also scan repo root if present
+if [ -d "$ROOT/.agents/artifacts" ]; then
+  patterns+=("$ROOT/.agents/artifacts/task_*")
+fi
+[ "${#patterns[@]}" -gt 0 ] || exit 0   # no task dirs found — nothing to arm
 
 candidates=()
 while IFS= read -r task_dir; do

@@ -1351,3 +1351,8 @@ First release candidate. Versioning starts here.
 [0.1.0-rc.2]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.2
 [0.1.0-rc.1]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.1
 [0.1.0-rc.0]: https://github.com/atayahmet/monorepo-agents-harness/releases/tag/v0.1.0-rc.0
+
+## 0.4.0-rc.11 (2026-10-03)
+
+- memory-gate.sh and hook-arm-build.sh now enforce/arm build-stage tasks across all dates (not just today), while still excluding finished tasks (closes #23).
+- No adapter or manifest changes. Tests cover cross-midnight cases.
