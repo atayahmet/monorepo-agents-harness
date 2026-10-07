@@ -13,7 +13,10 @@
 #                                   generated from core/root-AGENTS.md instead)
 #   changelogs/                     upgrade prompts are always read from a fresh temporary clone,
 #                                   never from the installed copy
-#   .gitignore, .github/            this repo's own tooling
+#   .gitignore, .github/            this repo's own tooling — a consumer's root .gitignore is never
+#                                   shipped as a file; the lines a consumer DOES need (derived caches)
+#                                   live in core/gitignore-fragment.txt, whose lines install-harness.sh
+#                                   merges into <repo-root>/.gitignore idempotently
 
 core
 # Starter project-rule template for the consumer's .agents/rules/ — copied into the bundle here,
@@ -29,6 +32,10 @@ core/governance/rules/simple-english.md
 # into the bundle here, then seeded into <repo-root>/knowledge/ by core/scripts/scaffold-knowledge.sh
 # (never overwrites consumer content). Listed explicitly so the seed is a first-class audited row.
 core/knowledge-template
+# Root-.gitignore lines (derived caches: knowledge/.index.sqlite*) — the fragment file ships as a
+# bundle row here; install-harness.sh merges its lines into <repo-root>/.gitignore idempotently and
+# audit-install.sh checks they landed. Listed explicitly so the merge is a first-class audited row.
+core/gitignore-fragment.txt
 # The paste-in harness update prompt (the single source the /monorepo-harness-update commands and the
 # project README both point at) — shipped via the `core` row above; listed explicitly so the
 # agent-facing update procedure is a first-class, audited install row.

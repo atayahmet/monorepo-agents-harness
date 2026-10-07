@@ -31,6 +31,28 @@ update this file in the same change that updates the pages.
 - Raw artifacts are immutable; `knowledge/` pages are regenerable. Never edit a raw artifact from an
   ingest.
 
+## Index layer (derived cache)
+
+`knowledge/.index.sqlite` is a SQLite FTS5 cache over this directory, built by
+`core/scripts/kb-index.sh`. Its rules:
+
+- Markdown is the source of truth; the database is derived, gitignored, never hand-edited and
+  always safe to delete — the next `query` rebuilds it.
+- It self-heals staleness: before answering, `kb-index.sh` rebuilds when any page is newer than the
+  index or the page count differs. `kb-ingest.sh` deliberately never touches it, so task-end cost
+  stays zero.
+- Tables: `docs` (path, kind, workspace, task_slug, date, title, body, mtime), `docs_fts` (FTS5 over
+  title + body — BM25 ranking and `snippet()`), `links` (`from_path` → `target` edges from both
+  `[[wiki-link]]` and markdown links).
+- `kind` comes from the directory: `modules` → `module`, `concepts` → `concept`,
+  `decision-records` → `decision`, `verified-facts` → `fact`, `sources` → `source`, root files →
+  `meta`.
+- A link target resolves without `.md`: `[[concepts/foo]]`, bare `[[foo]]` (any section) and
+  `[x](concepts/foo.md)` / `[x](../concepts/foo.md)` all name the same page; `http(s)://` and
+  `mailto:` targets are not edges.
+- Without `sqlite3`, or with a build that lacks FTS5, the cache is unavailable: `kb-index.sh` prints
+  one warning, exits non-zero, and the workflows below run on `index.md` + grep unchanged.
+
 ## Workflows
 
 ### Ingest (task end, incremental — the only ingest path)
@@ -51,13 +73,17 @@ Research-only tasks (no `3_memory.md`) are skipped — nothing to ingest, no log
 
 ### Query (fast path)
 
-On a question: read `index.md`, open the linked pages, synthesize with citations. Only when the KB
-lacks coverage, scan the per-workspace artifact trees (`apps/*/.agents/artifacts/`). Good answers
-can be filed back into the KB as `concepts/` or `decision-records/` additions (append to `log.md`).
+On a question: `core/scripts/kb-index.sh query "<terms>" [--kind <k>] [--workspace <w>]` for ranked
+paths with snippets, open only the top pages, synthesize with citations. It rebuilds the index first
+when a page changed, so no manual indexing step exists. Only when the KB lacks coverage, or when
+`sqlite3`/FTS5 is unavailable, scan the per-workspace artifact trees
+(`apps/*/.agents/artifacts/`) or read `index.md` directly. Good answers can be filed back into the
+KB as `concepts/` or `decision-records` additions (append to `log.md`).
 
 ### Lint (periodic, explicit)
 
-Scan every page for:
+`core/scripts/kb-index.sh links --missing` and `links --orphans` produce the mechanical half in one
+SQL pass each (broken targets, unlinked pages). Then scan every page for:
 
 1. A concept/module/decision referenced via `[[wiki-link]]` but lacking its own page — flag for creation.
 2. Contradictions between pages — flag **both** positions, do not silently resolve; escalate to the

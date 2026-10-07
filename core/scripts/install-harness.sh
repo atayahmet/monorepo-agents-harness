@@ -108,6 +108,28 @@ fi
 VERSION="$(tr -d '[:space:]' <"$DEST/VERSION" 2>/dev/null || true)"
 echo "install-harness: synced $rows manifest row(s) — harness v${VERSION:-unknown}"
 
+# --- 2b. Root .gitignore: merge the derived-cache ignore lines (idempotent) ---------------------
+# The fragment ships as a manifest row; only its LINES land in the project's own .gitignore. Every
+# line (comments included) is appended only when absent, so re-running never duplicates anything.
+FRAGMENT="$DEST/core/gitignore-fragment.txt"
+if [ -f "$FRAGMENT" ]; then
+  gi="$ROOT/.gitignore"
+  [ -e "$gi" ] || { : > "$gi"; echo "  + .gitignore (created)"; }
+  gi_added=0
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    if ! grep -qxF "$line" "$gi" 2>/dev/null; then
+      printf '%s\n' "$line" >> "$gi"
+      gi_added=$((gi_added + 1))
+    fi
+  done < "$FRAGMENT"
+  if [ "$gi_added" -gt 0 ]; then
+    echo "  + .gitignore += $gi_added line(s) from core/gitignore-fragment.txt"
+  else
+    echo "  = .gitignore already carries core/gitignore-fragment.txt"
+  fi
+fi
+
 if [ "$SYNC_ONLY" -eq 1 ]; then
   [ -n "$TRASH" ] && echo "install-harness: previous copies moved to ${TRASH#"$ROOT"/}"
   exit 0

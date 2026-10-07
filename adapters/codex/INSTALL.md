@@ -53,6 +53,7 @@ they coexist with your existing hooks safely.
 | Update check | `core/scripts/harness-update.sh` + `core/prompts/harness-update.md` + `core/skills/harness-update/SKILL.md` | `/monorepo-harness-update` → `.agents/skills/monorepo-harness-update/SKILL.md` |
 | CI wiring · PR review · intent capture | `core/skills/{ci-integration,pr-review,intent-workflow}/SKILL.md` | `/monorepo-harness-ci` · `/monorepo-harness-review` · `/monorepo-harness-intent` skills |
 | Intent dispatch (`/monorepo-harness-intent-dispatch`) | `core/skills/intent-workflow/SKILL.md` "Workflow — Dispatch" + `core/scripts/tracker-issue.sh` | `/monorepo-harness-intent-dispatch` skill · the epic and its child issues created inline (no subagent primitive) |
+| Knowledge base query/lint (`/monorepo-harness-kb-index`) | `core/scripts/kb-index.sh` (SQLite FTS5 cache) + `core/skills/knowledge-base/SKILL.md` | `/monorepo-harness-kb-index` skill → `.agents/skills/monorepo-harness-kb-index/SKILL.md` |
 | Self-improvement (`/monorepo-self-improve`) | `core/skills/self-improvement-workflow/SKILL.md` | `/monorepo-self-improve` skill · skill symlinked into `.agents/skills/` |
 
 ## Verify

@@ -1,0 +1,2 @@
+# Derived harness caches (rebuilt on demand by core/scripts/kb-index.sh) — never commit them.
+knowledge/.index.sqlite*
