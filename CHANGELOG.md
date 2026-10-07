@@ -49,7 +49,9 @@ Release procedure (harness maintainers):
 - The new script ships inside `core/`, so the normal update is enough
   (`/monorepo-harness-update`, or `install-harness.sh --sync-only`); refresh each adapter as usual —
   the three `/monorepo-harness-kb-index` files arrive from `copy` rows via
-  `install-adapter.sh --refresh`. No `changelogs/` prompt: nothing needs a hand-run command.
+  `install-adapter.sh --refresh`. Upgrade prompt: `changelogs/version-0.4.0-rc.13.md` (no command
+  to run by hand — the manifest-driven update covers everything; it records the `.gitignore` check
+  and the `sqlite3`/FTS5 ranking note).
 - **Your root `.gitignore` gains two lines** (`# Derived harness caches …` and
   `knowledge/.index.sqlite*`) on the next `install-harness.sh` run, sync-only included. They are
   appended only when absent, and `audit-install.sh` names any line you delete.
