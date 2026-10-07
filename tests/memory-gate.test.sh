@@ -24,10 +24,13 @@ silent() { if [ -z "$2" ]; then ok "$1"; else bad "$1" "expected no output, got:
 
 # One fixture per case: an empty git repo, one workspace, and the harness installed the way a
 # consumer gets it. No path overrides — the scripts must find their own bundle.
+# `new_fixture root-only` leaves out apps/ and packages/ — the layout issue #22 is about, where the
+# repo root is the only workspace there is.
 new_fixture() {
   rm -rf "$FIXTURE"; mkdir -p "$FIXTURE"
   ( cd "$FIXTURE" && git init -q . && git config user.email t@example.com && git config user.name test )
-  mkdir -p "$FIXTURE/.agents/monorepo-agents-harness" "$FIXTURE/apps/api/src" "$FIXTURE/apps/web/src"
+  mkdir -p "$FIXTURE/.agents/monorepo-agents-harness"
+  [ "${1:-}" = "root-only" ] || mkdir -p "$FIXTURE/apps/api/src" "$FIXTURE/apps/web/src"
   cp -R "$REPO/core" "$FIXTURE/.agents/monorepo-agents-harness/core"
 }
 
@@ -48,6 +51,9 @@ NOJQ="$(mktemp -d "${TMPDIR:-/tmp}/harness-mg-nojq.XXXXXX")"
 printf '#!/bin/sh\nexit 127\n' > "$NOJQ/jq"; chmod +x "$NOJQ/jq"
 
 task_dir() { printf '%s/apps/api/.agents/artifacts/task_%s_%s' "$FIXTURE" "$TODAY" "$1"; }
+# A task dir at the REPO ROOT — the workspace AGENTS.md allows when neither apps/ nor packages/
+# exists, and the one both scripts used to skip (issue #22).
+root_task_dir() { printf '%s/.agents/artifacts/task_%s_%s' "$FIXTURE" "$TODAY" "$1"; }
 # A task dir for an arbitrary date, in either workspace — the hook's scope and the gate's scope are
 # both "created today", so a case that needs a different day has to name it.
 task_dir_on() { # task_dir_on <YYYY_MM_DD> <slug> [workspace]
@@ -217,6 +223,11 @@ hook_arm "{\"tool_input\":{\"file_path\":\"$FIXTURE/apps/web/src/page.tsx\"}}"
 is "a write in another workspace does not arm this plan" "$(task_state stage "$api")" "plan"
 is "a write in a workspace arms that workspace's plan" "$(task_state stage "$web")" "build"
 
+# The ordinary first write of a build: a brand-new file in a directory nobody has created yet.
+new_fixture; d="$(task_dir arm_newfile)"; write_spec "$d"; write_plan "$d"
+hook_arm "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$FIXTURE/apps/api/src/feature/new.ts\"}}"
+is "a write into a not-yet-existing directory arms its own workspace plan" "$(task_state stage "$d")" "build"
+
 # Same date, two plans: mtime breaks the tie, so the most recently touched plan is armed first.
 new_fixture
 older="$(task_dir_on "$TODAY" tie_older)"; newer="$(task_dir_on "$TODAY" tie_newer web)"
@@ -239,6 +250,47 @@ is "shared task-dir order is by dir-name date, not mtime" \
 new_fixture; d="$(task_dir no_reader)"; write_spec "$d"; write_plan "$d"; arm_build "$d/2_plan.md"
 out="$( cd "$FIXTURE" && TASK_STATE=/nonexistent/task-state.sh $S/memory-gate.sh >/dev/null 2>&1; echo $? )"
 is "with no stage reader the gate still enforces" "$out" "1"
+
+# --- a repo-root task dir is a candidate (issue #22) ----------------------------------------------------
+# AGENTS.md workspace routing allows the repo root as the workspace; the scan set has to include it
+# or a spec, plan and memory exist that no gate ever reads.
+new_fixture; d="$(root_task_dir root_build)"; write_spec "$d"; write_plan "$d"; arm_build "$d/2_plan.md"
+is "repo-root build without memory: default mode exits 1" "$(gate_code </dev/null)" "1"
+says "the repo-root task dir is the one reported" "$(gate </dev/null)" "task_${TODAY}_root_build"
+says "--json blocks on a repo-root task" "$(stop_hook '{"stop_hook_active":false}')" '"decision": "block"'
+
+new_fixture; d="$(root_task_dir root_done)"; write_spec "$d"; write_plan "$d"; arm_build "$d/2_plan.md"
+write_memory "$d"; write_verify "$d"; seed_kb "$d"
+is "a complete repo-root build passes" "$(gate_code </dev/null)" "0"
+
+# The layout the issue is really about: no apps/ and no packages/ anywhere.
+new_fixture root-only; d="$(root_task_dir bare_root)"; write_spec "$d"; write_plan "$d"; arm_build "$d/2_plan.md"
+is "a root task in a repo with no workspaces: exits 1" "$(gate_code </dev/null)" "1"
+says "and it names the root task dir" "$(gate </dev/null)" "task_${TODAY}_bare_root"
+
+# --- hook-arm-build.sh arms a repo-root plan (issue #22) ------------------------------------------------
+new_fixture; d="$(root_task_dir arm_root)"; write_spec "$d"; write_plan "$d"; mkdir -p "$FIXTURE/src"
+hook_arm "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$FIXTURE/src/index.ts\"}}"
+is "a write outside .agents arms a repo-root plan" "$(task_state stage "$d")" "build"
+
+new_fixture; d="$(root_task_dir arm_root_artifact)"; write_spec "$d"; write_plan "$d"
+hook_arm "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$FIXTURE/.agents/artifacts/task_x/2_plan.md\"}}"
+is "an artifact write never arms a repo-root plan" "$(task_state stage "$d")" "plan"
+
+# The first write of a build is usually a brand-new file: its parent directory does not exist yet,
+# so it can only be placed by its repo-root-relative path, not by a resolved physical one.
+new_fixture; d="$(root_task_dir arm_root_newfile)"; write_spec "$d"; write_plan "$d"
+hook_arm "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$FIXTURE/src/components/Button.tsx\"}}"
+is "a write into a not-yet-existing directory arms a repo-root plan" "$(task_state stage "$d")" "build"
+
+# Same write, a workspace plan: it must stay unarmed — the root fix may not loosen that rule.
+new_fixture; d="$(task_dir arm_ws_rootwrite)"; write_spec "$d"; write_plan "$d"
+hook_arm "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$FIXTURE/README.md\"}}"
+is "a repo-root write does not arm a workspace plan" "$(task_state stage "$d")" "plan"
+
+new_fixture root-only; d="$(root_task_dir arm_root_bare)"; write_spec "$d"; write_plan "$d"
+hook_arm "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$FIXTURE/README.md\"}}"
+is "a repo with no workspaces arms its own root plan" "$(task_state stage "$d")" "build"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

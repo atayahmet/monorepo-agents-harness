@@ -95,17 +95,29 @@ esac
 # repo-relative. `canon_target` resolves symlinks on the way, because git reports the repo root as a
 # PHYSICAL path while an agent may hand over the logical one — a checkout reached through a symlink, a
 # TMPDIR with a doubled slash. Comparing those two spellings directly would silently stop the hook
-# from arming on a perfectly ordinary project. `rel_target` is the repo-root-relative form, kept for a
-# path whose parent directory does not exist yet and therefore cannot be resolved.
+# from arming on a perfectly ordinary project. `rel_target` is the repo-root-relative form, kept as a
+# fallback for a path that cannot be placed at all.
 abs_target="$target"
 case "$abs_target" in
   /*) : ;;
   ./?*) abs_target="$ROOT/${abs_target#./}" ;;
   *)   abs_target="$ROOT/$abs_target" ;;
 esac
-canon_dir="$(dirname "$abs_target")"
-if [ -d "$canon_dir" ]; then
-  canon_target="$(cd "$canon_dir" && pwd -P)/$(basename "$abs_target")"
+# The parent directory often does not exist — the first write of a build is usually a brand-new file
+# in a brand-new directory — and the reported spelling may differ from git's physical root. Walk up
+# to the deepest directory that DOES exist, resolve that one physically, and re-append the part below
+# it, so `canon_target` is comparable with `ws_abs` even for a file nobody has created yet. Resolving
+# only the parent (the old rule) left such a write in its raw spelling, which matches neither the
+# physical root nor PWD, and a repo-root plan then never armed.
+tail=""
+probe="$abs_target"
+while [ ! -d "$probe" ]; do
+  if [ "$probe" = "/" ]; then break; fi
+  tail="/$(basename "$probe")$tail"
+  probe="$(dirname "$probe")"
+done
+if [ -d "$probe" ]; then
+  canon_target="$(cd "$probe" && pwd -P)$tail"
 else
   canon_target="$abs_target"
 fi

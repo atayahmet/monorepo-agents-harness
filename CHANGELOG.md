@@ -17,6 +17,44 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.12] - 2026-10-07
+
+### Fixed
+
+- **A repo-root task dir is now read by the gate and armed by the hook** (issue #22).
+  `memory-gate.sh` and `hook-arm-build.sh` discovered task directories only under workspace parents
+  (`apps/*`, `packages/*`, whatever `detect-monorepo-framework.sh` reports), so the directory the
+  root `AGENTS.md` allows at the repository root — `<repo>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/`,
+  the workspace of a repo with no `apps/` and no `packages/` — was invisible: the `-build` command
+  wrote `build_started` and nothing ever enforced it. Both scripts now add
+  `$ROOT/.agents/artifacts/task_*` to the same scan set, so arming and enforcing cannot disagree
+  about it again.
+- **A write into a directory that does not exist yet arms its plan** (`hook-arm-build.sh`). The
+  written path was resolved by `dirname` and only when that parent already existed — while the first
+  write of a build is normally a brand-new file in a brand-new directory. With a spelling the repo
+  root does not share (a doubled slash from `TMPDIR`, a symlinked checkout) such a path matched
+  neither the physical root nor `PWD`, the workspace rule failed closed and the plan stayed unarmed.
+  The hook now walks up to the deepest directory that exists, resolves that one physically, and
+  re-appends the part below it.
+
+### Added
+
+- **Regression tests for both halves** (`tests/memory-gate.test.sh`, 12 new cases): a repo-root
+  build-stage dir is enforced by default mode and blocked by `--json`, in a fixture with `apps/` and
+  in one with neither `apps/` nor `packages/`; a repo-root plan is armed by an ordinary write, never
+  by an artifact write, and not by a write that belongs to a workspace plan; new-file writes arm in
+  both layouts. Reverting either fix fails the cases that cover it.
+
+### Upgrade Notes
+
+- No new bundle or adapter file, so no manifest row and no copy step: `core/` ships whole. Run the
+  normal update (`/monorepo-harness-update`, or `core/scripts/install-harness.sh --sync-only`) and
+  refresh the adapter as usual.
+- **The gate can now reach a repo-root task.** If a build-stage task lives in
+  `<repo>/.agents/artifacts/`, commits and the Stop hook will start demanding its `3_memory.md`
+  (and `4_verify.md` when the spec asks for one) — the enforcement that was always meant for it.
+  Nothing to do when that directory does not exist or its tasks are already finished.
+
 ## [0.4.0-rc.10] - 2026-10-03
 
 ### Fixed
