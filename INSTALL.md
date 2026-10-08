@@ -20,8 +20,8 @@ bash .agents/.harness-install/core/scripts/install-harness.sh
 
 That copies every manifest row into `.agents/monorepo-agents-harness/` and verifies each one landed,
 writes your root `AGENTS.md` and `REVIEW.md` (unless they exist), seeds a starter rule plus the
-per-workspace `.agents/` state and the repo-root `knowledge/` base, wires `memory-gate.sh` as
-`.git/hooks/pre-commit` if that slot is free, then moves the clone away.
+per-workspace `.agents/` state and the repo-root `knowledge/` base, merges the derived-cache lines
+into your root `.gitignore`, wires `memory-gate.sh` as pre-commit if that slot is free, then moves away.
 
 Useful flags: `--project-name <name>`, `--no-git-hook`, `--from <dir>` (install from a bundle already
 on disk), `--sync-only` (bundle files only — the mode updates use).
@@ -89,8 +89,8 @@ a `1_spec.md` and run `memory-gate.sh`: exit 0 — a task that has not started b
 - **Self-improvement** — `/monorepo-self-improve` proposes project-owned rules and skills.
 - **Changeset release entries** — `/monorepo-harness-changeset` drafts a changesets-compatible
   `.changeset/*.md` entry without adding `@changesets/cli`; bumps are user-confirmed policy.
-- **Knowledge base** — every finished task is ingested into the repo-root `knowledge/` compiled layer,
-  so agents answer against indexed markdown instead of re-scanning artifact trees per query.
+- **Knowledge base** — tasks compile into `knowledge/`; `/monorepo-harness-kb-index` queries it with
+  BM25-ranked hits (gitignored SQLite FTS5 cache, grep fallback), never re-scanning artifact trees.
 
 ## 7. Updating
 

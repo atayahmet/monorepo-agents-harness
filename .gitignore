@@ -30,3 +30,6 @@ todo.md
 
 # Intent inbox (working state; host project decides whether to track these)
 /.agents/intents/
+
+# Derived knowledge-base index (rebuilt by core/scripts/kb-index.sh; never commit)
+knowledge/.index.sqlite*

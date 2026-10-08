@@ -17,6 +17,54 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.13] - 2026-10-07
+
+### Added
+
+- **Ranked search over the knowledge base** (issue #25) — new `core/scripts/kb-index.sh` builds a
+  gitignored SQLite FTS5 cache (`knowledge/.index.sqlite`) over `knowledge/**/*.md` and answers from
+  it: `rebuild` (deterministic `find | sort`, temp file + `mv`, so an interrupted run can never
+  leave an empty or half-written index), `query "<terms>"` (BM25-ordered paths with `snippet()` hits,
+  `--kind` / `--workspace` / `--limit`), and `links --missing` / `links --orphans` (one SQL pass each
+  over the `[[wiki-link]]` and markdown link edges). Query and lint **self-heal staleness first** — a
+  page `kb-ingest.sh` just wrote is found with no manual rebuild — while `kb-ingest.sh` itself stays
+  untouched, so task-end cost is still zero. `kind`, `workspace`, `task_slug` and `date` are derived
+  from the page shapes in `knowledge/schema.md`; indexing raw `.agents/artifacts/` trees is
+  deliberately left to phase 2 (the schema already carries those columns, so no migration then).
+- **`/monorepo-harness-kb-index` in all three adapters** — a thin command over `kb-index.sh` that
+  follows `core/skills/knowledge-base/SKILL.md` (three new `copy` manifest rows, and the Hard Rule 7
+  enumeration in `adapters/AGENTS.md`).
+- **`knowledge/.index.sqlite*` never reaches git** — new bundle row `core/gitignore-fragment.txt`,
+  whose lines `install-harness.sh` merges into the consumer's root `.gitignore` idempotently (absent
+  lines only) and `audit-install.sh` verifies verbatim in Check 5c, alongside an explicit
+  `kb-index.sh`-in-bundle check.
+- **`tests/kb-index.test.sh`** (34 cases): a double rebuild yields identical rows and query output, a
+  failed and a `SIGKILL`ed rebuild leave the previous index answering, staleness self-heals on both
+  add and delete, a `PATH` without `sqlite3` exits 1 with exactly one warning while the grep fallback
+  still answers, and both link lints report what they should (README seeds and the root `index.md`
+  are never orphans).
+
+### Upgrade Notes
+
+- The new script ships inside `core/`, so the normal update is enough
+  (`/monorepo-harness-update`, or `install-harness.sh --sync-only`); refresh each adapter as usual —
+  the three `/monorepo-harness-kb-index` files arrive from `copy` rows via
+  `install-adapter.sh --refresh`. Upgrade prompt: `changelogs/version-0.4.0-rc.13.md` (no command
+  to run by hand — the manifest-driven update covers everything; it records the `.gitignore` check
+  and the `sqlite3`/FTS5 ranking note).
+- **Your root `.gitignore` gains two lines** (`# Derived harness caches …` and
+  `knowledge/.index.sqlite*`) on the next `install-harness.sh` run, sync-only included. They are
+  appended only when absent, and `audit-install.sh` names any line you delete.
+- **No schema migration and no manual indexing step.** The index does not exist yet on an installed
+  copy; the first `query` builds it (sub-second at KB scale). Deleting `knowledge/.index.sqlite` at
+  any time is safe — it is a cache, and the next query rebuilds it. A machine without `sqlite3`, or
+  with a build lacking FTS5, gets one warning and a non-zero exit from `kb-index.sh`, and the skill
+  falls back to `index.md` + grep exactly as before — same results, only the ranking is lost.
+- Docs changed in the same release: `core/skills/knowledge-base/SKILL.md` (principle, query and lint
+  workflows, never-do), a new index-layer section in `knowledge/schema.md`, `PORTABILITY.md`
+  (matrix row + a new semantic-difference note), `README.md`, `INSTALL.md`, the three adapter
+  READMEs and INSTALL.md tables, and `adapters/AGENTS.md` Hard Rule 7.
+
 ## [0.4.0-rc.12] - 2026-10-07
 
 ### Fixed

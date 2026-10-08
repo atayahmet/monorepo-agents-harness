@@ -1,6 +1,6 @@
 ---
 name: knowledge-base
-description: Maintain the compiled knowledge base at the repo root — knowledge/. Compiled incrementally at task end (kb-ingest.sh, driven by /monorepo-harness-build) from a task's 3_memory.md, 4_verify.md and adr/ files; answers questions fast against compiled, interlinked pages instead of re-deriving from per-workspace artifact trees (Karpathy LLM Wiki pattern). Use when the user asks the agent a question that spans project knowledge, when a task is ending and its memory/verify must reach the KB, or to lint the KB for stale/contradictory/orphan pages.
+description: Maintain the compiled knowledge base at the repo root — knowledge/. Compiled incrementally at task end (kb-ingest.sh, driven by /monorepo-harness-build) from a task's 3_memory.md, 4_verify.md and adr/ files; answers questions fast against compiled, interlinked pages instead of re-deriving from per-workspace artifact trees (Karpathy LLM Wiki pattern), using a derived SQLite FTS5 index (kb-index.sh query — BM25-ranked snippets, gitignored, grep fallback) that also lints orphan/broken [[wiki-link]]s. Use when the user asks the agent a question that spans project knowledge, when a task is ending and its memory/verify must reach the KB, or to lint the KB for stale/contradictory/orphan pages.
 ---
 
 # Knowledge Base — Ingest / query / lint compiled knowledge at the repo root
@@ -9,16 +9,19 @@ The repo root `knowledge/` is the compiled view of every workspace's task histor
 Wiki": compile once at task end, keep current, never re-derive per query). Raw task artifacts under
 `.agents/artifacts/` stay immutable; `knowledge/` is regenerable agent-maintained output. Engine:
 `core/scripts/kb-ingest.sh`; constitution: `knowledge/schema.md` (read it before ingesting or
-writing pages). No vector DB, no tooling — markdown + grep.
+writing pages). No vector DB: markdown stays the single source of truth and
+`knowledge/.index.sqlite` is a disposable SQLite FTS5 cache that `core/scripts/kb-index.sh`
+rebuilds on demand (ranked queries + link lint). grep is the fallback whenever `sqlite3` or FTS5
+is unavailable — the workflow never depends on the cache being there.
 
 **Write in simple English.** Every file and developer message this skill produces follows
 `../../governance/rules/simple-english.md` — short sentences, common words, active voice.
 
 ## Concepts
 
-1. **Compile once, query cheap.** Questions are answered from `knowledge/index.md` + linked pages,
-   not by scanning `apps/*/.agents/artifacts/` trees per query. Scan raw artifacts only when the KB
-   lacks coverage.
+1. **Compile once, query cheap.** Questions are answered from the ranked index
+   (`kb-index.sh query`) and the top pages it points at, not by scanning `apps/*/.agents/artifacts/`
+   trees per query. Scan raw artifacts only when the KB lacks coverage.
 2. **Task end is the only ingest point.** `/monorepo-harness-build` runs `kb-ingest.sh` right after
    `3_memory.md`/`4_verify.md` are written; the KB update lands in the same commit. Research-only
    tasks (no memory) are skipped. There is no batch/backfill compiler.
@@ -43,16 +46,26 @@ writing pages). No vector DB, no tooling — markdown + grep.
 
 ## Workflow — query (fast path)
 
-1. Read `knowledge/index.md` and open the linked pages; synthesize with citations.
-2. On a match, done — do not open artifact trees. Only with no coverage, grep
-   `apps/*/.agents/artifacts/` + `packages/*/.agents/artifacts/` (global discovery recipes in
-   `core/governance/artifacts/AGENTS.md`).
-3. Consider filing good answers back into `knowledge/` (a comparison, an analysis) as a
+1. Ranked search first: `bash .agents/monorepo-agents-harness/core/scripts/kb-index.sh query
+   "<terms>" [--kind <k>] [--workspace <w>] [--limit <n>]` — BM25-ranked paths with snippets
+   (kind, workspace, date per row). The index self-heals staleness before it answers, so a page
+   ingested a moment ago is found with no manual rebuild. Open only the top hits.
+2. Still broad — or the command printed one warning and exited non-zero (no `sqlite3`/FTS5):
+   read `knowledge/index.md` and open the linked pages; synthesize with citations. Same results,
+   only slower.
+3. No coverage at all: grep `apps/*/.agents/artifacts/` + `packages/*/.agents/artifacts/` (global
+   discovery recipes in `core/governance/artifacts/AGENTS.md`).
+4. Consider filing good answers back into `knowledge/` (a comparison, an analysis) as a
    `concepts/` or `decision-records/` addition, appending to `log.md`.
 
 ## Workflow — lint (periodic, explicit)
 
-Scan all pages: `[[wiki-link]]` targets without a page (flag for creation), contradictions (flag
+Mechanical half first, one SQL pass each:
+`bash .agents/monorepo-agents-harness/core/scripts/kb-index.sh links --missing` (link targets
+without a page) and `... links --orphans` (pages nothing links to; README seeds excluded). Write
+the output to `log.md`/a lint report.
+
+Then scan all pages: `[[wiki-link]]` targets without a page (flag for creation), contradictions (flag
 **both** positions, `status: PENDING`, escalate to the user — never silently resolve), broken
 `Sources:` footers (flag; never edit the raw artifact), stale pages (source task old and never
 re-ingested). Write flags to `log.md`/a lint report; do not modify pages during the pass. The user
@@ -72,6 +85,8 @@ never bypass it with a "trust me" edit.
 - Never create a placeholder/orphan page; a page exists only with real content and citations.
 - Never resolve a contradiction silently — document both positions and escalate.
 - Never skip `check-kb` for a task that wrote `3_memory.md`.
+- Never hand-edit `knowledge/.index.sqlite` or commit it — it is a derived cache. Deleting it is
+  always safe (the next `query` rebuilds it); fixing data by editing it is never allowed.
 
 ## Edge cases
 

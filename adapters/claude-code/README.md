@@ -14,6 +14,7 @@ This adapter wires the harness into **Claude Code**. It gives you an automatic p
 - **`/monorepo-harness-changeset <2_plan.md>`** — draft a changesets-compatible release entry into `.changeset/` from the task's spec/plan/memory (deterministic filename, revision-based multi-changeset flow), gated on `check-plan` and user-confirmed bumps. No `@changesets/cli` dependency — it consumes your project's own `changeset` CLI later.
 - **Hard memory-gate** — once a task's build has started, the `Stop` hook refuses to end it until the task directory contains `3_memory.md`, and `4_verify.md` too whenever the spec's Test/verification plan is not `N/A` (Feedback Loop enforcement). The build start is recorded as `build_started` on `2_plan.md`, so a spec-only or plan-only task ends without a block, and the hook stands down (`stop_hook_active`) instead of looping when it has already blocked once.
 - **Gate arming on plan-mode exit** — a `PreToolUse` hook on file writes runs `hook-arm-build.sh`, which records `build_started` on the first write outside `.agents/` that belongs to a workspace that has a plan-only task from today (a task that already wrote `3_memory.md` is left alone). Implementation that starts right out of plan mode, without `/monorepo-harness-build`, is therefore still gated.
+- **`/monorepo-harness-kb-index <query|rebuild|links>`** — ranked search over the repo-root `knowledge/` base: BM25-ordered paths with snippets from a gitignored SQLite FTS5 cache that rebuilds itself whenever a page changed, plus the orphan / broken-`[[wiki-link]]` lint. Without `sqlite3`/FTS5 it says so once and falls back to `index.md` + grep — the answers just lose their ranking.
 - **`/monorepo-harness-update`** — check the installed harness version against upstream and, on your consent, upgrade the core and every installed adapter.
 - **`/monorepo-self-improve`** — harvest recurring patterns from lessons and task memories, then propose durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`). Requires explicit approval before writing anything.
 - **`/monorepo-harness-intent-dispatch <intent.md>`** — turn an **approved** intent into scoped work: confirm the workspace scope, split it into 3-5 phases, record your sign-off, ask before filing work the tracker already has open, ask whether 2+ phases should be grouped under one parent epic issue (a single phase gets none), open the epic and file every phase as its sub-issue via the `tracker` subagent, record the keys back on the intent, then ask whether to merge the intent's PR — writing no spec, plan or task directory. It stops after that answer — each phase is scoped and built separately, starting with `/monorepo-harness-spec <intent.md>`. No credential is ever installed or stored; without `gh` you get paste-ready issue text instead, and an unreachable PR yields an explicit "approval unknown" rather than a merge.
@@ -97,6 +98,16 @@ second and later changesets from the same plan: each merge of a long-lived plan 
 (see the `revisions:` log), and the `v…-alpha.0`/`alpha.1` sequencing is done by the consumer's
 `changeset pre` + `changeset version`, never by this command. Artifacts source the summary:
 `3_memory.md` → `1_spec.md` → `2_plan.md`.
+
+### `/monorepo-harness-kb-index <query|rebuild|links>` — Search the knowledge base
+
+No arguments means a question: it runs `kb-index.sh query "<terms>"` over `knowledge/`, returns
+BM25-ranked paths with snippets (kind, workspace, date per row) from a gitignored SQLite FTS5 cache
+that rebuilds itself whenever a page changed, then opens only the top hits. `rebuild [--stats]`
+forces a fresh index (rarely needed), `links --missing|--orphans` runs the mechanical half of the
+KB lint. `--kind`, `--workspace` and `--limit` scope a question. Without `sqlite3`/FTS5 the command
+prints one warning and exits non-zero; the skill's `index.md` + grep path answers instead — same
+results, no ranking.
 
 ### `/monorepo-self-improve` — Harvest patterns into project-owned rules and skills
 

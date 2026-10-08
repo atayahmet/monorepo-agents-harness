@@ -217,6 +217,19 @@ check_knowledge_base() {
   done < <(find "$tdir" -type f -name '*.md' | sort)
   [ -f "$against/core/skills/knowledge-base/SKILL.md" ] \
     || add_gap "knowledge-base skill missing from bundle: core/skills/knowledge-base/SKILL.md"
+  [ -f "$against/core/scripts/kb-index.sh" ] \
+    || add_gap "kb-index script missing from bundle: core/scripts/kb-index.sh"
+
+  # The derived-index ignore lines must reach the project's own .gitignore — the one consumer file
+  # no manifest row can express. Every fragment line (comments included) has to be present verbatim.
+  local fragment="$against/core/gitignore-fragment.txt" line
+  if [ -f "$fragment" ]; then
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      grep -qxF "$line" "$ROOT/.gitignore" 2>/dev/null \
+        || add_gap "gitignore fragment line missing from .gitignore: '$line' (re-run install-harness.sh)"
+    done < "$fragment"
+  fi
 }
 
 # --- Check 6: opencode `instructions` coverage (the one merge-row gap nothing else can see) ---

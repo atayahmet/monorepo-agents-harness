@@ -107,6 +107,11 @@ Claude Code, opencode, Cursor, Codex, and more.
   deterministic filename and a revision number so a long-lived plan can emit one changeset per merged
   revision (`v1.0.0-alpha.0`, `v1.0.0-alpha.1`, … via your own `changeset pre`+`version`). No
   `@changesets/cli` dependency is added; packages and bump levels are always user-confirmed policy.
+- **Ranked knowledge lookup** — `/monorepo-harness-kb-index` answers project-knowledge questions
+  from the compiled `knowledge/` base with BM25-ranked paths and snippets, straight from a gitignored
+  SQLite FTS5 cache that `core/scripts/kb-index.sh` rebuilds whenever a page changed. It also runs
+  the orphan / broken-`[[wiki-link]]` lint as one SQL pass, and degrades to `index.md` + grep the
+  moment `sqlite3` or FTS5 is missing — the answers just lose their ranking.
 
 ## How it works
 
@@ -488,7 +493,9 @@ the intent inbox (Scenario 1), `/monorepo-harness-review` before merging a PR (S
 `/monorepo-harness-update` to check for a new harness release (Scenario 5),
 `/monorepo-self-improve` to turn accumulated lessons and memories into reusable rules and skills.
 Every finished task also compiles its durable outcomes into the repo-root `knowledge/` base
-(Karpathy "LLM Wiki" pattern) that agents query first — see
+(Karpathy "LLM Wiki" pattern) that agents query first — ranked by
+`/monorepo-harness-kb-index` (`core/scripts/kb-index.sh` over a gitignored SQLite FTS5 cache),
+maintained per the
 [`core/skills/knowledge-base/SKILL.md`](core/skills/knowledge-base/SKILL.md).
 
 ### Or hand it to your agent
@@ -546,9 +553,9 @@ installs the current one.
 
 | Adapter       | Enforcement provided                                                                                                                                                               |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `PreToolUse` hook on file writes (arms the gate when implementation starts), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-intent-dispatch` intent dispatch, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting, `verifier` + `tracker` subagents  |
-| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-intent-dispatch` intent dispatch, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting                                                        |
-| `codex`       | `PostToolUse[update_plan]` hook (plan reminder + arms the gate), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-spec` · `-plan` · `-build`, `/monorepo-harness-ci`, `/monorepo-harness-review`, `/monorepo-harness-intent`, `/monorepo-harness-intent-dispatch`, `/monorepo-harness-changeset`, `/monorepo-harness-update`, and `/monorepo-self-improve` skills |
+| `claude-code` | `PostToolUse[ExitPlanMode]` hook (plan reminder), `PreToolUse` hook on file writes (arms the gate when implementation starts), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `Stop` hook memory-gate (**hard block**), skill auto-registration, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-intent-dispatch` intent dispatch, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-kb-index` knowledge search, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting, `verifier` + `tracker` subagents  |
+| `opencode`    | Universal git/CI gate (hard), `/monorepo-harness-spec` · `-plan` · `-build` SDLC stage commands, `/monorepo-harness-ci` CI integration, `/monorepo-harness-review` PR review, `/monorepo-harness-intent` intent capture, `/monorepo-harness-intent-dispatch` intent dispatch, `/monorepo-harness-changeset` changeset draft, `/monorepo-harness-kb-index` knowledge search, `/monorepo-harness-update` update check, `/monorepo-self-improve` pattern harvesting                                                        |
+| `codex`       | `PostToolUse[update_plan]` hook (plan reminder + arms the gate), `Stop` hook memory reminder (soft) + universal git/CI gate (hard), skill auto-registration, `/monorepo-harness-spec` · `-plan` · `-build`, `/monorepo-harness-ci`, `/monorepo-harness-review`, `/monorepo-harness-intent`, `/monorepo-harness-intent-dispatch`, `/monorepo-harness-changeset`, `/monorepo-harness-kb-index`, `/monorepo-harness-update`, and `/monorepo-self-improve` skills |
 | yours         | Follow the capability matrix in [PORTABILITY.md](PORTABILITY.md) — new adapters are the intended growth path                                                                       |
 
 ## Documentation map
@@ -567,7 +574,7 @@ installs the current one.
 | [core/skills/monorepo/SKILL.md](core/skills/monorepo/SKILL.md)             | Monorepo guidance (framework-agnostic + Turborepo/Nx/Lerna/workspaces)                     |
 | [core/skills/ci-integration/SKILL.md](core/skills/ci-integration/SKILL.md) | Detects the target project's CI provider and wires `memory-gate.sh` into it (Scenario 3)   |
 | [core/skills/pr-review/SKILL.md](core/skills/pr-review/SKILL.md)           | Reviews a diff against `REVIEW.md` policy and a task's plan/spec/verify artifacts (Scenario 4) |
-| [core/skills/knowledge-base/SKILL.md](core/skills/knowledge-base/SKILL.md) | Maintains the repo-root compiled knowledge base (`knowledge/`) — task-end incremental ingest, query fast-path, lint (Karpathy "LLM Wiki" pattern) |
+| [core/skills/knowledge-base/SKILL.md](core/skills/knowledge-base/SKILL.md) | Maintains the repo-root compiled knowledge base (`knowledge/`) — task-end incremental ingest, FTS5-ranked query fast-path (`kb-index.sh`), link lint (Karpathy "LLM Wiki" pattern) |
 | [core/root-REVIEW.md](core/root-REVIEW.md) | Review-policy template — installed to target repo roots as `REVIEW.md` |
 | [core/skills/intent-workflow/SKILL.md](core/skills/intent-workflow/SKILL.md) | Captures stakeholder intents and lets a product owner approve/reject them (Scenario 1)     |
 | [core/skills/self-improvement-workflow/SKILL.md](core/skills/self-improvement-workflow/SKILL.md) | Harvests recurring patterns into project-owned rules and skills |
