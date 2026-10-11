@@ -55,6 +55,13 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
   → The **universal hard gate is `core/scripts/memory-gate.sh`** wired as a git pre-commit hook
   and/or CI step. Install it for *every* agent whose stop you cannot block (and it's a good
   belt-and-braces even for claude-code).
+- **A pointer file must actually import `AGENTS.md`.** Claude Code reaches the single source of truth
+  through the root `CLAUDE.md`'s `@AGENTS.md` import; a project that keeps its own `CLAUDE.md` without
+  that line gets none of `AGENTS.md` — no checklist, no gotchas, no KB-first rule. The adapter never
+  overwrites the file (`tmpl` row), so the import is *verified* instead: `audit-install.sh` reports a
+  `tmpl`/`merge` file that is missing the import its shipped template carries, and
+  `install-adapter.sh` names the one-line fix. Detection is template-driven, so a future
+  pointer-based adapter is covered with no change to `core/`.
 - **The start-of-task reminder is the root `AGENTS.md` checklist, read at run time.** The
   "Before You Start" reminder is never a hand-copied list: `core/scripts/checklist-reminder.sh`
   extracts the `## Before You Start — Mandatory Checklist` section from the installed root

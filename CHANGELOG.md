@@ -17,6 +17,35 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.19] - 2026-10-11
+
+### Added
+
+- **The harness now detects a pointer file that stopped importing `AGENTS.md`** (issue #31). The
+  claude-code adapter reaches the single source of truth through the root `CLAUDE.md`'s `@AGENTS.md`
+  import, but that file is a `tmpl` manifest row — never overwritten — so a repo that already had its
+  own `CLAUDE.md` without the import silently got none of the root `AGENTS.md`: no "Before You Start"
+  checklist, no gotchas, no KB-first rule. `audit-install.sh` gains `check_pointer_imports` (Check 7):
+  for every adapter `tmpl`/`merge` row it reads the `@<path>` import token from the **shipped
+  template** and reports the project file when it is missing, so a future pointer-based adapter is
+  covered with no change to `core/`. `install-adapter.sh` adds a `Needs you:` line naming the exact
+  one-line fix when an existing config file lacks the template's import.
+
+### Changed
+
+- **Files** — `core/scripts/audit-install.sh` (new `check_pointer_imports` + call site);
+  `core/scripts/install-adapter.sh` (import-aware `Needs you:` note in the `merge`/`tmpl` branch);
+  `core/skills/harness-update/SKILL.md` (step 9.5 `@AGENTS.md` import-gap bullet — updates skip the
+  `tmpl` row, so the audit is the only catcher); `adapters/claude-code/INSTALL.md` and `PORTABILITY.md`
+  (the pointer must import `AGENTS.md`). No manifest row changes.
+
+### Upgrade Notes
+
+- **Manual follow-up if your root `CLAUDE.md` has no `@AGENTS.md` line.** The adapter never overwrites
+  the file; add the one line `@AGENTS.md` (or merge `CLAUDE.md.harness-proposed`). The audit now
+  reports the gap by exact path, so it surfaces on the next check even if you skip the prompt. See
+  `changelogs/version-0.4.0-rc.19.md`.
+
 ## [0.4.0-rc.18] - 2026-10-11
 
 ### Changed

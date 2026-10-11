@@ -181,6 +181,12 @@ The upgrade also reconciles the project's root `AGENTS.md` against the new `core
       to add (or the `git diff --no-index` against `opencode.jsonc.harness-proposed`), ask, and add
       it only on approval. Until it is added the slash command still works but the skill never
       reaches opencode's context, so carry it into the step 11 follow-ups if declined.
+    - **claude-code `@AGENTS.md` import gap**: the project's root `CLAUDE.md` exists but does not
+      import `AGENTS.md` (the audit names it by exact path). Claude Code then never loads the root
+      `AGENTS.md` — no "Before You Start" checklist, no gotchas, no KB-first rule. No installer can
+      fix it: the file is user-owned and step 7.5's `--refresh` skips the `CLAUDE.md` `tmpl` row. Show
+      the one line (`@AGENTS.md`), or the `git diff --no-index CLAUDE.md CLAUDE.md.harness-proposed`,
+      ask, and add it only on approval; carry it into the step 11 follow-ups if declined.
     - If a re-run still reports the same gap, **stop** — do not proceed to step 10 or report the
       upgrade complete.
 

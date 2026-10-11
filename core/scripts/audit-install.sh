@@ -261,6 +261,31 @@ check_opencode_instructions() {
   done < <(grep -oE '"[^"]*core/skills/[^"]*SKILL\.md"' "$proposed" | tr -d '"')
 }
 
+# --- Check 7: adapter pointer-file imports (template-driven) ---------------------------------
+# Some adapters make the agent read the root AGENTS.md through a thin pointer file that imports it
+# (claude-code's root CLAUDE.md uses `@AGENTS.md`). That file is a merge/tmpl config row, so an
+# existing one is never overwritten — and Check 2 only proves the file exists, never that it still
+# imports the single source of truth. A consumer who already had such a file without the import
+# silently hides the whole AGENTS.md checklist, the gotchas and the KB-first rule from the agent.
+#
+# Detection is driven by the shipped template — the first `@<path>` token it carries — never by a
+# hardcoded adapter or file name, so a future pointer-based adapter is covered with no change here.
+check_pointer_imports() {
+  local agent="$1" adapter_dir="$against/adapters/$1" manifest verb path target token
+  [ -d "$adapter_dir" ] || return 0
+  manifest="$adapter_dir/manifest.txt"
+  [ -f "$manifest" ] || return 0
+  while read -r verb path target; do
+    case "$verb" in tmpl|merge) ;; *) continue ;; esac
+    [ -f "$adapter_dir/$path" ] || continue
+    token="$(grep -m1 -oE '(^|[[:space:]])@[A-Za-z0-9._/-]+' "$adapter_dir/$path" | tr -d '[:space:]')"
+    [ -n "$token" ] || continue
+    [ -e "$ROOT/$path" ] || continue   # absent -> Check 2 already reports "config missing"
+    grep -qF "$token" "$ROOT/$path" 2>/dev/null \
+      || add_gap "$agent: root $path does not import $token — the root AGENTS.md (checklist, gotchas, KB-first rule) never reaches $agent. Add a line '$token' to $path."
+  done < <(harness_manifest_rows "$manifest")
+}
+
 # An adapter counts as installed once any of its manifest copy rows exists in the project. Derived
 # from the manifest rather than a per-agent directory guess, so a project that merely happens to
 # have a .claude/ or .agents/skills/ dir is never audited against an adapter it never installed.
@@ -279,6 +304,7 @@ check_bundle_sync
 for agent in claude-code opencode codex; do
   adapter_installed "$agent" || continue
   check_adapter_entrypoints "$agent"
+  check_pointer_imports "$agent"
   [ "$agent" = "opencode" ] && check_opencode_instructions
 done
 

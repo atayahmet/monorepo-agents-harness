@@ -16,7 +16,10 @@
 #   --project-name <n>  value for {{PROJECT_NAME}} (default: package.json .name, else repo dir name)
 #
 # An existing config file is NEVER modified: the adapter's version is written next to it as
-# <file>.harness-proposed and reported, so you (or your agent) merge it deliberately.
+# <file>.harness-proposed and reported, so you (or your agent) merge it deliberately. When the
+# template carries an `@<path>` import (e.g. CLAUDE.md importing AGENTS.md) and the existing file
+# lacks it, a `Needs you:` line names the exact one-line fix — that import is how the agent sees the
+# root AGENTS.md at all.
 #
 # Exit codes: 0 = every copy/link row satisfied, 1 = at least one did not land, 2 = usage error.
 # Dependencies: git + coreutils.
@@ -115,6 +118,7 @@ while read -r verb path target; do
       else
         rendered="$(cat "$src")"
       fi
+      token="$(printf '%s\n' "$rendered" | grep -m1 -oE '(^|[[:space:]])@[A-Za-z0-9._/-]+' | tr -d '[:space:]' || true)"
       mkdir -p "$(dirname "$ROOT/$path")"
       if [ ! -e "$ROOT/$path" ]; then
         printf '%s\n' "$rendered" >"$ROOT/$path" && { echo "  + $path"; applied=$((applied + 1)); } \
@@ -124,7 +128,10 @@ while read -r verb path target; do
       else
         printf '%s\n' "$rendered" >"$ROOT/$path.harness-proposed" \
           && { echo "  ~ $path (left untouched; proposal written)"
-               note "Merge $path yourself — review with: git diff --no-index $path $path.harness-proposed"; } \
+               note "Merge $path yourself — review with: git diff --no-index $path $path.harness-proposed"
+               if [ -n "$token" ] && ! grep -qF "$token" "$ROOT/$path" 2>/dev/null; then
+                 note "$path does not import $token — without it the root AGENTS.md (checklist, gotchas, KB-first rule) is never loaded. Add a line '$token' to $path (or merge the proposal)."
+               fi; } \
           || fail "could not write the proposal for: $path"
       fi
       ;;

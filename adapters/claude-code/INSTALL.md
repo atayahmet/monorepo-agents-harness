@@ -26,7 +26,10 @@ proposal beside it, `.` skipped (`--refresh` mode). It ends with a `Needs you:` 
 requires your judgement.
 
 **`.claude/settings.json` and the root `CLAUDE.md` are never overwritten.** If you already have
-either, the adapter's version is written as `<file>.harness-proposed` and reported. For
+either, the adapter's version is written as `<file>.harness-proposed` and reported. If your existing
+`CLAUDE.md` has no `@AGENTS.md` line, Claude Code never loads the root `AGENTS.md` — no checklist, no
+gotchas, no KB-first rule. The installer says so in its `Needs you:` list and `audit-install.sh`
+reports it; the fix is one line, `@AGENTS.md`, at the end of your `CLAUDE.md`. For
 `settings.json` the merge is three additions — the gate-arming block under `hooks.PreToolUse`, the
 `"ExitPlanMode"` matcher object under `hooks.PostToolUse`, and the memory-gate block under
 `hooks.Stop`:
