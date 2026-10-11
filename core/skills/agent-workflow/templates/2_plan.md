@@ -18,8 +18,10 @@ Omit the trailing clause for ad-hoc tasks with no `0_intent.md`.
 <High-level strategy, 2–5 sentences>
 
 ## Related prior work
-<Cite matches from the Phase 1 prior-art grep as
-`- [slug](task_YYYY_MM_DD_slug/1_spec.md) — why relevant`, or `- none found`.>
+<Cite the Phase 1 results — knowledge-base pages first, then task dirs:
+- [[<page>]] (`knowledge/<area>/<page>.md`) — why relevant
+- [<slug>](task_YYYY_MM_DD_slug/1_spec.md) — why relevant
+Write `- none found` when neither the knowledge base nor the indexes matched.>
 
 ## Steps
 1. ...

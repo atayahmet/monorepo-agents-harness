@@ -74,10 +74,12 @@ minimal redundancy, fixed column order.
    # newest task anywhere
    ls -td apps/*/.agents/artifacts/task_* packages/*/.agents/artifacts/task_* | head -1
    ```
-6. **Mandatory pre-plan search:** `core/skills/agent-workflow/SKILL.md` Phase 1 requires grepping
-   this index for prior art *before* `1_spec.md` is written, and the resulting `2_plan.md` template
-   has a `## Related prior work` section that must cite a match or state `- none found`. This file
-   defines the index's *format*; the skill defines *when* it gets searched — keep both in sync.
+6. **Mandatory pre-plan search:** `core/skills/agent-workflow/SKILL.md` Phase 1 first queries the
+   repo-root knowledge base (`kb-index.sh query` over `knowledge/`), then greps this index for prior
+   art the knowledge base does not cover, *before* `1_spec.md` is written. The resulting `2_plan.md`
+   template has a `## Related prior work` section that must cite the knowledge-base pages and task
+   dirs, or state `- none found`. This file defines the index's *format*; the skill defines *when* it
+   gets searched — keep both in sync.
 7. **English everywhere** — mixed-language rows break keyword search; the whole tree stays English.
 
 ### Type legend (single letters, defined once in the index header)

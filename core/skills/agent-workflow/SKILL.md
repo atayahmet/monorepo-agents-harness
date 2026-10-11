@@ -100,12 +100,22 @@ create the directory and write `1_spec.md` — the "what": the contract and acce
 spec is written **before** the plan, matching the AI-native SDLC order (`intent → spec → plan`:
 Design precedes Build); `2_plan.md` (the "how") then builds against this spec in Phase 2.
 
-**Before writing it**, three checks:
+**Before writing it**, four checks:
 
-1. **Prior art (mandatory)** — grep `<workspace>/.agents/artifacts/index.md` using 1–3 keywords
-   derived from the task. On a match, read that task's `1_spec.md` (and `3_memory.md` if marked ◆)
-   and keep its relevance ready to cite in `2_plan.md`'s `## Related prior work` (Phase 2).
-2. **Approved intent (via `-spec`, else best-effort)** — when `/monorepo-harness-spec <intent.md>`
+1. **Query the knowledge base first (mandatory)** — run
+   `bash <bundle>/core/scripts/kb-index.sh query "<1–3 keywords>"` over the repo-root `knowledge/`
+   (BM25-ranked; grep fallback when `sqlite3`/FTS5 is unavailable) and read the top pages it ranks.
+   Keep their `[[wiki-link]]`s ready to cite in `2_plan.md`'s `## Related prior work` (Phase 2). See
+   `core/skills/knowledge-base/SKILL.md`.
+2. **Prior art in the task indexes (mandatory)** — grep `<workspace>/.agents/artifacts/index.md` with
+   the same keywords for anything the knowledge base does not cover. On a match, read that task's
+   `1_spec.md` (and `3_memory.md` if marked ◆) and keep its relevance ready to cite in `2_plan.md`'s
+   `## Related prior work` (Phase 2). When the task creates a **new workspace** that has no index yet,
+   grep every existing workspace index instead
+   (`cat apps/*/.agents/artifacts/index.md packages/*/.agents/artifacts/index.md`); for a
+   **cross-cutting** task, also grep the sibling workspace indexes. When the project has no `apps/` or
+   `packages/` (the workspace is the repo root), the index is `.agents/artifacts/index.md`.
+3. **Approved intent (via `-spec`, else best-effort)** — when `/monorepo-harness-spec <intent.md>`
    is used, it runs `task-state.sh check-intent-approved`, refuses to write if the intent is not
    approved, and writes a reference stub linking to the approved intent as `0_intent.md` — never a
    copy of its content, so the intent file stays the single source of truth. When the spec is
@@ -121,7 +131,7 @@ Design precedes Build); `2_plan.md` (the "how") then builds against this spec in
    `bash <bundle>/core/scripts/write-intent-ref.sh <task_dir> <intent.md>`. The script validates that
    the intent is approved, computes the relative `source:` path, and writes `0_intent.md` (pattern:
    `templates/0_intent_ref.md`).
-3. **Architecture decisions (via the `adr-workflow` skill)** — while writing `1_spec.md`, fill its
+4. **Architecture decisions (via the `adr-workflow` skill)** — while writing `1_spec.md`, fill its
    `## Architectural decisions` section. When it lists one or more decisions, immediately apply
    `core/skills/adr-workflow/SKILL.md` and write the matching `adr/NNNN-<title>.md` files in the
    same pass, **before** moving on to the plan. When the section is `N/A`, create no `adr/` directory.
