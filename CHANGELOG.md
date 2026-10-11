@@ -17,6 +17,37 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.18] - 2026-10-11
+
+### Changed
+
+- **A plan now records that the knowledge base was queried, and the gate surfaces a missing record**
+  (issue #32). Even with the Phase 1 instructions fixed (#27), nothing showed whether the KB was
+  actually queried before a spec or plan: `check-spec`/`check-plan` verified `phase:` and `check-adr`
+  verified the ADR section, so a skipped prior-art step left no trace. `2_plan.md`'s existing
+  `## Related prior work` section now carries a `- KB:` line — `- KB: [[<page>]] (knowledge/…)` naming
+  the pages the query returned, or the explicit `- KB: no relevant pages` for none. New advisory in
+  `task-state.sh check-plan` and `check-chain` (run by `-build`): when the `KB:` line is missing it
+  prints a `— advisory: …` line and **still exits 0**, the same fail-open contract as `check-adr`, so
+  an in-flight plan written before the convention is never blocked. The `pr-review` skill adds a
+  Prior-art pass that raises a **Nit** when a matched task's plan has no KB citation.
+- **Files** — `core/scripts/task-state.sh` (new `prior_art_warning` helper + two call sites + usage
+  header); `core/skills/agent-workflow/templates/2_plan.md` (`- KB:` line contract);
+  `core/skills/agent-workflow/SKILL.md` (Phase 1/2 wording + edge case);
+  `core/skills/knowledge-base/SKILL.md` (query fast-path record step); `core/skills/pr-review/SKILL.md`
+  (Prior-art pass + Nit); `PORTABILITY.md` (KB row + semantic note). No adapter change and no new
+  manifest row — the rule lives in the shared template, script and skill.
+- **Test** — repo-local `tests/prior-art.test.sh`: the `KB:` citation and `no relevant pages` forms are
+  silent, a missing section or missing `KB:` line warns while exiting 0, `check-chain` advises without
+  failing the chain, a wrong `phase:` still hard-fails (the gate is not weakened), and text guards on
+  the template and the review skill.
+
+### Upgrade Notes
+
+- **No action required.** The check is advisory (`check-plan`/`check-chain` still exit 0 without it),
+  and the template/script/skill changes are `copy` rows carried by the existing `core/` install row.
+  A plan written before this convention is never blocked; it only gets the advisory line.
+
 ## [0.4.0-rc.17] - 2026-10-11
 
 ### Changed

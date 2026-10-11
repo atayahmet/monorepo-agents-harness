@@ -105,7 +105,9 @@ Design precedes Build); `2_plan.md` (the "how") then builds against this spec in
 1. **Query the knowledge base first (mandatory)** — run
    `bash <bundle>/core/scripts/kb-index.sh query "<1–3 keywords>"` over the repo-root `knowledge/`
    (BM25-ranked; grep fallback when `sqlite3`/FTS5 is unavailable) and read the top pages it ranks.
-   Keep their `[[wiki-link]]`s ready to cite in `2_plan.md`'s `## Related prior work` (Phase 2). See
+   Keep their `[[wiki-link]]`s ready to cite in `2_plan.md`'s `## Related prior work` (Phase 2), as a
+   `- KB:` line — `- KB: [[<page>]] (knowledge/…)` for hits, or `- KB: no relevant pages` for none.
+   That line is the recorded trace that this query happened (issue #32). See
    `core/skills/knowledge-base/SKILL.md`.
 2. **Prior art in the task indexes (mandatory)** — grep `<workspace>/.agents/artifacts/index.md` with
    the same keywords for anything the knowledge base does not cover. On a match, read that task's
@@ -161,6 +163,12 @@ could follow.
 `## Architectural decisions` did not record (or the `## Approach` would contradict one), apply the
 `adr-workflow` skill and write/amend the `adr/NNNN-*.md` file(s) then, citing them from
 `## Approach` — do not defer them to task end.
+
+**Record the prior-art query (required):** the `## Related prior work` section must open with the
+Phase 1 knowledge-base trace — a `- KB:` line naming the pages the query returned, or
+`- KB: no relevant pages` for none — before the task-dir citations (or `- none found`). This is the
+only recorded evidence that the mandatory Phase 1 query happened; `task-state.sh check-plan` and
+`check-chain` print an advisory (never a failure) when the line is missing.
 
 **Template:** `templates/2_plan.md` — fill it into `<task_dir>/2_plan.md` with `status: approved`.
 
@@ -298,3 +306,6 @@ lost, see `PORTABILITY.md`), delegate the verification run to it and transcribe 
   at task end; `3_memory.md` keeps only a one-line pointer to the ADR(s). `task-state.sh check-adr`
   validates every ADR the spec's `## Architectural decisions` section references; a spec without that
   section is treated as "no ADRs declared" (fail-open, so in-flight tasks are never blocked).
+- **No `- KB:` line in the plan**: `check-plan`/`check-chain` print an advisory (never a failure) and
+  the reviewer raises a Nit. A plan written before this convention, or a **spec-only** task with no
+  plan, is never blocked — the check is a visibility aid, not a gate.

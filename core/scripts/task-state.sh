@@ -23,7 +23,10 @@
 #                                          PR review so the caller can record them without
 #                                          inventing them.
 #   check-spec <spec.md>               — file exists AND frontmatter has `phase: spec`.
-#   check-plan <plan.md>               — file exists AND frontmatter has `phase: plan`.
+#   check-plan <plan.md>               — file exists AND frontmatter has `phase: plan`. Also prints an
+#                                        advisory (never a failure) when the plan's `## Related prior
+#                                        work` section carries no `- KB:` line — the record that the
+#                                        knowledge base was queried before the plan (issue #32).
 #   check-chain <plan.md>              — the plan's task dir also has a `1_spec.md`; and, when the
 #                                        task was seeded by an intent (a `0_intent.md` reference stub
 #                                        is present), that stub's `source:` link resolves to a real
@@ -166,6 +169,31 @@ frontmatter_field() {
 }
 
 fail() { echo "task-state: $cmd — $1" >&2; exit 1; }
+
+# prior_art_warning <plan.md> — advisory, never a failure. The plan's `## Related prior work` section
+# records whether the knowledge base was queried before the plan, as a `- KB:` line naming the pages
+# it returned or the explicit `- KB: no relevant pages` for no hits. That line is the trace issue #32
+# asks for: a skipped prior-art step otherwise leaves none, and the stage gates check shape only.
+# Missing section, or a section without a `KB:` line, prints one advisory line on stdout and changes
+# no exit code — the same fail-open contract as check-adr, so an in-flight plan written before this
+# convention is never blocked. The advisory is printed through the same `task-state: <cmd> —` prefix
+# as every other message, so a reader sees a warning, not a gate result.
+prior_art_warning() {
+  local file="$1" section=""
+  [ -f "$file" ] || return 0
+  section="$(awk '
+    /^## Related prior work[[:space:]]*$/ { f=1; next }
+    f && /^## / { exit }
+    f { print }
+  ' "$file" 2>/dev/null || true)"
+  if [ -z "$(printf '%s' "$section" | tr -d '[:space:]')" ]; then
+    echo "task-state: $cmd — advisory: '$file' has no '## Related prior work' section — record the knowledge base query with a '- KB:' line (a citation, or '- KB: no relevant pages')"
+    return 0
+  fi
+  printf '%s\n' "$section" | grep -qiE '^[[:space:]]*[-*][[:space:]]*KB:[[:space:]]*[^[:space:]]' || \
+    echo "task-state: $cmd — advisory: '$file' has '## Related prior work' but no '- KB:' line naming the knowledge base query or its 'no relevant pages' result"
+  return 0
+}
 
 # frontmatter_list <file> <key> — print a frontmatter list field's values, one per line, for BOTH
 # shapes the same field arrives in: the template's inline flow (`commits: [a, b]`) and the block list
@@ -340,6 +368,7 @@ case "$cmd" in
     value="$(frontmatter_field "$path" phase || true)"
     [ "$value" = "plan" ] || fail "'$path' is not a plan (phase: '${value:-<none>}')"
     echo "task-state: plan valid — $path"
+    prior_art_warning "$path"
     ;;
   check-chain)
     dir="$(dirname "$path")"
@@ -364,6 +393,7 @@ case "$cmd" in
     else
       echo "task-state: chain valid — spec + plan present, ad-hoc (no intent required) — $dir"
     fi
+    prior_art_warning "$path"
     ;;
   merge-intent-pr)
     [ -f "$path" ] || fail "intent file '$path' missing"
