@@ -46,7 +46,8 @@ Release procedure (harness maintainers):
 
 - **No action required.** The check is advisory (`check-plan`/`check-chain` still exit 0 without it),
   and the template/script/skill changes are `copy` rows carried by the existing `core/` install row.
-  A plan written before this convention is never blocked; it only gets the advisory line.
+  A plan written before this convention is never blocked; it only gets the advisory line. See
+  `changelogs/version-0.4.0-rc.18.md`.
 
 ## [0.4.0-rc.17] - 2026-10-11
 
@@ -110,8 +111,8 @@ Release procedure (harness maintainers):
 
 - No command and no manual step: this release changes stage stubs, two docs, and the release files —
   all carried by the normal bundle sync. No script, manifest, adapter row, hook, or gate change.
-- Instruction-only: existing specs and plans are untouched. No changelog prompt is shipped (nothing
-  to run, no manual follow-up).
+- Instruction-only: existing specs and plans are untouched. See
+  `changelogs/version-0.4.0-rc.16.md` (records the change; nothing to run, no manual follow-up).
 
 ## [0.4.0-rc.15] - 2026-10-11
 
@@ -138,8 +139,8 @@ Release procedure (harness maintainers):
 - No command and no manual step: this release changes stage instructions, a plan template, a governance
   doc, and the README only — all carried by the normal bundle sync. No script, manifest, adapter, or
   gate change.
-- This is a guide-text change: existing specs and plans are untouched. No changelog prompt is shipped
-  (nothing to run, no manual follow-up).
+- This is a guide-text change: existing specs and plans are untouched. See
+  `changelogs/version-0.4.0-rc.15.md` (records the change; nothing to run, no manual follow-up).
 
 ## [0.4.0-rc.14] - 2026-10-11
 
