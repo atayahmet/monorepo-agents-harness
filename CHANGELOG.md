@@ -17,6 +17,34 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.15] - 2026-10-11
+
+### Changed
+
+- **The spec stage now reaches the knowledge base** (issue #27). `core/skills/agent-workflow/SKILL.md`
+  Phase 1 check 1 only told the agent to grep `<workspace>/.agents/artifacts/index.md`, so the spec and
+  plan stages never ran the ranked `kb-index.sh query` the root rule points at — the first query
+  happened at build time. Phase 1 now runs **four** checks: (1) query the repo-root knowledge base
+  first (`bash <bundle>/core/scripts/kb-index.sh query "<1–3 keywords>"`, BM25-ranked, grep fallback)
+  and read the top pages; (2) grep the task indexes for what the knowledge base does not cover. Check 2
+  also defines the **new-workspace** case (no index yet → grep every existing workspace index) and the
+  **cross-cutting** case (also grep sibling workspace indexes); the repo-root index is read when the
+  project has no `apps/`/`packages/`.
+- **The plan template asks for knowledge-base citations** (issue #27).
+  `core/skills/agent-workflow/templates/2_plan.md`'s `## Related prior work` now asks for a
+  `[[page]]` (`knowledge/…`) line first, then the task-dir line, and keeps `- none found`.
+- **Consistency sync** — `core/governance/artifacts/AGENTS.md` search-rule 6 names the knowledge-base
+  query first, and `README.md` (Phase 1 prose and its `## Related prior work` examples) no longer
+  describes the old single-grep behavior.
+
+### Upgrade Notes
+
+- No command and no manual step: this release changes stage instructions, a plan template, a governance
+  doc, and the README only — all carried by the normal bundle sync. No script, manifest, adapter, or
+  gate change.
+- This is a guide-text change: existing specs and plans are untouched. No changelog prompt is shipped
+  (nothing to run, no manual follow-up).
+
 ## [0.4.0-rc.14] - 2026-10-11
 
 ### Changed

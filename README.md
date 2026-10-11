@@ -207,10 +207,11 @@ always an explicit answer in that turn. On "yes" it appends:
 ```
 
 A developer picks it up. Entering plan mode, `core/skills/agent-workflow/SKILL.md` Phase 1 runs its
-two pre-plan checks: it greps `apps/api/.agents/artifacts/index.md` for prior art (finds
-`webhook_signature_verification`, cites it as related — kept ready for the plan's `## Related prior
-work`), and separately checks `apps/api/.agents/intents/` for an approved intent matching this task
-— finds `webhook_retry`, links it in as `0_intent.md` (a reference stub, not a copy). Then, matching the playbook's
+pre-plan checks: it queries the repo-root knowledge base first (`kb-index.sh query` over
+`knowledge/`, reads the top pages), then greps `apps/api/.agents/artifacts/index.md` for prior art
+(finds `webhook_signature_verification`, cites it as related — kept ready for the plan's `## Related
+prior work`), and separately checks `apps/api/.agents/intents/` for an approved intent matching this
+task — finds `webhook_retry`, links it in as `0_intent.md` (a reference stub, not a copy). Then, matching the playbook's
 `intent → spec → plan` order, it writes the **spec first** — the "what" (`1_spec.md`):
 
 ```markdown
@@ -246,6 +247,7 @@ a merchant's existing dedupe logic (most already have one, per the intent's Open
 just works without a payload shape change.
 
 ## Related prior work
+- [[webhook-dispatch]] (`knowledge/modules/api.md`) — how the dispatcher injects headers today.
 - [webhook_signature_verification](task_2026_07_02_webhook_signature_verification/1_spec.md) —
   same dispatcher code path, same header-injection point.
 
@@ -357,7 +359,8 @@ what `apps/api/src/webhooks/dispatch.ts` is.
 
 Not every task starts from an intent — most don't. A developer notices a flaky test and just starts
 fixing it, no `/monorepo-harness-intent` involved. Entering plan mode still runs the **mandatory**
-prior-art search (unlike the intent match, which is best-effort and silent when nothing matches):
+knowledge-base query and prior-art search (unlike the intent match, which is best-effort and silent
+when nothing matches):
 
 ```markdown
 ## Related prior work
