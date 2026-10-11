@@ -89,8 +89,8 @@ a `1_spec.md` and run `memory-gate.sh`: exit 0 — a task that has not started b
 - **Self-improvement** — `/monorepo-self-improve` proposes project-owned rules and skills.
 - **Changeset release entries** — `/monorepo-harness-changeset` drafts a changesets-compatible
   `.changeset/*.md` entry without adding `@changesets/cli`; bumps are user-confirmed policy.
-- **Knowledge base** — tasks compile into `knowledge/`; `/monorepo-harness-kb-index` queries it with
-  BM25-ranked hits (gitignored SQLite FTS5 cache, grep fallback), never re-scanning artifact trees.
+- **Knowledge base** — tasks compile into `knowledge/`; the `-spec`/`-plan` stages query it first
+  (`kb-index.sh query`), and `/monorepo-harness-kb-index` answers with BM25-ranked hits (SQLite FTS5 cache, grep fallback), never re-scanning artifact trees.
 
 ## 7. Updating
 

@@ -13,8 +13,12 @@ with `core/scripts/task-state.sh`:
    - If you are, skip to step 4.
    - If not, ask the user: "Enable plan mode?" — on **yes** enter plan mode; on **no** proceed
      without it.
-4. Write `2_plan.md` (frontmatter `phase: plan`, `status: approved`) in the same task directory per
+4. Query the knowledge base first (Phase 1 check 1) — or reuse the hits kept when `1_spec.md` was
+   written: run
+   `bash .agents/monorepo-agents-harness/core/scripts/kb-index.sh query "<1–3 keywords>"` and cite
+   the relevant `knowledge/…` pages under `## Related prior work`.
+5. Write `2_plan.md` (frontmatter `phase: plan`, `status: approved`) in the same task directory per
    Phase 2, then update `<workspace>/.agents/artifacts/index.md`.
-5. After writing `2_plan.md` (and updating the index), **STOP here**. Do **not** start
+6. After writing `2_plan.md` (and updating the index), **STOP here**. Do **not** start
    implementation. The user must run `/monorepo-harness-build <2_plan.md>` next — implementation may
    only begin after the plan is approved.

@@ -17,6 +17,33 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.16] - 2026-10-11
+
+### Changed
+
+- **The `-spec` and `-plan` stubs name the knowledge-base query** (issue #28). The stage command
+  stubs are what the agent reads on every stage run, but none named the KB: only `-build` touched it,
+  and only to write (`kb-ingest.sh` / `check-kb`), so from the stubs' point of view the KB was
+  write-only. Each of the six stubs now has a step — **before** writing `1_spec.md` / `2_plan.md` —
+  that runs `bash .agents/monorepo-agents-harness/core/scripts/kb-index.sh query "<1–3 keywords>"` and
+  points at `core/skills/agent-workflow/SKILL.md` Phase 1 check 1 (the single source of the check, per
+  `0.4.0-rc.15`): `-spec` keeps the top hits ready to cite; `-plan` cites the `knowledge/…` pages
+  under `## Related prior work`. Files: `adapters/claude-code/.claude/commands/monorepo-harness-{spec,plan}.md`,
+  `adapters/opencode/.opencode/commands/monorepo-harness-{spec,plan}.md`,
+  `adapters/codex/.agents/skills/monorepo-harness-{spec,plan}/SKILL.md`. All six are existing `copy`
+  rows — no manifest change.
+- **Consistency sync** — `PORTABILITY.md` (Knowledge-base row and its semantic-difference note) and
+  the `INSTALL.md` §6 Knowledge-base bullet no longer imply the KB is build-only; both now name the
+  `-spec`/`-plan` read step. The Knowledge-base row's `-build` ingest step number is corrected to 6
+  (it read `step 5`).
+
+### Upgrade Notes
+
+- No command and no manual step: this release changes stage stubs, two docs, and the release files —
+  all carried by the normal bundle sync. No script, manifest, adapter row, hook, or gate change.
+- Instruction-only: existing specs and plans are untouched. No changelog prompt is shipped (nothing
+  to run, no manual follow-up).
+
 ## [0.4.0-rc.15] - 2026-10-11
 
 ### Changed
