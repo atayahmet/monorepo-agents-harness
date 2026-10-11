@@ -32,7 +32,7 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
 | Plan/spec/memory templates | `.agents/monorepo-agents-harness/core/skills/agent-workflow/SKILL.md` | symlinked into `.claude/skills/` (auto-registered skill) | referenced via `opencode.jsonc` `instructions` | symlinked into `.agents/skills/` (auto-registered skill) | reference the shared runtime templates via your agent's instruction mechanism |
 | **ADR capture** (architecture decisions → `adr/NNNN-*.md` inside the task dir, referenced from the spec's `## Architectural decisions`) | `.agents/monorepo-agents-harness/core/skills/adr-workflow/SKILL.md` + `core/scripts/task-state.sh check-adr` | symlinked into `.claude/skills/` (auto-registered skill) | referenced via `opencode.jsonc` `instructions` | symlinked into `.agents/skills/` (auto-registered skill) | `AGENTS.md` mandate + the `agent-workflow`/`pr-review` skill references (instruction-level) |
 | Monorepo guidance | `.agents/monorepo-agents-harness/core/skills/monorepo/SKILL.md` | same as above | same as above | same as above | link from `AGENTS.md` |
-| Plan/spec reminder (start of impl.) | `AGENTS.md` gotcha #4 | `PostToolUse[ExitPlanMode]` hook + `/monorepo-harness-spec`/`-plan` commands | `AGENTS.md` mandate + `/monorepo-harness-spec`/`-plan` commands | `PostToolUse[update_plan]` hook + `SessionStart` reminder + `/monorepo-harness-spec`/`-plan` skills | `AGENTS.md` mandate |
+| Plan/spec reminder (start of impl.) | root `AGENTS.md` "Before You Start" checklist + `core/scripts/checklist-reminder.sh` (extracts it at run time) | `PostToolUse[ExitPlanMode]` hook → `checklist-reminder.sh`; `/monorepo-harness-spec` runs it too | `/monorepo-harness-spec` runs `checklist-reminder.sh` (no hook) | `PostToolUse[update_plan]` hook + `SessionStart` reminder (prose) + `/monorepo-harness-spec` skill runs `checklist-reminder.sh` | `AGENTS.md` mandate + run `checklist-reminder.sh --text` by hand |
 | Per-SDLC-stage commands (intent → spec → plan → build) | `core/skills/agent-workflow/SKILL.md` (stage entry points) + `core/scripts/task-state.sh` (read-only chain validation) | `.claude/commands/monorepo-harness-{spec,plan,build}.md` | `.opencode/commands/monorepo-harness-{spec,plan,build}.md` | `.agents/skills/monorepo-harness-{spec,plan,build}/SKILL.md` | run the `task-state.sh` checks and follow the stage phases by hand |
 | **Memory-gate** (no finish without `3_memory.md`, plus `4_verify.md` when the spec's Test/verification plan is not N/A — enforced only on a task that reached the **build** stage, i.e. whose plan carries `build_started`) | `core/scripts/memory-gate.sh` (stage from `task-state.sh stage`) | `Stop` hook → script `--json` (**hard block**, and it stands down on `stop_hook_active`); `PreToolUse[Write\|Edit\|…]` → `hook-arm-build.sh` (arms the gate when implementation starts) | universal hard gate (git pre-commit / CI) | `Stop` hook → script `--json` (soft reminder); arming via the `update_plan` reminder (no file-write matcher) | **script default mode as git pre-commit / CI — hard block, universal** |
 | Verifier subagent (produces the `4_verify.md` evidence) | `core/skills/agent-workflow/SKILL.md` Phase 4 | `.claude/agents/verifier.md` (isolated context, read-only) | — main session runs the same verification commands inline | — same as opencode | Universal: verification commands run in the main session per the skill's Phase 4 instructions — no capability lost, just no isolated context |
@@ -55,6 +55,15 @@ adapter as thin as possible (only the enforcement the instructions can't guarant
   → The **universal hard gate is `core/scripts/memory-gate.sh`** wired as a git pre-commit hook
   and/or CI step. Install it for *every* agent whose stop you cannot block (and it's a good
   belt-and-braces even for claude-code).
+- **The start-of-task reminder is the root `AGENTS.md` checklist, read at run time.** The
+  "Before You Start" reminder is never a hand-copied list: `core/scripts/checklist-reminder.sh`
+  extracts the `## Before You Start — Mandatory Checklist` section from the installed root
+  `AGENTS.md` and emits it (Claude hook JSON by default, plain markdown with `--text`). The
+  claude-code `ExitPlanMode` hook calls it, and every adapter's `-spec` stub runs it at the start of a
+  task — so the reminder cannot drift from the single source, and a consumer's own edit to their root
+  `AGENTS.md` checklist shows up with no code change. Fail-open: a missing `AGENTS.md`, a missing
+  section, or a missing `jq` prints nothing and exits 0. On Codex the `update_plan`/`SessionStart`
+  prose reminders are unchanged; the `-spec` skill carries the checklist there.
 - **Manual plan/spec build fallback.** Any agent that lacks an `ExitPlanMode` hook (or where the
   automatic reminder is missed) can fall back to the `/monorepo-harness-spec` and
   `/monorepo-harness-plan` commands to drive the same `agent-workflow` spec/plan creation steps,

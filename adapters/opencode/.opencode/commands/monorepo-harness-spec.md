@@ -6,8 +6,12 @@ Follow the shared instructions in
 `.agents/monorepo-agents-harness/core/skills/agent-workflow/SKILL.md` exactly (Phase 1), and gate
 with `core/scripts/task-state.sh`:
 
-1. Resolve the target workspace (`apps/<name>` or `packages/<name>`).
-2. Resolve the intent path the user typed after the command: `/monorepo-harness-spec <intent.md>`.
+1. Apply the root `AGENTS.md` checklist before anything else: run
+   `bash .agents/monorepo-agents-harness/core/scripts/checklist-reminder.sh --text`, then apply every
+   reminder it prints (target workspace, session log, lessons, prior-art index, knowledge base, todo,
+   plan mode, English, and the root/workspace instructions).
+2. Resolve the target workspace (`apps/<name>` or `packages/<name>`).
+3. Resolve the intent path the user typed after the command: `/monorepo-harness-spec <intent.md>`.
    - If a path was given, run
      `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved <intent.md>`.
    - If it exits non-zero, do **not** write anything; report the reason and stop.
@@ -15,13 +19,13 @@ with `core/scripts/task-state.sh`:
      `bash .agents/monorepo-agents-harness/core/scripts/write-intent-ref.sh <task_dir> <intent.md>`
      This writes the reference stub (`phase: intent-ref`) from SKILL.md Phase 1 — never copy the
      intent content manually.
-3. Query the knowledge base first (Phase 1 check 1): run
+4. Query the knowledge base first (Phase 1 check 1): run
    `bash .agents/monorepo-agents-harness/core/scripts/kb-index.sh query "<1–3 keywords>"`, read the
    top hits it ranks, and keep them ready to cite in `2_plan.md`'s `## Related prior work`.
-4. Create the task directory and write `1_spec.md` (the "what": contract, acceptance criteria) per
+5. Create the task directory and write `1_spec.md` (the "what": contract, acceptance criteria) per
    Phase 1.
-5. Update `<workspace>/.agents/artifacts/index.md` with a new row for this task.
-6. If no intent path was given, proceed as a normal ad-hoc spec (no `0_intent.md`).
-7. After writing `1_spec.md` and updating the index, **STOP here**. Do **not** write `2_plan.md`,
+6. Update `<workspace>/.agents/artifacts/index.md` with a new row for this task.
+7. If no intent path was given, proceed as a normal ad-hoc spec (no `0_intent.md`).
+8. After writing `1_spec.md` and updating the index, **STOP here**. Do **not** write `2_plan.md`,
    and do **not** start implementation. The user must run `/monorepo-harness-plan <1_spec.md>` next —
    implementation may not begin until an approved plan exists.

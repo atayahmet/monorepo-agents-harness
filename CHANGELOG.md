@@ -17,6 +17,44 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.17] - 2026-10-11
+
+### Changed
+
+- **The start-of-task reminder is now read live from the root `AGENTS.md`, not hand-copied** (issue
+  #29). The Claude Code `PostToolUse[ExitPlanMode]` hook embedded a 7-item checklist that had drifted
+  from the template's 9 items — the target-workspace and knowledge-base-first items were missing — and
+  the same kind of hand-written summary sat behind the codex reminders. New agent-neutral script
+  `core/scripts/checklist-reminder.sh` extracts the `## Before You Start — Mandatory Checklist`
+  section of the installed root `AGENTS.md` and emits it (Claude hook JSON by default, plain markdown
+  with `--text`). The `ExitPlanMode` hook calls it, and every adapter's `-spec` stub runs it before
+  writing `1_spec.md`, so the checklist is shown on the plan-mode path **and** the command-driven path,
+  on all three adapters. A consumer's own edit to their root `AGENTS.md` checklist now flows through
+  with no code change. Fail-open: missing `AGENTS.md`, missing section, or missing `jq` prints nothing
+  and exits 0.
+- **Files** — new `core/scripts/checklist-reminder.sh` (carried by the existing `core/` install row, no
+  new manifest row); `adapters/claude-code/.claude/settings.json` (the `ExitPlanMode` reminder command
+  now names the script; a `merge` row); `-spec` stubs on all three adapters
+  (`adapters/claude-code/.claude/commands/monorepo-harness-spec.md`,
+  `adapters/opencode/.opencode/commands/monorepo-harness-spec.md`,
+  `adapters/codex/.agents/skills/monorepo-harness-spec/SKILL.md`).
+- **Docs** — `adapters/claude-code/INSTALL.md` (merge note + capability row), `adapters/claude-code/README.md`,
+  `adapters/AGENTS.md` (expectation 2), `PORTABILITY.md` (matrix row + semantic note), `README.md`.
+- **Test** — repo-local `tests/checklist-reminder.test.sh`: item-count parity with `core/root-AGENTS.md`,
+  the two items the old hook dropped, a simulated template edit, JSON validity, fail-open, and a
+  reintroduction guard that fails if a checklist is hard-coded back into `settings.json` or a stub
+  stops naming the script.
+
+### Upgrade Notes
+
+- **Claude Code — merge the proposed `settings.json`.** `.claude/settings.json` is a `merge` row, so an
+  installed copy stages the change as `settings.json.harness-proposed` instead of applying it. Keep the
+  `PostToolUse[ExitPlanMode]` entry whose command runs
+  `core/scripts/checklist-reminder.sh` (replacing the old inline `jq` checklist). Without it nothing
+  breaks: the `/monorepo-harness-spec` command still prints the checklist.
+- **The `-spec` step arrives automatically** on all three adapters — the `-spec` stubs are `copy` rows
+  and sync on the normal adapter refresh. No manual step for codex or opencode.
+
 ## [0.4.0-rc.16] - 2026-10-11
 
 ### Changed
