@@ -36,7 +36,10 @@ git diff --no-index .claude/settings.json .claude/settings.json.harness-proposed
 ```
 
 Both hooks are independent and fail-open (missing `jq`, git root or bundle → exit 0, never blocks),
-so they coexist with your existing hooks safely.
+so they coexist with your existing hooks safely. The `ExitPlanMode` reminder does not carry the
+checklist itself: it runs `core/scripts/checklist-reminder.sh`, which prints the
+`## Before You Start — Mandatory Checklist` section of your root `AGENTS.md` at run time — so the
+reminder stays in sync with that file and with any edit you make to it.
 
 ## What maps to what
 
@@ -44,7 +47,7 @@ so they coexist with your existing hooks safely.
 |---|---|---|
 | Rules / instructions | `AGENTS.md` (native to Claude Code) | root `CLAUDE.md` = thin `@AGENTS.md` pointer |
 | Plan/spec/memory + monorepo templates | `core/skills/**/SKILL.md` | symlinked into `.claude/skills/` (auto-registration) |
-| Plan/spec reminder (plan-mode exit) | — | `PostToolUse[ExitPlanMode]` hook (inline reminder) |
+| Plan/spec reminder (plan-mode exit) | `core/scripts/checklist-reminder.sh` (reads root `AGENTS.md` at run time) | `PostToolUse[ExitPlanMode]` hook → script |
 | Gate arming when implementation starts | `core/scripts/hook-arm-build.sh` | `PreToolUse` hook on `Write`/`Edit` (writes `build_started` on the plan) |
 | Manual plan/spec build trigger | `core/skills/agent-workflow/SKILL.md` + `core/scripts/task-state.sh` | `/monorepo-harness-spec` · `/monorepo-harness-plan` · `/monorepo-harness-build` |
 | Memory-gate (incl. `4_verify.md` when required, once the build started) | `core/scripts/memory-gate.sh` + `task-state.sh stage` | `Stop` hook → script `--json` (**hard block**, stands down on `stop_hook_active`) |

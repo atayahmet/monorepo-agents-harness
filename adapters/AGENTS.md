@@ -70,7 +70,10 @@ enforcement layer must support exactly these expectations (native mechanism or f
    implementation Edit/Write*, it must be nudged to create the task dir and write `1_spec.md`
    (`phase: spec`) then `2_plan.md` (frontmatter `phase: plan`, `status: approved`) in the same
    directory. Templates come from the agent-workflow skill (`SKILL.md` + `templates/`) — never
-   redefined per adapter. Because that path never runs `/monorepo-harness-build`, the adapter must
+   redefined per adapter. The reminder also shows the root `AGENTS.md` "Before You Start" checklist by
+   running `core/scripts/checklist-reminder.sh` (which reads it at run time — never a hand-copied
+   list); every adapter's `-spec` stub runs it too, so the checklist is seen even without plan mode.
+   Because that path never runs `/monorepo-harness-build`, the adapter must
    also **arm the memory-gate for it**: wire `core/scripts/hook-arm-build.sh` as a pre-write hook
    (claude-code) or name `task-state.sh mark-build <2_plan.md>` in the same reminder (codex, and
    any agent without a file-write matcher). The hook arms only a plan in the workspace being
