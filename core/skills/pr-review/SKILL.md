@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Review the current diff against this project's REVIEW.md policy (or built-in defaults) and, when the diff maps to a known task, against that task's 2_plan.md/1_spec.md/4_verify.md. Reports findings tagged Important/Nit. Use when the user types /monorepo-harness-review or asks to review a PR, diff, or set of changes.
+description: Review the current diff against this project's REVIEW.md policy (or built-in defaults) and, when the diff maps to a known task, against that task's 2_plan.md/1_spec.md/4_verify.md — including its recorded knowledge-base query. Reports findings tagged Important/Nit. Use when the user types /monorepo-harness-review or asks to review a PR, diff, or set of changes.
 ---
 
 # PR Review
@@ -51,6 +51,10 @@ does not merge or approve anything — see "Out of scope" below.
       architecture-affecting (new dependency, data-model change, cross-workspace contract change),
       raise it as a Nit: "consider whether an ADR is warranted" — the record stays optional, so this
       is advisory, never blocking.
+   - **Prior-art compliance** (only if a task was found in step 3) — the plan's `## Related prior
+      work` section must carry a `- KB:` line naming the knowledge-base pages the Phase 1 query
+      returned, or the explicit `- KB: no relevant pages`. A plan with neither has no trace that the
+      mandatory KB query happened (issue #32): raise it as a **Nit**. Advisory — never blocking.
 
 5. **Report**, in this order:
    - One line of context: diff range reviewed, task found (or "no matching task — spec-compliance

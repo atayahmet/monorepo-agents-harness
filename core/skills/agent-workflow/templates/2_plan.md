@@ -18,10 +18,15 @@ Omit the trailing clause for ad-hoc tasks with no `0_intent.md`.
 <High-level strategy, 2–5 sentences>
 
 ## Related prior work
-<Cite the Phase 1 results — knowledge-base pages first, then task dirs:
-- [[<page>]] (`knowledge/<area>/<page>.md`) — why relevant
+<Cite the Phase 1 results. Start with the mandatory knowledge-base line — `- KB:` naming the pages
+the query returned, or the explicit no-hits form when it returned none:
+- KB: [[<page>]] (`knowledge/<area>/<page>.md`) — why relevant
+- KB: no relevant pages
+Then the task-dir hits from the index search:
 - [<slug>](task_YYYY_MM_DD_slug/1_spec.md) — why relevant
-Write `- none found` when neither the knowledge base nor the indexes matched.>
+- none found
+`task-state.sh check-plan` and `check-chain` print an advisory (never a failure) when the `- KB:`
+line is missing.>
 
 ## Steps
 1. ...
