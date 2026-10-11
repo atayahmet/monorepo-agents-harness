@@ -17,6 +17,33 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.14] - 2026-10-11
+
+### Changed
+
+- **The root "Query Knowledge First" rule now names the ranked index** (issue #30). Since
+  `0.4.0-rc.13` the knowledge base has a SQLite FTS5 index (`core/scripts/kb-index.sh query`), but
+  both mentions in `core/root-AGENTS.md` — the Before You Start checklist and Agent Lifecycle 9 —
+  still told the agent to read `knowledge/index.md` by hand and grep pages: the slow path the index
+  was built to replace. Both now make the ranked query the first step
+  (`bash .agents/monorepo-agents-harness/core/scripts/kb-index.sh query "<keywords>"`, BM25-ranked
+  with a grep fallback when `sqlite3`/FTS5 is unavailable), then read the top pages. `knowledge/index.md`
+  stays the browsing path for the full catalog.
+- **The knowledge-base skill triggers at task start** (issue #30). Its `description` now includes
+  "at the start of a spec or a plan (query prior art first)", so the skill loads when the KB-first
+  rule is due instead of only at task end or on an unrelated knowledge question.
+
+### Upgrade Notes
+
+- No command and no manual step: this release changes the root `AGENTS.md` template and a skill
+  description only. On the next update, `core/skills/harness-update/SKILL.md` step 9 reconciles your
+  root `AGENTS.md` with the fresh template through a consent-gated merge
+  (`core/skills/agents-md-merge/SKILL.md`) — it keeps all of your content and asks before writing.
+  Accept the new "Query Knowledge First" wording when it is offered.
+- No script, manifest, or adapter file changes, so there is nothing to install by hand.
+- Upgrade prompt: `changelogs/version-0.4.0-rc.14.md` (records the changed text for reference; no
+  hand-run command and no follow-up beyond the automatic `AGENTS.md` merge).
+
 ## [0.4.0-rc.13] - 2026-10-07
 
 ### Added
