@@ -68,8 +68,10 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
 - [ ] Search `<target-workspace>/.agents/artifacts/index.md` for prior work related to this task
       (1–3 keyword grep). On a match, read that task's `1_spec.md` (and `3_memory.md` if marked ◆)
       before planning.
-- [ ] Query the repo-root knowledge base first: read `knowledge/index.md` and any pages matching this
-      task's keywords (compiled view — see Agent Lifecycle 9).
+- [ ] Query the repo-root knowledge base first: run
+      `bash .agents/monorepo-agents-harness/core/scripts/kb-index.sh query "<keywords>"` (BM25-ranked;
+      it falls back to grep when `sqlite3`/FTS5 is unavailable), then read the top pages it ranks.
+      Browse `knowledge/index.md` for the full catalog (see Agent Lifecycle 9).
 - [ ] Write `<target-workspace>/.agents/todo.md` plan.
 - [ ] Enter plan mode if task has 3+ steps.
 - [ ] All `.md` files must be in English. Code comments and commit messages must be in English.
@@ -131,8 +133,10 @@ This is a {{MONOREPO_FRAMEWORK}} monorepo. Default context is the repository roo
    squash or force-push leaves a `commits:` sha pointing at nothing while the change itself survives:
    repair it with `task-state.sh sync-commits <3_memory.md> --ref <branch> --write`, which remaps by
    patch-id and never rewrites a sha it cannot match.
-9. **Query Knowledge First** — Before scanning per-workspace artifact trees, read `knowledge/index.md`
-   and the compiled pages it links; scan raw artifacts only when the KB lacks coverage.
+9. **Query Knowledge First** — Before scanning per-workspace artifact trees, run
+   `bash .agents/monorepo-agents-harness/core/scripts/kb-index.sh query "<keywords>"` and read the top
+   pages it ranks (BM25-ranked; grep fallback without `sqlite3`/FTS5). Browse `knowledge/index.md` for
+   the catalog; scan raw artifacts only when the KB lacks coverage.
 
 ## Reference Map
 
