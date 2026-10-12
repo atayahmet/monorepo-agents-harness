@@ -60,10 +60,24 @@ pr: <optional PR URL or #number>
 ## Open questions
 <Anything unresolved that the reviewer, or a future plan, should address>
 
+## Prior art
+- KB: [[<page>]] (knowledge/<area>/<page>.md) — why relevant
+- KB: no relevant pages
+
 ## Visual summary (optional)
 <If a diagram clarifies the problem or proposed flow better than text alone, add a mermaid diagram
 here. Do not add a diagram just for the sake of having one.>
 ```
+
+**`## Prior art`** is the recorded trace that the intent stage queried the repo-root knowledge base —
+the derived SQLite FTS5 index over `knowledge/`. Capture runs
+`core/scripts/kb-index.sh query "<1-3 keywords>"` **before** it writes the file and records what the
+query returned: one `- KB: [[<page>]] (knowledge/…)` line per relevant page, or `- KB: no relevant
+pages` when it returned none (including when `knowledge/` does not exist yet). Review runs the same
+query for each pending intent and adds the section when it is missing. Never invent a hit. This is the
+intent stage's analogue of the plan's `- KB:` line (`core/skills/agent-workflow/templates/2_plan.md`,
+issue #32) — the query result is what makes the check auditable later. Capture is the section's
+writer; Review only fills a gap, so the two never disagree.
 
 **`status`** is the lifecycle field: `pending` (awaiting review) → `approved` or `rejected`. On
 review, the reviewer appends a `## Review` section:
