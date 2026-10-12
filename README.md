@@ -163,7 +163,8 @@ an update months later).
 A support lead notices duplicate webhook deliveries and can't write code, but can describe the
 problem. They type `/monorepo-harness-intent`.
 
-**Capture** (`core/skills/intent-workflow/SKILL.md`) writes
+**Capture** (`core/skills/intent-workflow/SKILL.md`) first queries the repo-root knowledge base
+(`kb-index.sh query` over `knowledge/`) and records the result, then writes
 `apps/api/.agents/intents/intent_2026_08_20_webhook_retry.md`:
 
 ```markdown
@@ -192,10 +193,14 @@ No breaking change to the existing webhook payload shape.
 
 ## Open questions
 Is the duplicate coming from a retry-on-timeout in our dispatcher, or from the queue redelivering?
+
+## Prior art
+- KB: no relevant pages
 ```
 
 A few days later, an engineering lead runs `/monorepo-harness-intent review`. The skill lists every
-`pending` intent, shows this one's sections, and asks **"Approve this intent?"** — never inferred,
+`pending` intent, queries the knowledge base with each intent's own keywords, shows this one's sections
+plus the ranked hits, and asks **"Approve this intent?"** — never inferred,
 always an explicit answer in that turn. On "yes" it appends:
 
 ```markdown

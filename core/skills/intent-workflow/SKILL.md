@@ -1,6 +1,6 @@
 ---
 name: intent-workflow
-description: Capture a stakeholder's problem description as an intent file before it becomes a plan-mode task, let a product owner or manager review pending intents and approve or reject them, and dispatch an approved intent into scoped phases with one tracker issue per phase - filing a single parent issue that groups them when there is more than one, asking first whether the work is already open and whether the intent's PR should be merged, and recording every issue it filed back on the intent - writing no spec, plan or task directory of its own. Use when the user types /monorepo-harness-intent or /monorepo-harness-intent-dispatch, describes a new feature/problem without being in an active coding task, asks to review pending intents, or asks to turn an approved intent into work.
+description: Capture a stakeholder's problem description as an intent file before it becomes a plan-mode task, querying the repo-root knowledge base (kb-index.sh query) for prior art when capturing or reviewing, let a product owner or manager review pending intents and approve or reject them, and dispatch an approved intent into scoped phases with one tracker issue per phase - filing a single parent issue that groups them when there is more than one, asking first whether the work is already open and whether the intent's PR should be merged, and recording every issue it filed back on the intent - writing no spec, plan or task directory of its own. Use when the user types /monorepo-harness-intent or /monorepo-harness-intent-dispatch, describes a new feature/problem without being in an active coding task, asks to review pending intents, or asks to turn an approved intent into work.
 ---
 
 # Intent Capture, Review, and Dispatch
@@ -44,11 +44,20 @@ intent.
    uncommitted. Do not commit an intent unless the author answers this in the current turn — the
    intent is still `pending` and the author decides whether it lives on a dedicated commit or just in
    the working tree.
-5. Write `<workspace>/.agents/intents/intent_<YYYY_MM_DD>_<slug>.md` following the template in
-   `core/governance/intents/AGENTS.md`, frontmatter `status: pending`. If a diagram would clarify the
-   intent better than text alone, add an optional `## Visual summary` section with a mermaid diagram;
-   do not add a diagram if it feels forced.
-6. Confirm to the author what was recorded (workspace, branch, commit status) and that it now awaits
+5. **Query the knowledge base first, before writing the intent (mandatory)** — run
+   `bash .agents/monorepo-agents-harness/core/scripts/kb-index.sh query "<1-3 keywords>"` over the
+   repo-root `knowledge/` (BM25-ranked; grep fallback when `sqlite3`/FTS5 is unavailable) and read the
+   top pages it ranks. This is the same read the spec stage does (see
+   `core/skills/agent-workflow/SKILL.md` Phase 1 and `core/skills/knowledge-base/SKILL.md`), just one
+   stage earlier. Keep their `[[wiki-link]]`s ready for the `## Prior art` section. When the query
+   returns nothing, or `knowledge/` does not exist yet, record `- KB: no relevant pages` — never a
+   fabricated hit.
+6. Write `<workspace>/.agents/intents/intent_<YYYY_MM_DD>_<slug>.md` following the template in
+   `core/governance/intents/AGENTS.md`, frontmatter `status: pending`, including the `## Prior art`
+   section from step 5 — `- KB: [[<page>]] (knowledge/…)` per hit, or `- KB: no relevant pages` when
+   there are none. If a diagram would clarify the intent better than text alone, add an optional
+   `## Visual summary` section with a mermaid diagram; do not add a diagram if it feels forced.
+7. Confirm to the author what was recorded (workspace, branch, commit status) and that it now awaits
    review — do not imply it has been approved or that work will start.
 
 ## Workflow — Review
@@ -58,7 +67,13 @@ Triggered when a product owner/manager asks to review pending intents, or via
 
 1. List every `<workspace>/.agents/intents/intent_*.md` with `status: pending` (grep the
    frontmatter across all workspaces, or the one named by the reviewer).
-2. For each, present its Problem/Proposed outcome/Affected users/Constraints/Open questions.
+2. For each, **query the knowledge base** with the intent's own 1-3 keywords —
+   `bash .agents/monorepo-agents-harness/core/scripts/kb-index.sh query "<keywords>"` over
+   `knowledge/` (BM25-ranked; grep fallback when `sqlite3`/FTS5 is unavailable) — so the reviewer sees
+   prior art next to the problem. Then present its
+   Problem/Proposed outcome/Affected users/Constraints/Open questions, plus the ranked hits. If the
+   intent has no `## Prior art` section yet, add one from this query; otherwise leave the captured
+   section as it is.
 3. Ask, per intent: **"Approve this intent?"** (yes / no / edit). Never change `status` without an
    explicit answer in the current turn — same discipline as
    `core/skills/agents-md-merge/SKILL.md`'s "Apply this merge to AGENTS.md?" gate.

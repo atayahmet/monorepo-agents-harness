@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Tests for the prior-art (- KB:) advisory added by issue #32: a plan records whether the knowledge
-# base was queried, and check-plan/check-chain surface that record as an advisory.
+# base was queried, and check-plan/check-chain surface that record as an advisory. The text guards
+# also cover the intent stage's `## Prior art` record (issue #39), where capture/review query the KB.
 #
 # Repo-local on purpose: this file is NOT listed in core/install-manifest.txt, so it never reaches a
 # consumer bundle (core/ is copied whole into every install, and a test tree there would ship).
@@ -126,6 +127,15 @@ grep -qi 'Prior-art compliance' "$REPO/core/skills/pr-review/SKILL.md" \
 grep -qF -- '- KB:' "$REPO/core/skills/knowledge-base/SKILL.md" \
   && ok "knowledge-base skill documents the '- KB:' record" \
   || bad "knowledge-base skill documents the '- KB:' record" "no '- KB:' in knowledge-base/SKILL.md"
+grep -qF 'kb-index.sh query' "$REPO/core/skills/intent-workflow/SKILL.md" \
+  && ok "intent skill names the knowledge-base query" \
+  || bad "intent skill names the knowledge-base query" "no 'kb-index.sh query' in intent-workflow/SKILL.md"
+grep -qF '## Prior art' "$REPO/core/skills/intent-workflow/SKILL.md" \
+  && ok "intent skill defines the '## Prior art' record" \
+  || bad "intent skill defines the '## Prior art' record" "no '## Prior art' in intent-workflow/SKILL.md"
+grep -qF '## Prior art' "$REPO/core/governance/intents/AGENTS.md" \
+  && ok "intent governance documents '## Prior art'" \
+  || bad "intent governance documents '## Prior art'" "no '## Prior art' in governance/intents/AGENTS.md"
 
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

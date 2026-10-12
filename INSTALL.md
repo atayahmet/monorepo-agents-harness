@@ -76,7 +76,9 @@ a `1_spec.md` and run `memory-gate.sh`: exit 0 — a task that has not started b
 ## 6. Optional extras
 
 - **CI** — `/monorepo-harness-ci` detects the provider and wires `memory-gate.sh` in.
-- **Intent inbox** — `/monorepo-harness-intent` (`core/governance/intents/AGENTS.md`).
+- **Intent inbox** — `/monorepo-harness-intent` (`core/governance/intents/AGENTS.md`); capture and
+  review query the knowledge base (`kb-index.sh query`) and record the result in the intent's
+  `## Prior art`.
 - **Intent dispatch** — `/monorepo-harness-intent-dispatch <intent.md>` checks the intent's PR for
   an approval and records it, checks the tracker for work already open (asking before filing it
   anyway), asks whether 2+ phases should hang under one parent **epic** issue, opens the epic and

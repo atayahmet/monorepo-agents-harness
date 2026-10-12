@@ -17,6 +17,33 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.20] - 2026-10-12
+
+### Changed
+
+- **The intent stage now queries the knowledge base** (issue #39). `/monorepo-harness-intent` capture
+  ran straight to writing the intent file, and review only grepped the intent frontmatter — neither
+  reached the repo-root `knowledge/`, so an intent could be filed over prior compiled knowledge
+  without reading it. Now **Capture** runs `core/scripts/kb-index.sh query` (the ranked SQLite FTS5
+  index over `knowledge/`, grep fallback without `sqlite3`/FTS5) *before* it writes the file, and
+  records the result in a new `## Prior art` section — `- KB: [[<page>]] (knowledge/…)` per hit, or
+  `- KB: no relevant pages` when there are none. **Review** runs the same query per pending intent,
+  shows the ranked hits, and fills in `## Prior art` when it is missing. Capture is the section's only
+  writer; review only fills a gap. This mirrors the plan's `- KB:` trace (#32) one stage earlier, the
+  same way #27/#28 moved the query into the spec stage.
+- **Files** — `core/skills/intent-workflow/SKILL.md` (Capture step 5 + Review step 2);
+  `core/governance/intents/AGENTS.md` (the `## Prior art` section in the intent format + its rule);
+  `adapters/{claude-code,opencode,codex}` intent stubs (name the query step); `README.md` Scenario 1,
+  `PORTABILITY.md`, `INSTALL.md` (docs sync); `tests/prior-art.test.sh` (text guards). No manifest row
+  changes.
+
+### Upgrade Notes
+
+- **Instruction- and text-only release; nothing to run.** No command, no manifest row, no gate change.
+  An installed project picks up the new intent instructions when `harness-update` re-syncs the bundle
+  and re-applies its adapter. On a project with no committed `knowledge/` yet, the query finds nothing
+  and the intent records `- KB: no relevant pages`, exactly as before this release.
+
 ## [0.4.0-rc.19] - 2026-10-11
 
 ### Added
