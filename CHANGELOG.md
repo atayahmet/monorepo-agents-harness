@@ -35,11 +35,13 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
-- **File/instruction-only release; nothing to run.** No command, no gate or artifact-layout change,
-  and no `changelogs/version-0.4.0-rc.22.md` prompt. An installed project picks up the rule when
-  `harness-update` re-syncs the bundle; the `agents-md-merge` skill carries the new Critical Gotcha
-  into an existing root `AGENTS.md` on upgrade (its Step 4 inserts every `MISSING` gotcha and Step 5
-  treats harness-matching gotchas as harness-owned), so no skill change is needed.
+- **File/instruction-only release; nothing to run.** No command and no gate or artifact-layout
+  change. An installed project picks up the rule when `harness-update` re-syncs the bundle; the
+  `agents-md-merge` skill carries the new Critical Gotcha into an existing root `AGENTS.md` on upgrade
+  (its Step 4 inserts every `MISSING` gotcha and Step 5 treats harness-matching gotchas as
+  harness-owned), so no skill change is needed. `changelogs/version-0.4.0-rc.22.md` is included at
+  the maintainer's request — the release needs no command or manual follow-up, so `changelogs/README.md`
+  would normally omit it.
 
 ## [0.4.0-rc.21] - 2026-10-13
 
