@@ -27,6 +27,12 @@ Follow the shared instructions in
    task is research-only / `N/A` and wrote no `3_memory.md`), then verify coverage with
    `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-kb <task_dir>` — see
    `core/skills/knowledge-base/SKILL.md`. Do not finish the task while `check-kb` exits non-zero.
+7. When the build is finished, suggest a review. Run
+   `bash .agents/monorepo-agents-harness/core/scripts/build-review-tier.sh <task_dir>` and read its
+   first line. If it is `simple`, add one informational line to the closing report — the developer may
+   run `/monorepo-harness-review`. If it is `comprehensive`, ask the developer whether to run
+   `/monorepo-harness-review` now; on yes, run the `pr-review` skill inline and report its findings.
+   This step is advisory — it never blocks the task.
 
 Do **not** write `1_spec.md` or `2_plan.md` here — those belong to `/monorepo-harness-spec` and
 `/monorepo-harness-plan`.

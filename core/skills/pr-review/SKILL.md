@@ -13,6 +13,11 @@ committed to build**, not just generic code-quality heuristics.
 This skill produces a report. It does not run as a service, does not post to any PR platform, and
 does not merge or approve anything — see "Out of scope" below.
 
+**Recommended at the end of a build.** `/monorepo-harness-build` finishes by pointing the developer
+here (issue #41): a `simple` change gets a one-line suggestion, a `comprehensive` one gets a direct
+question. Either way the run is opt-in and this skill is unchanged — see
+`core/skills/agent-workflow/SKILL.md`, "After the build".
+
 **Write in simple English.** Every file and developer message this skill produces follows
 `../../governance/rules/simple-english.md` — short sentences, common words, active voice.
 

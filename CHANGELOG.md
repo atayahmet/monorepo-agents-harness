@@ -17,6 +17,37 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.21] - 2026-10-13
+
+### Added
+
+- **A finished build now suggests a review, decided deterministically** (issue #41).
+  `/monorepo-harness-build` ended silently, so a developer had to remember
+  `/monorepo-harness-review`; nothing connected the two. It now ends by running the new agent-neutral
+  `core/scripts/build-review-tier.sh <task_dir>`, which prints `simple` or `comprehensive` from two
+  signals — the task's changed-file count (from the `3_memory.md` `commits:`, falling back to the
+  plan's `## Affected files / modules`) and the spec's architectural signals (an `adr/` file, or a
+  non-`N/A` `## Architectural decisions` / `## API / contracts` / `## Data model` section). A
+  **simple** change (≤3 files, no signal) gets a one-line informational suggestion; a
+  **comprehensive** one gets a direct question to run the review now — on yes, the `pr-review` skill
+  runs inline. The step is advisory: it never blocks, never writes a file, and never runs without the
+  developer's choice.
+- **Files** — `core/scripts/build-review-tier.sh` (new); `core/skills/agent-workflow/SKILL.md`
+  ("After the build" subsection + `-build` row note); `core/skills/pr-review/SKILL.md` (end-of-build
+  note); `adapters/{claude-code,opencode,codex}` build stubs (new final step); `README.md`,
+  `PORTABILITY.md` (docs sync); `tests/build-review-tier.test.sh` (16 cases). No manifest row changes
+  (`core/` is a directory row).
+
+### Upgrade Notes
+
+- **Script/instruction-only release; nothing to run.** No command, no manifest row, no gate or
+  artifact-layout change. An installed project picks up the new build step when `harness-update`
+  re-syncs the bundle and re-applies its adapter. This is a **deviation from issue #41**: the issue
+  asked for an automatic, blocking review before the unit-test phase, but the harness has no separate
+  unit-test phase (tests are part of the implementation, and `4_verify.md` records their run) — so the
+  review is a conditional, non-blocking suggestion at the end of the build. The issue text/title
+  should be updated to match.
+
 ## [0.4.0-rc.20] - 2026-10-12
 
 ### Changed

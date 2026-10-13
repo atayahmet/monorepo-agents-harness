@@ -355,6 +355,12 @@ plan isn't `N/A`) and lets the task close. The same commit adds an index row:
 | 08-21 | E | [webhook_retry](task_2026_08_21_webhook_retry/1_spec.md) ◆ | Idempotency key on order.created delivery |
 ```
 
+When the build finishes, `/monorepo-harness-build` points the developer at `/monorepo-harness-review`
+without forcing it: `core/scripts/build-review-tier.sh` reads the task's changed-file count and the
+spec's architectural signals, and a **simple** change (≤3 files, no signal) gets a one-line suggestion
+while a **comprehensive** one gets a direct question to run the review now. The step is advisory — it
+never blocks the task from closing.
+
 **Full chain, one glance:** stakeholder problem → explicit human approval → plan grounded in that
 approval → contract with acceptance criteria → real verification evidence → durable memory → a
 permanently searchable, auditable trail. Nothing in this chain required the stakeholder to know
