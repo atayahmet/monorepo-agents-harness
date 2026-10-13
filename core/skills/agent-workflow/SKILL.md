@@ -70,7 +70,7 @@ input (see `core/scripts/task-state.sh` for the checks):
 | `/monorepo-harness-intent [review]` | — | `<workspace>/.agents/intents/intent_*.md` (`status: pending`, then `approved`) |
 | `/monorepo-harness-spec <intent.md?>` | intent **approved** (only when a path is given) | `1_spec.md` (+ `0_intent.md` = reference stub linking the approved intent) |
 | `/monorepo-harness-plan <spec.md>` | spec present (`phase: spec`) + plan-mode consent | `2_plan.md` |
-| `/monorepo-harness-build <plan.md>` | chain: plan + spec present; intent approved **if** the task is intent-seeded | `build_started` on the plan, then implementation (**confined to the spec/plan scope**, see Build scope below) + `3_memory.md` + `4_verify.md` + `kb-ingest.sh <task_dir>` + `check-kb` |
+| `/monorepo-harness-build <plan.md>` | chain: plan + spec present; intent approved **if** the task is intent-seeded | `build_started` on the plan, then implementation (**confined to the spec/plan scope**, see Build scope below) + `3_memory.md` + `4_verify.md` + `kb-ingest.sh <task_dir>` + `check-kb` + a review suggestion (`build-review-tier.sh`, see "After the build" below) |
 
 **Intent-approval policy:** an approved intent is mandatory only when a task was seeded by one (i.e.
 its directory contains a `0_intent.md`). Ad-hoc tasks (no intent behind them) are exempt — this is
@@ -264,6 +264,27 @@ for Claude Code; other agents run the same commands inline in the main session �
 lost, see `PORTABILITY.md`), delegate the verification run to it and transcribe its findings here.
 
 **Template:** `templates/4_verify.md` — filled into `<task_dir>/4_verify.md`.
+
+## After the build — suggest a review (advisory)
+
+Issue #41: when `/monorepo-harness-build` finishes (after `3_memory.md` / `4_verify.md` / `kb-ingest`),
+point the developer at `/monorepo-harness-review`. The strength of that point is **not** the model's
+free judgement — run the deterministic helper and follow its first output line:
+
+```bash
+bash <bundle>/core/scripts/build-review-tier.sh <task_dir>
+```
+
+- **`simple`** (≤3 changed files **and** no architectural signal) — add one informational line to the
+  closing report: the developer may run `/monorepo-harness-review` to review the diff. Do **not** ask.
+- **`comprehensive`** (more files, or an architectural signal: an `adr/` file, or a non-`N/A`
+  `## Architectural decisions` / `## API / contracts` / `## Data model` section) — ask the developer
+  whether to run `/monorepo-harness-review` now. On **yes**, run the `pr-review` skill inline and
+  report its findings; on **no**, finish normally.
+
+This step is **advisory**: it never blocks a task from closing, never writes a file, and never runs a
+review without the developer's choice. The review itself stays report-only — see
+`core/skills/pr-review/SKILL.md`.
 
 ## Slug & directory naming rules
 
