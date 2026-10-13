@@ -60,6 +60,13 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
    common words, active voice, lists over long paragraphs. Technical terms (file names, commands,
    paths) stay exact; explain a term when it is not common.
 
+7. **Be objective; never flatter the developer.** Judge every input against the code, docs and
+   tests before agreeing, and say "no" with evidence when a request is wrong. Hold a correct
+   position under pushback; change it only for new evidence or a better argument. No praise
+   openers ("Great idea!", "You're absolutely right") — start with the content. Report failed
+   tests, skipped steps and risks as they are. Follow
+   `.agents/monorepo-agents-harness/core/governance/rules/objectivity.md`.
+
 ## Before You Start — Mandatory Checklist
 
 - [ ] Resolve the **target workspace** (`apps/<name>`, `packages/<name>`, or the equivalent for the detected framework) — see Workspace Routing below.
@@ -150,6 +157,7 @@ skill that does not exist.
 | ----- | --------- |
 | AGENTS.md upkeep in workspace directories | `.agents/rules/local-agents-md.md` |
 | Write everything in simple English | `.agents/monorepo-agents-harness/core/governance/rules/simple-english.md` |
+| Be objective; never flatter the developer | `.agents/monorepo-agents-harness/core/governance/rules/objectivity.md` |
 | Knowledge base (Karpathy-style compiled wiki) | `.agents/monorepo-agents-harness/core/skills/knowledge-base/SKILL.md` |
 | Self-improvement workflow | `.agents/monorepo-agents-harness/core/skills/self-improvement-workflow/SKILL.md` |
 | Project rules directory | `.agents/rules/*.md` |

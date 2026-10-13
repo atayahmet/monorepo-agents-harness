@@ -28,6 +28,10 @@ core/project-rules-template/local-agents-md.md
 # referenced by every content-writing skill. Shipped via the `core` row above; listed explicitly so it
 # is a first-class, audited install row.
 core/governance/rules/simple-english.md
+# Shared "objectivity / no-sycophancy" judgement standard for every agent reply, judgment and
+# artifact — referenced from a root-AGENTS.md Critical Gotcha and the Reference Map. Shipped via the
+# `core` row above; listed explicitly so it is a first-class, audited install row.
+core/governance/rules/objectivity.md
 # Repo-root knowledge base seed (Karpathy "LLM Wiki": compiled layer agents query first) — copied
 # into the bundle here, then seeded into <repo-root>/knowledge/ by core/scripts/scaffold-knowledge.sh
 # (never overwrites consumer content). Listed explicitly so the seed is a first-class audited row.

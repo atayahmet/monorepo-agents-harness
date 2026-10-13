@@ -17,6 +17,32 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.22] - 2026-10-13
+
+### Added
+
+- **An objectivity rule: never flatter, never agree without evidence** (issue #42). The harness told
+  the agent how to plan, build, verify and write, but never how to **judge** the developer's input —
+  so nothing stopped it from agreeing with a weak design, dropping a correct answer under pushback,
+  opening replies with praise ("Great idea!"), or hiding a failed test. Added the shared rule
+  `core/governance/rules/objectivity.md` (judge the input not the person; say "no" with evidence; hold
+  a correct position under pushback; no flattery openers; report outcomes as they are; do not
+  over-correct), surfaced through a new numbered Critical Gotcha in `core/root-AGENTS.md` so it stays
+  in context every turn, plus a Reference Map row.
+- **Files** — `core/governance/rules/objectivity.md` (new); `core/root-AGENTS.md` (Critical Gotcha 7 +
+  Reference Map row); `core/install-manifest.txt` (explicit audited row). No script, no gate, no
+  adapter change.
+
+### Upgrade Notes
+
+- **File/instruction-only release; nothing to run.** No command and no gate or artifact-layout
+  change. An installed project picks up the rule when `harness-update` re-syncs the bundle; the
+  `agents-md-merge` skill carries the new Critical Gotcha into an existing root `AGENTS.md` on upgrade
+  (its Step 4 inserts every `MISSING` gotcha and Step 5 treats harness-matching gotchas as
+  harness-owned), so no skill change is needed. `changelogs/version-0.4.0-rc.22.md` is included at
+  the maintainer's request — the release needs no command or manual follow-up, so `changelogs/README.md`
+  would normally omit it.
+
 ## [0.4.0-rc.21] - 2026-10-13
 
 ### Added
