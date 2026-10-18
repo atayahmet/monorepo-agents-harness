@@ -17,6 +17,40 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.23] - 2026-10-18
+
+### Added
+
+- **Intents that travel as PRs can now be rejected** (issue #45). `/monorepo-harness-intent` had an
+  approve-and-merge route (`intent-dispatch`) but no decline route, so a rejected intent's PR was
+  either merged with a decision nobody could see or left open forever. The command now takes
+  `--reject <PR-url> [<PR-url> ...]` and follows the skill's new `## Workflow — Reject`: resolve the
+  PR's head, guard (a reviewed intent is refused — one `## Review` section ever; already `rejected` is
+  a no-op; an already-merged PR is skipped by name), ask one batch consent plus an optional reason,
+  write `status: rejected` and the `## Review` section on the PR's own branch, commit and push it,
+  then ask a separate merge question. Merges go through `task-state.sh merge-intent-pr --reject
+  [--yes]`, whose gate is the intent file's own `status: rejected` plus the in-turn `--yes` — a PR
+  approval is expected to be absent and is **never** read in this mode (ADR
+  `task_2026_10_18_intent_reject_flag/adr/0001`). Exit semantics 0/1/3 stay identical to the approve
+  route, and `--reject` on any other subcommand exits 2.
+- **Files** — `core/scripts/task-state.sh` (`--reject` option + gate swap in `merge-intent-pr`);
+  `core/skills/intent-workflow/SKILL.md` (new `## Workflow — Reject` section, description triggers,
+  edge cases); the three adapter intent entry points (one identical `--reject` bullet each);
+  `core/governance/intents/AGENTS.md` (the PR-based reject path and the one-`## Review` invariant);
+  docs sync in `README.md`, `INSTALL.md`, `PORTABILITY.md`. Repo-local test suite
+  `tests/merge-intent-reject.test.sh` (never installed). No new manifest row: every touched file
+  already ships.
+
+### Upgrade Notes
+
+- **Instruction/script-only release; nothing to run.** No new file reaches a consumer project, so
+  there is no manifest row: `harness-update`'s normal bundle re-sync (`install-harness.sh
+  --sync-only`) carries `task-state.sh` and the skill, and step 7.5 (`install-adapter.sh <agent>
+  --refresh`) re-applies the three entry points. Nothing is gated, no artifact layout changes, and
+  the approve route's behaviour is unchanged — `--reject` only reads when it is passed.
+  `changelogs/version-0.4.0-rc.23.md` is included at the maintainer's request — the release needs no
+  command or manual follow-up, so `changelogs/README.md` would normally omit it.
+
 ## [0.4.0-rc.22] - 2026-10-13
 
 ### Added

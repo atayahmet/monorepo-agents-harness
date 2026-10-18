@@ -1,12 +1,13 @@
 ---
 name: intent-workflow
-description: Capture a stakeholder's problem description as an intent file before it becomes a plan-mode task, querying the repo-root knowledge base (kb-index.sh query) for prior art when capturing or reviewing, let a product owner or manager review pending intents and approve or reject them, and dispatch an approved intent into scoped phases with one tracker issue per phase - filing a single parent issue that groups them when there is more than one, asking first whether the work is already open and whether the intent's PR should be merged, and recording every issue it filed back on the intent - writing no spec, plan or task directory of its own. Use when the user types /monorepo-harness-intent or /monorepo-harness-intent-dispatch, describes a new feature/problem without being in an active coding task, asks to review pending intents, or asks to turn an approved intent into work.
+description: Capture a stakeholder's problem description as an intent file before it becomes a plan-mode task, querying the repo-root knowledge base (kb-index.sh query) for prior art when capturing or reviewing, let a product owner or manager review pending intents and approve or reject them, reject an intent from its PR link (/monorepo-harness-intent --reject) by recording status: rejected plus a Review section on the PR branch and merging it without a PR approval, and dispatch an approved intent into scoped phases with one tracker issue per phase - filing a single parent issue that groups them when there is more than one, asking first whether the work is already open and whether the intent's PR should be merged, and recording every issue it filed back on the intent - writing no spec, plan or task directory of its own. Use when the user types /monorepo-harness-intent or /monorepo-harness-intent-dispatch, describes a new feature/problem without being in an active coding task, asks to review pending intents, asks to reject an intent from its PR link, or asks to turn an approved intent into work.
 ---
-
-# Intent Capture, Review, and Dispatch
+# Intent Capture, Review, Reject, and Dispatch
 
 Captures a request **before** it has been scoped into a plan-mode task, gates it behind an explicit
-human approval, and — once approved — turns it into phased, tracked work. This is the harness's entry
+human approval, provides a PR-based decline route that records the decision where the approval
+would have lived, and — once approved — turns it into phased, tracked work. This is the harness's
+entry
 point for non-engineering stakeholders — a product owner, manager, or any team member can describe a
 problem without knowing which workspace or files it touches; `core/skills/agent-workflow/SKILL.md`
 picks up the result later, one phase at a time.
@@ -83,6 +84,64 @@ Triggered when a product owner/manager asks to review pending intents, or via
      The file is **never deleted**.
    - **Edit** → apply the requested changes to the intent's content, leave `status: pending`, and
      return to step 3 for the same intent.
+
+## Workflow — Reject
+
+Triggered by `/monorepo-harness-intent --reject <PR-url> [<PR-url> ...]`, when a developer declines
+an intent that travels as a pull request. Review's interactive "no" only works on a local pending
+file; this is the route for the intents that actually move as PRs (a stakeholder filing the intent
+on a branch, a PR-based approval project). It records the decision **on the PR branch** — where an
+approval would have been visible — and merges, so a declined intent's PR is never left open forever
+with no recorded answer. A PR approval is **expected to be absent** and is never read: the
+rejection itself is the decision, written in the current turn.
+
+1. **Accept one or more intent PR links** (full URLs or `#N` refs). Per PR: resolve the ref through
+   `core/scripts/forge.sh`'s ref reader (the same reader every PR touch uses — do not parse refs
+   yourself), fetch that PR's head branch, and resolve the `intent_*.md` file(s) the PR changes
+   relative to its base branch. No intent file on the branch → report and skip that PR.
+2. **Guards, each a skip-with-reason — never a silent pass, never a write:**
+   - The intent already has a `## Review` section → **refuse**. One Review section per intent,
+     ever; an already-reviewed intent is changed through the interactive `review` session, not
+     through a batch flag.
+   - The intent is already `status: rejected` → **no-op** (a re-run of `--reject` is idempotent;
+     the first Review section is never overwritten or duplicated).
+   - The PR is already merged → **skip** the git and forge operations and say so; the intent file
+     is untouched. The developer can reject it interactively if the local file still needs the
+     record.
+3. **One batch consent, plus one optional reason.** Show every resolvable PR with its intent
+   title, then ask **"Reject these N intents and record the decisions on their PRs?"**
+   (yes / no) and, in the same turn, one optional reason (empty is a complete answer — the Review
+   section's Notes then read empty). The reason is applied to every intent in the batch.
+   **No file write, commit, push or merge happens without that explicit yes in the current turn** —
+   same discipline as Capture's consent questions and Dispatch's sign-off.
+4. **Per PR, on yes:** set `status: rejected`, append the `## Review` section (Decision
+   `rejected`, Reviewer = the developer who ran the command, Date = today, Notes = the reason or
+   empty), commit **on the PR's own branch** as `chore(intent): reject <intent title>`, and push
+   that branch to the PR's remote. Never main, never a force-push, never a branch the PR did not
+   name. The intent file is **never deleted**.
+5. **One batch merge question:** **"Merge these N PRs now?"** (yes / no / later) — a separate
+   consent, the same shape as Dispatch step 9; reject+commit+push in step 3 is not a blanket
+   merge approval. On yes, per PR:
+   `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh merge-intent-pr <intent.md> --pr <ref> --reject --yes`.
+   The script's `--reject` mode swaps the approving-review gate for the intent file's own
+   `status: rejected` and refuses anything else; `--yes` is the developer's in-turn answer and the
+   script merges without it. On no or later, leave every PR open and name their URLs in the
+   report.
+6. **Report per PR:** what was written, what was pushed, what merged, and every skip with its
+   reason. A batch that rejected two of three PRs reports two and one skip — a partial run records
+   the partial truth, which is the truth (same rule as the `## Dispatch` block).
+
+**Exit 1 vs exit 3 from `merge-intent-pr --reject`** are different answers, exactly as in
+Dispatch: 1 means the harness read the PR and refused the merge (the PR is still open — report the
+reason); 3 means it could not read the PR at all, so nothing was merged (this is the normal answer
+on a forge behind an MCP server or project skill — hand the developer the PR URL). Never report a
+merge that did not happen, and never fall back to merging by hand on the agent's own initiative.
+
+**Hard never's for this workflow:** no write, commit, push or merge without an explicit yes in the
+current turn; no second `## Review` section and no overwrite of the first; no delete of an intent
+file; no force-push; no push to main; no forge review-state writes ("changes requested" is not
+part of this flow — the file and the merge are the whole write set); no batch processing without
+showing every PR and its skip reason.
 
 ## Workflow — Dispatch
 
@@ -343,8 +402,9 @@ the harness docs or the session history.
 An approved intent is optional input to plan-mode work, not a requirement — see
 `core/governance/intents/AGENTS.md`'s "Relationship to the plan/spec/memory/verify workflow" and
 `core/skills/agent-workflow/SKILL.md` Phase 1. **Capture** and **Review** create nothing beyond the
-intent file itself, and **Dispatch** adds only the intent's status/`## Review` section, the intent's
-`## Dispatch` section, and the tracker cache. Every task artifact — `0_intent.md`, `1_spec.md`,
+intent file itself, **Reject** adds only the intent's status/`## Review` section (on the PR branch)
+and the merge, and **Dispatch** adds only the intent's status/`## Review` section (step 1) and
+`## Dispatch` section (step 8), and the tracker cache (step 6). Every task artifact — `0_intent.md`, `1_spec.md`,
 `2_plan.md`, the `index.md` row —belongs to `/monorepo-harness-spec` and `/monorepo-harness-plan`, which run one task at a time with
 their own gates, exactly as they do for an ad-hoc task. Dispatch is the step that decides how many
 tasks there are and files each one as an issue; it is not a faster route through the chain. (ADR
@@ -435,3 +495,16 @@ the conversation, which is why each is a question first and a script second. (AD
   is a complete outcome, not a pending step — do not offer to merge it again later in the same run.
 - **The intent has no `pr:` field**: step 9 does not exist. Do not invent a PR to merge and do not
   offer to open one.
+- **`--reject` on a PR whose branch carries no `intent_*.md`**: skip that PR and say so — there is
+  nothing to record the decision on. Never create an intent file inside a reject run.
+- **`--reject` on an intent that was already reviewed interactively** (it has a `## Review`
+  section): refuse. The interactive `review` session is the only route that changes a reviewed
+  intent; a batch flag never re-decides one.
+- **`--reject` with an empty reason**: valid. The `## Review` section is still written, with
+  empty Notes — the decision is the record, the reason is optional, exactly as in Review step 3.
+- **One PR in a `--reject` batch fails** (unreadable, no intent file, guard refusal): continue
+  with the rest and name every skip in the final report. Never abort a batch half-written without
+  saying which PRs were written and which were not.
+- **The `--reject` merge exits 3**: nothing was merged for that PR and the reason is on stderr —
+  the harness could not read the PR. Hand the developer the PR URL; the decision commit is already
+  on the branch, so merging by hand loses nothing. Never retry by routing around the script.

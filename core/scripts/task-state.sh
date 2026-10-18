@@ -79,7 +79,7 @@
 #                                          not a mapping it may invent (ADR: a task's commit identity
 #                                          is its patch-id). Exit 3 means NOT DONE: the ref itself
 #                                          does not resolve, so nothing was compared.
-#   merge-intent-pr <intent.md> [--pr <ref>] [--yes]
+#   merge-intent-pr <intent.md> [--pr <ref>] [--yes] [--reject]
 #                                        — merge the intent's own PR, but only on an explicit answer
 #                                          and only when the PR itself carries an approving review.
 #                                          Reads `pr:` from the intent when --pr is absent; every
@@ -95,6 +95,13 @@
 #                                          conflicting PR fails. Exit 3 means NOT DONE - the harness
 #                                          could not read the PR, so it could not verify anything and
 #                                          merged nothing.
+#                                          --reject swaps the gate for the REJECT path
+#                                          (/monorepo-harness-intent --reject): a PR approval is
+#                                          expected to be absent and is never read; the consent is
+#                                          the developer's in-turn --yes plus the intent file's own
+#                                          `status: rejected` (refused when the file says anything
+#                                          else). Everything else — state-first already-merged
+#                                          no-op, the forge merge, exit semantics — is unchanged.
 #
 # Web usage (from the shared bundle root in a consumer project):
 #   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved \
@@ -115,17 +122,19 @@
 set -euo pipefail
 
 cmd="${1:-}"
-[ -n "$cmd" ] || { echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb|stage|mark-build|sync-commits|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--path <kb>] [--ref <branch>] [--write]" >&2; exit 2; }
+[ -n "$cmd" ] || { echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb|stage|mark-build|sync-commits|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--reject] [--path <kb>] [--ref <branch>] [--write]" >&2; exit 2; }
 path="${2:-}"
 [ -n "$path" ] || { echo "usage: task-state.sh $cmd <path>" >&2; exit 2; }
 shift 2 2>/dev/null || true
 
 # Options, each allowed only by the subcommands that read it. --pr is the PR that carries the human
-# approval; --yes is the developer's in-turn answer to "merge it now?"; --path relocates the KB;
-# --ref / --write belong to sync-commits alone. Any option a subcommand does not read is refused
-# rather than ignored, so a typo in a gate argument can never read as "no PR, check the file only"
-# and pass, nor "--yes" silently become a merge, nor a dry run silently become a write.
-pr_ref=""; merge_now=0; kb_path=""; commit_ref=""; commit_write=0
+# approval; --yes is the developer's in-turn answer to "merge it now?"; --reject is merge-intent-pr's
+# reject-mode gate swap (the intent file's own `status: rejected` replaces the approving review);
+# --path relocates the KB; --ref / --write belong to sync-commits alone. Any option a subcommand does
+# not read is refused rather than ignored, so a typo in a gate argument can never read as "no PR,
+# check the file only" and pass, nor "--yes" silently become a merge, nor a dry run silently become
+# a write.
+pr_ref=""; merge_now=0; reject_mode=0; kb_path=""; commit_ref=""; commit_write=0
 opt_err() {
   echo "task-state: $cmd — '$1' is not a supported option for this subcommand" >&2
   exit 2
@@ -138,6 +147,8 @@ while [ $# -gt 0 ]; do
       pr_ref="$2"; shift 2 ;;
     --yes)
       case "$cmd" in merge-intent-pr) merge_now=1; shift ;; *) opt_err "$1" ;; esac ;;
+    --reject)
+      case "$cmd" in merge-intent-pr) reject_mode=1; shift ;; *) opt_err "$1" ;; esac ;;
     --path)
       case "$cmd" in check-kb) ;; *) opt_err "$1" ;; esac
       [ -n "${2:-}" ] || { echo "usage: task-state.sh $cmd <path> --path <kb>" >&2; exit 2; }
@@ -433,6 +444,41 @@ case "$cmd" in
         echo "task-state: $cmd — PR $pr_ref is already merged; nothing to do — $path"
         exit 0 ;;
     esac
+    # Reject mode (the /monorepo-harness-intent --reject path): a PR approval is expected to be
+    # ABSENT and is never read here. The consent is the developer's in-turn --yes plus the decision
+    # already written to the intent file, so the gate is the file's own `status: rejected` —
+    # anything else is refused by name. This is not the rc.6 fallback mistake: there the file stood
+    # in for a human review that could not be read; here the file IS the human decision, written in
+    # the current turn, and no review is consulted on any path.
+    if [ "$reject_mode" -eq 1 ]; then
+      intent_status="$(frontmatter_field "$path" status || true)"
+      if [ "$intent_status" != "rejected" ]; then
+        fail "refusing to merge PR '$pr_ref' in reject mode — the intent's status is '${intent_status:-<none>}', not 'rejected'. Record the rejection (status: rejected + a ## Review section) before merging"
+      fi
+      if [ "$merge_now" -eq 0 ]; then
+        forge_out="$(bash "$FORGE" merge "$pr_ref" --explain 2>&1)" || {
+          printf '%s\n' "$forge_out" >&2
+          printf 'task-state: %s — nothing merged on PR %s. The reason is above; nothing was changed on the forge\n' \
+            "$cmd" "$pr_ref" >&2
+          exit 3
+        }
+        printf 'forge: %s\n' "$forge_out"
+        printf 'task-state: %s — reject mode: the intent records status: rejected — %s\n' "$cmd" "$path"
+        echo "task-state: $cmd — nothing merged. Re-run with --yes only after the developer answers yes in this turn"
+        exit 0
+      fi
+      merge_status=0
+      merge_out="$(bash "$FORGE" merge "$pr_ref" 2>&1)" || merge_status=$?
+      printf 'forge: %s\n' "$merge_out"
+      if [ "$merge_status" -ne 0 ]; then
+        printf 'task-state: %s — nothing merged on PR %s. The reason is above; nothing was changed on the forge\n' \
+          "$cmd" "$pr_ref" >&2
+        [ "$merge_status" -eq 3 ] && exit 3
+        exit 1
+      fi
+      echo "task-state: $cmd — merged PR $pr_ref, reject mode (the intent records status: rejected) — $path"
+      exit 0
+    fi
     if [ "$merge_now" -eq 0 ]; then
       forge_out="$(bash "$FORGE" merge "$pr_ref" --explain 2>&1)" || {
         printf '%s\n' "$forge_out" >&2
@@ -723,7 +769,7 @@ case "$cmd" in
     ;;
   *)
     echo "task-state: unknown subcommand '$cmd'" >&2
-    echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb|stage|mark-build|sync-commits|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--path <kb>] [--ref <branch>] [--write]" >&2
+    echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb|stage|mark-build|sync-commits|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--reject] [--path <kb>] [--ref <branch>] [--write]" >&2
     exit 2
     ;;
 esac

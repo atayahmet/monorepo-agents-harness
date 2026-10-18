@@ -47,7 +47,9 @@ Claude Code, opencode, Cursor, Codex, and more.
   before it's scoped into a task, and a product owner/manager approve or reject it explicitly. An
   approved intent optionally seeds a later task's plan via `0_intent.md` — a reference stub linking
   back, never a copy, so the intent file stays the single source of truth; rejected ones are kept,
-  not deleted, as an audit trail.
+  not deleted, as an audit trail. An intent that travels as a PR can also be declined from its PR
+  link with `/monorepo-harness-intent --reject <PR-url>`, which records the decision on the PR
+  branch and merges it — a PR approval is never required for a rejection.
 - **Intent dispatch** — `/monorepo-harness-intent-dispatch <intent.md>` takes an **approved** intent
   the rest of the way: it checks the intent's PR for an approving review (falling back to the file's
   own `status:`), records that decision on the intent, confirms the workspace scope, splits the intent
