@@ -90,6 +90,16 @@ review, the reviewer appends a `## Review` section:
 - Notes: <optional>
 ```
 
+A `## Review` section is written **once per intent, ever** — Review writes it on the interactive
+decision, and `/monorepo-harness-intent --reject <PR-url>` writes it on the PR-based decline path
+(`core/skills/intent-workflow/SKILL.md` "Workflow — Reject"). The two routes produce the same
+section; neither overwrites or duplicates the other, and a reviewed intent is never re-decided by
+the batch flag. On the reject path the section is committed to the PR's own branch so the decision
+is visible where an approval would have been, and the PR is merged through
+`core/scripts/task-state.sh merge-intent-pr --reject`, whose gate is the file's own
+`status: rejected` plus the developer's in-turn yes — a PR approval is expected to be absent and
+is never read.
+
 **`slug`** follows the same convention as task slugs (`snake_case`, `[a-z0-9_]`, 3-5 words) — an
 approved intent's slug is reused as the basis for the resulting task's slug where practical, so the
 connection stays traceable.

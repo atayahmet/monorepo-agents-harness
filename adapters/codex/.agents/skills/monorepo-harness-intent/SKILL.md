@@ -1,6 +1,6 @@
 ---
 name: monorepo-harness-intent
-description: Capture a new intent, or review pending intents and approve/reject them. Use when the user types /monorepo-harness-intent, describes a new feature/problem without being in an active coding task, or asks to review pending intents.
+description: Capture a new intent, review pending intents and approve/reject them, or reject an intent from its PR link. Use when the user types /monorepo-harness-intent, describes a new feature/problem without being in an active coding task, asks to review pending intents, or asks to reject an intent from its PR link.
 ---
 
 Follow the shared instructions in
@@ -19,5 +19,9 @@ Follow the shared instructions in
    every `status: pending` intent with the hits it returned, present each, and ask "Approve
    this intent?" (yes/no/edit) — never change `status` without an explicit answer in the current
    turn. Approved/rejected intents are never deleted.
+3. If the user passes `--reject <PR-url> [<PR-url> ...]`: follow the skill's "Workflow — Reject" —
+   record `status: rejected` plus a `## Review` section on each PR's own branch and merge via
+   `task-state.sh merge-intent-pr <intent.md> --pr <ref> --reject --yes` (the merge is a separate
+   consent question; a PR approval is never read or required).
 
-This skill only captures and reviews intents — it does not create task directories, plans, or specs.
+This skill captures, reviews, and rejects intents — it does not create task directories, plans, or specs.

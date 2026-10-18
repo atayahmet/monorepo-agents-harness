@@ -1,8 +1,7 @@
 # Agent Harness — Install Guide
 
-Two commands install the harness into any JavaScript/TypeScript monorepo. Every file-level step runs from a
-manifest-driven script (`core/install-manifest.txt`, `adapters/<agent>/manifest.txt`), so nothing depends on prose
-being read correctly. What the harness *is*: [`README.md`](README.md).
+Two commands install the harness into any JavaScript/TypeScript monorepo. Every file-level step runs from a manifest-driven script
+(`core/install-manifest.txt`, `adapters/<agent>/manifest.txt`); nothing depends on prose. What the harness *is*: [`README.md`](README.md).
 
 ## 1. Prerequisites
 
@@ -22,7 +21,6 @@ That copies every manifest row into `.agents/monorepo-agents-harness/` and verif
 writes your root `AGENTS.md` and `REVIEW.md` (unless they exist), seeds a starter rule plus the
 per-workspace `.agents/` state and the repo-root `knowledge/` base, merges the derived-cache lines
 into your root `.gitignore`, wires `memory-gate.sh` as pre-commit if that slot is free, then moves away.
-
 Useful flags: `--project-name <name>`, `--no-git-hook`, `--from <dir>` (install from a bundle already
 on disk), `--sync-only` (bundle files only — the mode updates use).
 
@@ -69,16 +67,16 @@ your `AGENTS.md` provenance marker, and every workspace's scaffold seeds. Exit 0
 anything else names the exact paths. Then commit.
 
 To prove the hard gate is live, add a throwaway `apps/<n>/.agents/artifacts/task_<date>_smoke/` with
-a `1_spec.md` and run `memory-gate.sh`: exit 0 — a task that has not started building owes nothing
-(also with `2_plan.md` added). Then `task-state.sh mark-build <2_plan.md>`, which is what
-`/monorepo-harness-build` does: exit 1 naming `3_memory.md` and `4_verify.md`. Delete the dir after.
+a `1_spec.md` and run `memory-gate.sh`: exit 0 (also with `2_plan.md` — nothing is owed before the
+build). Then `task-state.sh mark-build <2_plan.md>`: exit 1 naming `3_memory.md`/`4_verify.md`.
+Delete the dir after.
 
 ## 6. Optional extras
 
 - **CI** — `/monorepo-harness-ci` detects the provider and wires `memory-gate.sh` in.
-- **Intent inbox** — `/monorepo-harness-intent` (`core/governance/intents/AGENTS.md`); capture and
-  review query the knowledge base (`kb-index.sh query`) and record the result in the intent's
-  `## Prior art`.
+- **Intent inbox** — `/monorepo-harness-intent` (`core/governance/intents/AGENTS.md`); capture,
+  review, and PR-based reject (`--reject`) record the result in the intent's `## Prior art` /
+  `## Review` sections, reading `knowledge/` via `kb-index.sh query`.
 - **Intent dispatch** — `/monorepo-harness-intent-dispatch <intent.md>` checks the intent's PR for
   an approval and records it, checks the tracker for work already open (asking before filing it
   anyway), asks whether 2+ phases should hang under one parent **epic** issue, opens the epic and
@@ -86,8 +84,8 @@ a `1_spec.md` and run `memory-gate.sh`: exit 0 — a task that has not started b
   intent, then asks whether to merge the intent's PR. It writes no spec, plan or task directory —
   those come from `/monorepo-harness-spec` and `-plan`. It suggests a tracker from this repo's
   `origin` (`tracker-issue.sh --infer`), asks you to confirm, and remembers it in
-  `.agents/tracker.md`; the PR read goes through `core/scripts/forge.sh`, so an unreachable PR yields
-  "approval unknown", never a merge. Full flow: `core/skills/intent-workflow/SKILL.md`.
+  `.agents/tracker.md`; the PR read goes through `core/scripts/forge.sh`, so an unreachable PR
+  yields "approval unknown", never a merge. Full flow: `core/skills/intent-workflow/SKILL.md`.
 - **Self-improvement** — `/monorepo-self-improve` proposes project-owned rules and skills.
 - **Changeset release entries** — `/monorepo-harness-changeset` drafts a changesets-compatible
   `.changeset/*.md` entry without adding `@changesets/cli`; bumps are user-confirmed policy.
