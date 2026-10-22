@@ -95,7 +95,7 @@ is "empty tier value: exit 0" "$rc" "0"
 silent "empty tier value: treated as legacy, silent" "$out"
 
 # --- 2. evidence-only never asks for red --------------------------------------------------------
-new_fixture; d="$(DIR_FOR evidence_only_missing)"; write_spec "$d" "Tier: evidence-only"; 
+new_fixture; d="$(DIR_FOR evidence_only_missing)"; write_spec "$d" "Tier: evidence-only";
 out="$(red "$d")"; rc="$?"
 is "evidence-only, no verify: exit 0" "$rc" "0"
 silent "evidence-only, no verify: silent" "$out"
@@ -142,7 +142,7 @@ is "red-first with N/A plus rationale: exit 0" "$rc" "0"
 says "N/A plus rationale: advisory" "$out" "advisory"
 
 # --- 4. unknown tier is surfaced but is not red-first -------------------------------------------
-new_fixture; d="$(DIR_FOR unknown_tier)"; write_spec "$d" "Tier: tdd"; 
+new_fixture; d="$(DIR_FOR unknown_tier)"; write_spec "$d" "Tier: tdd";
 out="$(red "$d")"; rc="$?"
 is "unknown tier: exit 0" "$rc" "0"
 says "unknown tier: advisory" "$out" "advisory"
