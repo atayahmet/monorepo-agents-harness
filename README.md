@@ -11,6 +11,11 @@ Claude Code, opencode, Cursor, Codex, and more.
   `3_memory.md`, and (when there's something verifiable) `4_verify.md` in a dedicated per-task
   directory, so you can always answer "why was this built this way, and how do we know it works?"
   The order follows the AI-native SDLC playbook — `intent → spec → plan → memory → verify`.
+- **Tiered red-first tests** — a spec's test plan carries `Tier: red-first` (bug fixes and
+  clear-contract behavior: write the failing test and record the failure before implementing) or
+  `Tier: evidence-only` (UI, config, glue, exploration). `4_verify.md` keeps the raw failure under
+  `## Red evidence`, and `task-state.sh check-red-evidence` advises when it is missing — never blocks.
+  A task with no tier line stays valid, so existing artifacts keep passing.
 - **Architecture decisions travel with the task** — when a spec or plan surfaces an
   architecture-affecting choice (a new dependency, a data-model or cross-workspace contract change,
   a delivery-guarantee change, …), the `adr-workflow` skill writes a lightweight ADR
@@ -228,6 +233,7 @@ task — finds `webhook_retry`, links it in as `0_intent.md` (a reference stub, 
 - [ ] Different event, same order → different key
 
 ## Test / verification plan
+Tier: red-first
 `pnpm --filter api test webhooks/dispatch` covers key derivation and header presence; manual
 redelivery via the queue's local emulator confirms the key is stable across retries.
 ```

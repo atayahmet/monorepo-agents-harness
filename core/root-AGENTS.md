@@ -44,7 +44,11 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
    workspace's artifacts dir and blocks a task from ending until its dir has `3_memory.md` and
    (when required) `4_verify.md` — but only once the build has started, which it reads as
    `build_started` on the plan (`task-state.sh mark-build`). A spec-only or plan-only task is never
-   blocked, so a stage boundary is a legal place to end the turn.
+   blocked, so a stage boundary is a legal place to end the turn. The spec's test plan carries a
+   tier: `red-first` for bug fixes and clear-contract behavior (write the failing test before the
+   implementation and paste the verbatim failure under `4_verify.md`'s `## Red evidence`), or
+   `evidence-only` for UI, config, glue and exploration. `task-state.sh check-red-evidence` advises
+   and never blocks; a task with no tier line stays valid.
 
 5. **Build within the approved scope only.** During implementation (`/monorepo-harness-build`), touch
    only what `1_spec.md` (`## Scope`, `## Acceptance criteria`) and `2_plan.md`
