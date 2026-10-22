@@ -33,3 +33,5 @@ todo.md
 
 # Derived knowledge-base index (rebuilt by core/scripts/kb-index.sh; never commit)
 knowledge/.index.sqlite*
+# Working state for agents
+.agents/
