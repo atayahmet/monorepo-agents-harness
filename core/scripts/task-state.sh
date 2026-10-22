@@ -38,6 +38,15 @@
 #                                        linked `adr/NNNN-<title>.md` must exist and carry
 #                                        `phase: adr` frontmatter. `N/A` and specs without the
 #                                        section pass (backcompat, no ADRs expected).
+#   check-red-evidence <task_dir>      — advisory (ALWAYS exits 0, including a missing dir): reads
+#                                        the tier from the spec's `## Test / verification plan`
+#                                        (`Tier: red-first` or `Tier: evidence-only`; no tier is a
+#                                        legacy task and stays silent). For a red-first task, warns
+#                                        when `4_verify.md` is missing, when `## Red evidence` is
+#                                        missing, or when it is empty / only `N/A`. An unknown
+#                                        non-empty tier gets an advisory but is never treated as
+#                                        red-first. This checks presence, never test order: a hard
+#                                        gate here would reward a filled but empty section.
 #   check-kb <task_dir> [--path <kb>]   — gates a task's knowledge-base coverage: when the task has
 #                                        `3_memory.md`, the KB must be seeded (knowledge/index.md +
 #                                        schema.md present) and the pages the task's memory/verify/ADR
@@ -112,6 +121,8 @@
 #        apps/api/.agents/artifacts/task_2026_08_27_add_auth/2_plan.md
 #   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-adr \
 #        apps/api/.agents/artifacts/task_2026_08_27_add_auth/1_spec.md
+#   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-red-evidence \
+#        apps/api/.agents/artifacts/task_2026_08_27_add_auth
 #   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh stage \
 #        apps/api/.agents/artifacts/task_2026_08_27_add_auth
 #   bash .agents/monorepo-agents-harness/core/scripts/task-state.sh mark-build \
@@ -122,7 +133,7 @@
 set -euo pipefail
 
 cmd="${1:-}"
-[ -n "$cmd" ] || { echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb|stage|mark-build|sync-commits|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--reject] [--path <kb>] [--ref <branch>] [--write]" >&2; exit 2; }
+[ -n "$cmd" ] || { echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-red-evidence|check-kb|stage|mark-build|sync-commits|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--reject] [--path <kb>] [--ref <branch>] [--write]" >&2; exit 2; }
 path="${2:-}"
 [ -n "$path" ] || { echo "usage: task-state.sh $cmd <path>" >&2; exit 2; }
 shift 2 2>/dev/null || true
@@ -241,6 +252,73 @@ frontmatter_list() {
     block && $0 ~ /^[ \t]*$/ { next }
     block { exit }
   ' "$file"
+}
+
+# section_bodies <file> <heading> — print the bodies of every `## <heading>` section, without the
+# heading line and without the following section. Heading and lines are trimmed of CR, so a file
+# written with CRLF is read the same as one written with LF. Text before the first heading and text
+# under any other heading are never printed: the red-first check reads the tier and the evidence
+# from their own sections only, so the same words elsewhere cannot make the advisory fire.
+section_bodies() {
+  local file="$1" heading="$2"
+  [ -f "$file" ] || return 0
+  awk -v target="$heading" '
+    function trim(s) { gsub(/^[ \t\r]+|[ \t\r]+$/, "", s); return s }
+    {
+      line=$0
+      sub(/\r$/, "", line)
+      if (line ~ /^## /) {
+        in_section = (trim(substr(line, 4)) == target)
+        next
+      }
+      if (in_section) print
+    }
+  ' "$file" 2>/dev/null || true
+}
+
+# section_present <file> <heading> — 0 when the file has a `## <heading>` section, even if empty.
+# Paired with section_bodies so the check can tell "the section was never written" from "the section
+# was written and left empty" — the two get different advice.
+section_present() {
+  local file="$1" heading="$2"
+  [ -f "$file" ] || return 1
+  awk -v target="$heading" '
+    function trim(s) { gsub(/^[ \t\r]+|[ \t\r]+$/, "", s); return s }
+    { line=$0; sub(/\r$/, "", line) }
+    line ~ /^## / && trim(substr(line, 4)) == target { found=1; exit }
+    END { exit(found ? 0 : 1) }
+  ' "$file" 2>/dev/null
+}
+
+# red_tier <spec.md> — print the tier declared by the spec's `## Test / verification plan` section:
+# `red-first`, `evidence-only`, `unknown`, or nothing (no tier line, empty value, or no section).
+# Only the first tier line counts. Matching is case-insensitive and tolerates a rationale after the
+# value (`Tier: red-first — bug fix`), so prose can explain the choice without breaking the check.
+red_tier() {
+  local spec="$1" value word
+  value="$(section_bodies "$spec" "Test / verification plan" \
+    | sed -n 's/^[[:space:]]*[Tt][Ii][Ee][Rr][[:space:]]*:[[:space:]]*//p' \
+    | head -1 | tr -d '\r' | sed 's/[[:space:]]*$//')"
+  [ -n "$value" ] || return 0
+  word="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]' | sed -n 's/^\([a-z][a-z-]*\).*/\1/p')"
+  case "$word" in
+    red-first|evidence-only) printf '%s' "$word" ;;
+    *) printf 'unknown' ;;
+  esac
+}
+
+# has_red_evidence <verify.md> — 0 when any `## Red evidence` section holds content other than
+# whitespace or an `N/A` statement. Multiple sections are all read, so a filled second occurrence
+# still counts. An `N/A — reason` line is not evidence: on a red-first task it means the red run was
+# not captured, which is exactly what the advisory exists to surface.
+has_red_evidence() {
+  local file="$1" body meaningful
+  [ -f "$file" ] || return 1
+  body="$(section_bodies "$file" "Red evidence")"
+  meaningful="$(printf '%s\n' "$body" | sed 's/\r$//' | sed '/^[[:space:]]*$/d')"
+  [ -n "$meaningful" ] || return 1
+  printf '%s\n' "$meaningful" | grep -qvE '^[[:space:]]*N/A([[:space:]]|$|[-—–])' || return 1
+  return 0
 }
 
 # --- The PR review reader, shared by the gate and the merge -------------------------------------
@@ -593,6 +671,38 @@ case "$cmd" in
     fi
     fail "spec '$path' has '## Architectural decisions' but references no adr/ files — write the ADR(s) or state N/A"
     ;;
+  check-red-evidence)
+    # Advisory by contract: every path below exits 0. A task with no spec, a missing directory, or a
+    # malformed section is not something this check may turn into a blocker — the memory-gate owns
+    # blocking, and issue #46 explicitly starts this rule advisory.
+    dir="$path"
+    [ -d "$dir" ] || exit 0
+    spec="$dir/1_spec.md"; [ -f "$spec" ] || spec="$dir/2_spec.md"
+    [ -f "$spec" ] || exit 0
+    tier="$(red_tier "$spec" || true)"
+    case "$tier" in
+      "") exit 0 ;;                        # no tier line: legacy task, never nagged
+      evidence-only) exit 0 ;;             # red is not expected for this kind of work
+      unknown)
+        echo "task-state: check-red-evidence — advisory: '$spec' has an unknown tier in '## Test / verification plan' — expected 'Tier: red-first' or 'Tier: evidence-only'; no red evidence is required"
+        exit 0 ;;
+    esac
+    verify="$dir/4_verify.md"
+    if [ ! -f "$verify" ]; then
+      echo "task-state: check-red-evidence — advisory: red-first task '$dir' has no 4_verify.md — record the pre-implementation failure under '## Red evidence'"
+      exit 0
+    fi
+    if ! has_red_evidence "$verify"; then
+      if section_present "$verify" "Red evidence"; then
+        echo "task-state: check-red-evidence — advisory: red-first task '$dir' has an empty '## Red evidence' section (or only N/A) — paste the verbatim failure seen before the implementation"
+      else
+        echo "task-state: check-red-evidence — advisory: red-first task '$dir' has no '## Red evidence' section — add it and paste the verbatim pre-implementation failure"
+      fi
+      exit 0
+    fi
+    echo "task-state: check-red-evidence — red-first evidence present — $dir"
+    exit 0
+    ;;
   stage)
     # The one answer to "which stage is this task in". Exits 0 whatever it finds — a caller asks this
     # to decide what to enforce, and a dir with no spec is a legitimate answer, not an error.
@@ -769,7 +879,7 @@ case "$cmd" in
     ;;
   *)
     echo "task-state: unknown subcommand '$cmd'" >&2
-    echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-kb|stage|mark-build|sync-commits|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--reject] [--path <kb>] [--ref <branch>] [--write]" >&2
+    echo "usage: task-state.sh <check-intent-approved|check-spec|check-plan|check-chain|check-adr|check-red-evidence|check-kb|stage|mark-build|sync-commits|merge-intent-pr> <path> [--pr <pr-ref>] [--yes] [--reject] [--path <kb>] [--ref <branch>] [--write]" >&2
     exit 2
     ;;
 esac

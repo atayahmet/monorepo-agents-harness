@@ -70,7 +70,7 @@ input (see `core/scripts/task-state.sh` for the checks):
 | `/monorepo-harness-intent [review]` | — | `<workspace>/.agents/intents/intent_*.md` (`status: pending`, then `approved`) |
 | `/monorepo-harness-spec <intent.md?>` | intent **approved** (only when a path is given) | `1_spec.md` (+ `0_intent.md` = reference stub linking the approved intent) |
 | `/monorepo-harness-plan <spec.md>` | spec present (`phase: spec`) + plan-mode consent | `2_plan.md` |
-| `/monorepo-harness-build <plan.md>` | chain: plan + spec present; intent approved **if** the task is intent-seeded | `build_started` on the plan, then implementation (**confined to the spec/plan scope**, see Build scope below) + `3_memory.md` + `4_verify.md` + `kb-ingest.sh <task_dir>` + `check-kb` + a review suggestion (`build-review-tier.sh`, see "After the build" below) |
+| `/monorepo-harness-build <plan.md>` | chain: plan + spec present; intent approved **if** the task is intent-seeded | `build_started` on the plan, then for a `red-first` task the failing tests and their recorded output **before** implementation, then implementation (**confined to the spec/plan scope**, see Build scope below) + `3_memory.md` + `4_verify.md` (including `## Red evidence`) + `check-red-evidence` advisory + `kb-ingest.sh <task_dir>` + `check-kb` + a review suggestion (`build-review-tier.sh`, see "After the build" below) |
 
 **Intent-approval policy:** an approved intent is mandatory only when a task was seeded by one (i.e.
 its directory contains a `0_intent.md`). Ad-hoc tasks (no intent behind them) are exempt — this is
@@ -91,6 +91,37 @@ Each command stub lives in your agent adapter (`.claude/commands/`, `.opencode/c
 codex skill) and is purposely thin: it calls the relevant `task-state.sh` check, handles the only
 adapter-specific concern (plan-mode detection in `-plan`), then runs the phase below. The writing
 templates live here in `templates/` — they are never duplicated into an adapter.
+
+## Tiered red-first rule (issue #46)
+
+Choose the tier in Phase 1 and put it on the first line of the spec's `## Test / verification plan`:
+
+- `Tier: red-first`
+- `Tier: evidence-only`
+
+| Kind of work | Tier | Rule |
+| ------------ | ---- | ---- |
+| Bug fix | `red-first` | Write a test that reproduces the bug. Watch it fail. Then fix. Required. |
+| New behavior with a clear contract (API, domain logic, CLI) | `red-first` | Turn the acceptance criteria into scenario tests. Watch them fail. Then implement. |
+| UI / config / glue / exploration | `evidence-only` | No test-first rule. Manual or browser evidence is enough. |
+
+**Red-first in the plan and build.** For a `red-first` task, `2_plan.md`'s `## Steps` lists one
+failing test → implementation pair per acceptance criterion. `/monorepo-harness-build` writes the
+test first, runs it, and records the verbatim failure **before** touching implementation files. The
+failure must match the expected behavior, not an import, compilation or setup error. The recorded
+output goes in `4_verify.md`'s `## Red evidence`.
+
+**Fallback.** If red was not captured first, or the test changed after red was seen, save your work
+(a diff or stash), revert **only** the fix, rerun the test, and record that failure as the
+after-the-fact negative check in `## Red evidence`. Restore your work afterwards; never discard
+unrelated uncommitted changes.
+
+**Advisory only.** After `4_verify.md` is written, run
+`bash <bundle>/core/scripts/task-state.sh check-red-evidence <task_dir>`. It prints a warning when a
+`red-first` task has no `## Red evidence` content and **always exits 0**. A spec with no tier line is
+a legacy task: it produces no warning and stays valid, because the check may read that the section
+exists but cannot prove the test really ran first. Do not turn this into a hard gate without evidence
+from real tasks.
 
 ## Phase 1 — `1_spec.md` (via `/monorepo-harness-spec`, or on plan-mode exit)
 
@@ -171,6 +202,8 @@ only recorded evidence that the mandatory Phase 1 query happened; `task-state.sh
 `check-chain` print an advisory (never a failure) when the line is missing.
 
 **Template:** `templates/2_plan.md` — fill it into `<task_dir>/2_plan.md` with `status: approved`.
+For a `red-first` spec, order `## Steps` as failing test → implementation pairs (see "Tiered
+red-first rule" above).
 
 **After Phase 2, stop and wait.** Once `2_plan.md` is written (frontmatter `status: approved`) and
 the index updated, **do not** start implementation on your own. Report that the plan is approved and
@@ -263,6 +296,11 @@ If a dedicated `verifier` subagent is available (see `adapters/claude-code/.clau
 for Claude Code; other agents run the same commands inline in the main session — no capability is
 lost, see `PORTABILITY.md`), delegate the verification run to it and transcribe its findings here.
 
+For a `red-first` task, `4_verify.md` also carries `## Red evidence`: the verbatim failure captured
+before implementation (or the after-the-fact negative check described in "Tiered red-first rule").
+`-build` runs `task-state.sh check-red-evidence <task_dir>` after writing it. The check is advisory
+and always exits 0; it never blocks the task.
+
 **Template:** `templates/4_verify.md` — filled into `<task_dir>/4_verify.md`.
 
 ## After the build — suggest a review (advisory)
@@ -330,3 +368,8 @@ review without the developer's choice. The review itself stays report-only — s
 - **No `- KB:` line in the plan**: `check-plan`/`check-chain` print an advisory (never a failure) and
   the reviewer raises a Nit. A plan written before this convention, or a **spec-only** task with no
   plan, is never blocked — the check is a visibility aid, not a gate.
+- **Spec has no tier line (legacy task)**: `check-red-evidence` stays silent and exits 0. Existing
+  task dirs written before issue #46 keep passing every gate unchanged.
+- **`red-first` task with missing or empty `## Red evidence`**: `check-red-evidence` prints an
+  advisory and exits 0. Nothing is blocked; the build's own `4_verify.md` is still required by the
+  memory-gate when the verification plan is not `N/A`.

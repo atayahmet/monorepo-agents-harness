@@ -29,6 +29,9 @@ Then the task-dir hits from the index search:
 line is missing.>
 
 ## Steps
+<For a `red-first` spec, order each acceptance criterion as a failing test → implementation pair:
+write the test, run it, record the expected failure, then implement until it passes. Do not
+implement first and add the test afterwards. For an `evidence-only` spec, plain steps are enough.>
 1. ...
 2. ...
 

@@ -26,8 +26,14 @@ table/column names, JSON payload shape, event schema. Write "N/A" if no data mod
 - [ ] ...
 
 ## Test / verification plan
-<How each acceptance criterion above is checked — command, test file, or manual repro steps.
-Write "N/A" only for research-only tasks with no verifiable behavior change.>
+Tier: <red-first | evidence-only>
+<Pick the tier by the kind of work, then say how each acceptance criterion is checked — command,
+test file, or manual repro steps:
+- `Tier: red-first` — a bug fix, or new behavior with a clear contract (API, domain logic, CLI).
+  Write the failing test first, watch it fail for the expected reason, then implement.
+- `Tier: evidence-only` — UI, config, glue or exploration. Manual or browser evidence is enough.
+Write "N/A" only for research-only tasks with no verifiable behavior change. A spec with no tier line
+is treated as a legacy task: no red-first advisory fires for it.>
 
 ## Architectural constraints
 <Layer rules, module boundaries, and non-functional requirements (performance, security,

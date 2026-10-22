@@ -17,6 +17,41 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.24] - 2026-10-22
+
+### Added
+
+- **A tiered red-first test rule** (issue #46). The workflow said what to build and what to verify,
+  but not **when** a test is written. One agent writing code and then the test can mirror the bug, so
+  the suite stays green. Specs now declare a tier on the first line of `## Test / verification plan`:
+  `Tier: red-first` for bug fixes and new behavior with a clear contract (write the failing test,
+  record the failure, then implement), or `Tier: evidence-only` for UI, config, glue and exploration
+  (manual or browser evidence is enough). `2_plan.md` orders red-first steps as failing test →
+  implementation pairs, `4_verify.md` gains `## Red evidence` for the verbatim pre-implementation
+  failure, and every adapter's build command writes and runs the test before touching implementation.
+  The fallback records an after-the-fact negative check (save work, revert only the fix, watch it
+  fail, restore) when red was missed. `task-state.sh check-red-evidence <task_dir>` prints an
+  advisory when a red-first task has no evidence and **always exits 0**; a spec with no tier line is
+  a legacy task and produces no warning, so existing task dirs keep passing.
+- **Files** — `core/skills/agent-workflow/templates/{1_spec,2_plan,4_verify}.md`;
+  `core/skills/agent-workflow/SKILL.md`; the three adapter build entry points (byte-identical
+  bodies); `core/root-AGENTS.md` Critical Gotcha 5; `core/scripts/task-state.sh`
+  (`check-red-evidence`); docs sync in `README.md`, `PORTABILITY.md`. Repo-local suite
+  `tests/red-first-rule.test.sh` (88 cases, including parser scoping, CRLF, legacy layout, silence
+  where the rule must not fire, file immutability and four mutation checks). No new installed file,
+  so no manifest row. `changelogs/version-0.4.0-rc.24.md` is included at the maintainer's request —
+  the release needs no command or manual follow-up.
+
+### Upgrade Notes
+
+- **Instruction/script-only release; nothing to run.** The changed templates, skill, root `AGENTS.md`,
+  `task-state.sh` and the adapter stubs all already ship: `harness-update`'s normal bundle re-sync
+  (`install-harness.sh --sync-only`) carries the core files, and step 7.5
+  (`install-adapter.sh <agent> --refresh`) re-applies the three build entry points. The
+  `agents-md-merge` skill carries the Gotcha 5 clause into an existing root `AGENTS.md` on upgrade.
+  No gate changes, no artifact-layout changes, and no hard enforcement: the new check is advisory,
+  fail-open, and silent for every task without a tier line.
+
 ## [0.4.0-rc.23] - 2026-10-18
 
 ### Added
