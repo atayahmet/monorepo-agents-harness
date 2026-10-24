@@ -48,6 +48,7 @@ core/prompts/harness-update.md
 # the `core` row above through the manifest, and executed by the knowledge base's own seed/ingest
 # scripts rather than a per-agent copy.
 core/skills/knowledge-base/SKILL.md
+docs
 adapters/claude-code
 adapters/codex
 adapters/opencode
