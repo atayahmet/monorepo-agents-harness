@@ -151,11 +151,16 @@ Design precedes Build); `2_plan.md` (the "how") then builds against this spec in
 3. **Approved intent (via `-spec`, else best-effort)** — `/monorepo-harness-spec` accepts
    `[<intent.md>] [<task-issue-url>]`. An intent is a **seed reference**, not a task: one
    dispatched intent may be split into several phases/issues. A spec always covers **exactly one
-   task**.
+   task** and, when seeded by an approved intent, must be linked back via `0_intent.md`.
    - **If a task link is given:** run `bash <bundle>/core/scripts/tracker-issue.sh --show <task-issue-url>`
-     (GitHub via `gh`, exit 3 handoff otherwise), match it against the intent's **newest `## Dispatch`
-     block** (`#<number>` or URL), and write the spec for that single task only. If there is no match
-     or the read fails (exit 3), ask which task this spec covers and its scope — never guess.
+     (GitHub via `gh`, exit 3 handoff otherwise). Find which **approved intent** contains that issue
+     in its **newest `## Dispatch` block** (`#<number>` or URL). If no intent path was provided,
+     search `<workspace>/.agents/intents/` for an approved intent whose newest `## Dispatch` block
+     lists it; if none or multiple match, ask the user **which task this spec covers** and which
+     intent to use — never guess. Run `task-state.sh check-intent-approved <intent.md>` (refuse if
+     not approved). Match the issue to the phase/slug and write the spec for that single task only,
+     creating `0_intent.md` via `write-intent-ref.sh`. If there is no match or the read fails (exit
+     3), ask which task this spec covers and its scope — never guess.
    - **If an intent path is given without a task link:** run `task-state.sh check-intent-approved`,
      refuse to write if it is not approved, and **if the newest `## Dispatch` block lists more than one
      phase/task, stop and ask "This intent has several tasks — which task should this spec cover?"**

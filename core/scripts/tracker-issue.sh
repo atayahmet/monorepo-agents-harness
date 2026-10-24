@@ -362,6 +362,22 @@ if [ "$show_mode" -eq 1 ]; then
     http://*|https://*) ;;
     \#*) show_ref="${show_ref#\#}" ;;
   esac
+  # If a full URL is provided, validate and prefer its repository. A read-only lookup must not
+  # pull the harness repo or a different repo under the pretense of the project's origin.
+  show_repo=""
+  case "$show_ref" in
+    http://*|https://*)
+      # Extract owner/name from /owner/name/issues/N
+      show_repo="$(printf '%s' "$show_ref" | sed -n 's#^https\?://[^/]*/\([^/][^/]*\)/\([^/][^/]*\)/issues/.*#\1/\2#p')"
+      if [ -z "$show_repo" ]; then
+        show_repo="$(printf '%s' "$show_ref" | sed -n 's#^https\?://[^/]*/\([^/][^/]*\)/\([^/][^/]*\)/pull/.*#\1/\2#p')"
+      fi
+      if [ -n "$show_repo" ]; then
+        refuse_harness_repo "$show_repo"
+        repo="$show_repo"
+      fi
+      ;;
+  esac
   if ! command -v gh >/dev/null 2>&1; then
     echo "tracker-issue: 'gh' not found - could not read issue '$show_ref'; the task scope is UNKNOWN, not empty. Read it yourself or ask the developer" >&2
     exit 3
@@ -372,7 +388,7 @@ if [ "$show_mode" -eq 1 ]; then
     *) [ -n "$repo" ] && show_args+=(--repo "$repo") ;;
   esac
   show_args+=(--json number,state,title,body,url)
-  show_args+=(--jq '"tracker-issue: issue number=\(.number) state=\(.state) target='"$repo"'\n\(.url)\n--- title ---\n\(.title)\n--- body ---\n\(.body)"')
+  show_args+=(--jq '"tracker-issue: issue number=\(.number) state=\(.state) target='"${repo:-}"'\n\(.url)\n--- title ---\n\(.title)\n--- body ---\n\(.body)"')
   if ! show_out="$(gh "${show_args[@]}" 2>&1)"; then
     printf '%s\n' "$show_out" >&2
     echo "tracker-issue: could not read issue '$show_ref' - the task scope is UNKNOWN, not empty; report it and ask the developer" >&2

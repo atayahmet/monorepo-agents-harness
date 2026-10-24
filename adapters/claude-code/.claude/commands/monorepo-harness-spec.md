@@ -13,12 +13,19 @@ with `core/scripts/task-state.sh`:
    plan mode, English, and the root/workspace instructions).
 2. Resolve the target workspace (`apps/<name>` or `packages/<name>`).
 3. Resolve arguments: `/monorepo-harness-spec [<intent.md>] [<task-issue-url>]`. An intent is a **seed
-   reference**, not a task. A task link is the fastest way to pick exactly one task.
+   reference**, not a task. A spec always covers **exactly one task** and, when seeded by an approved
+   intent, must be linked back via `0_intent.md`.
    - **If a task link is given:** run `bash .agents/monorepo-agents-harness/core/scripts/tracker-issue.sh --show <task-issue-url>`
-     to read the issue title/body. Match it against the intent's **newest `## Dispatch` block**
-     (`#<number>` or URL) to identify the phase/slug. If it matches, proceed to write **one** spec for
-     that task only. If it does not match or the read fails (exit 3), ask the user which task this
-     spec covers and what its scope is — never guess.
+     to read the issue title/body. Find which approved intent contains that issue in its **newest
+     `## Dispatch` block** (`#<number>` or URL). If no intent path was provided, search
+     `<workspace>/.agents/intents/` for an approved intent whose newest `## Dispatch` block lists the
+     issue; if none or multiple match, ask the user which intent/task to use — never guess. Run
+     `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved <intent.md>`
+     (refuse if not approved). Match the issue to the phase/slug and proceed to write **one** spec for
+     that task only. Create `0_intent.md` by running:
+     `bash .agents/monorepo-agents-harness/core/scripts/write-intent-ref.sh <task_dir> <intent.md>`
+     If the read fails (exit 3), ask the user which task this spec covers and what its scope is —
+     never guess.
    - **If an intent path was given (and no task link):** run
      `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved <intent.md>`.
      If it exits non-zero, do **not** write anything; report the reason and stop. If the intent's
