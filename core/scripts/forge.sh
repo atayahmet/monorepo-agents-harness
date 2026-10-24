@@ -621,7 +621,7 @@ rest_merge() {
 cli_approve() {
   case "$1" in
     github)
-      if [ -n "$3" ]; then gh pr review "$2" --approve --body "$3"
+      if [ -n "${3:-}" ]; then gh pr review "$2" --approve --body "$3"
       else gh pr review "$2" --approve; fi ;;
     gitlab) glab mr approve "$2" ;;
     *) return 2 ;;
