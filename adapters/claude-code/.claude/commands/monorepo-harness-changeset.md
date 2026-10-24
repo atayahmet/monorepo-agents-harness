@@ -1,5 +1,6 @@
 ---
 description: Draft a changesets-compatible release entry for a finished task, derived from its plan/spec/memory artifacts, gated on the plan and user-confirmed bumps
+argument-hint: "<2_plan.md>"
 ---
 
 Follow the shared instructions in

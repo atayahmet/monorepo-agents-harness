@@ -17,6 +17,38 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.25] - 2026-10-24
+
+### Added
+
+- **Adapter argument hints (issue #49)**: Claude Code slash commands now declare `argument-hint`
+  in frontmatter so the menu shows what each command expects. The seven commands that take an
+  argument carry the exact hint: `/monorepo-harness-spec [<intent.md>] [<task-issue-url>]`,
+  `/monorepo-harness-plan <1_spec.md>`, `/monorepo-harness-build <2_plan.md>`,
+  `/monorepo-harness-changeset <2_plan.md>`, `/monorepo-harness-intent [review | --reject <PR-url> ...]`,
+  `/monorepo-harness-intent-dispatch <intent.md>`, and `/monorepo-harness-kb-index [<question> | rebuild | links] [--kind <k>] [--workspace <w>] [--limit <n>]`. The argument-less commands
+  (`review`, `ci`, `update`, `self-improve`) stay without the key, enforced by a repo-local test.
+- **Task-linked spec for multi-phase intents**: `/monorepo-harness-spec` accepts an optional
+  second argument `<task-issue-url>`. `tracker-issue.sh --show <ref>` (read-only) reads the issue
+  title/body via `gh` and reports number/state/target/url; without a link, a dispatched intent that
+  lists more than one phase triggers a guard asking which task the spec should cover before any
+  task directory is created. One invocation writes exactly one spec, and `0_intent.md` still
+  references the whole intent as a seed.
+- **Files** — `adapters/claude-code/.claude/commands/monorepo-harness-{build,changeset,spec,plan,intent,intent-dispatch,kb-index}.md`;
+  `core/scripts/tracker-issue.sh` (`--show`); `core/skills/agent-workflow/SKILL.md`; the three
+  adapter `-spec` bodies; `tests/argument-hint.test.sh`; `tests/tracker-issue-show.test.sh`;
+  `PORTABILITY.md`. No new installed file requires a manifest row. `changelogs/version-0.4.0-rc.25.md`
+  is added at the maintainer's request to document the upgrade steps below.
+
+### Upgrade Notes
+
+- **Instruction/script-only release; nothing to run.** The changed adapter commands and the new
+  `tracker-issue.sh --show` mode ship in the bundle/adapters already tracked by manifests. Run
+  `core/scripts/install-harness.sh --sync-only` and `core/scripts/install-adapter.sh <agent> --refresh`
+  as usual, or just pull the updated tree. If your Claude Code command menu does not pick up hints
+  immediately, re-run the adapter refresh for `claude-code`. `--show` works with an authenticated
+  `gh` on GitHub projects and exits 3 with a handoff on other trackers or when `gh` is unreachable.
+
 ## [0.4.0-rc.24] - 2026-10-22
 
 ### Added

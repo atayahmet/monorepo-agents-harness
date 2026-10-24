@@ -1,5 +1,6 @@
 ---
 description: Run the implementation for the task, gated on a valid spec/plan/intent chain, then write memory and verify
+argument-hint: "<2_plan.md>"
 ---
 
 Follow the shared instructions in

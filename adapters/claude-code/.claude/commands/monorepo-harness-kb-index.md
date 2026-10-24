@@ -1,5 +1,6 @@
 ---
 description: Query, rebuild or link-lint the knowledge base through its SQLite FTS5 index
+argument-hint: "[<question> | rebuild | links] [--kind <k>] [--workspace <w>] [--limit <n>]"
 ---
 
 Follow the shared instructions in

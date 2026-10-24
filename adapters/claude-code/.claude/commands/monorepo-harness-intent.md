@@ -1,5 +1,6 @@
 ---
 description: Capture a new intent, review pending intents and approve/reject them, or reject an intent from its PR link
+argument-hint: "[review | --reject <PR-url> ...]"
 ---
 
 Follow the shared instructions in
