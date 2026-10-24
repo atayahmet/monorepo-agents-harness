@@ -292,5 +292,35 @@ new_fixture root-only; d="$(root_task_dir arm_root_bare)"; write_spec "$d"; writ
 hook_arm "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$FIXTURE/README.md\"}}"
 is "a repo with no workspaces arms its own root plan" "$(task_state stage "$d")" "build"
 
+
+
+
+# --- issue #50: hook must not arm old plan when build in flight in same workspace ---
+new_fixture
+today_build="$(task_dir build_in_flight)"
+old_date="$(date -d '3 months ago' +%Y_%m_%d 2>/dev/null || date -v-3m +%Y_%m_%d 2>/dev/null || echo 2026_07_24)"
+old_plan="$(task_dir_on "$old_date" abandoned_old)"
+write_spec "$today_build"; write_plan "$today_build"; arm_build "$today_build/2_plan.md"
+write_spec "$old_plan"; write_plan "$old_plan"
+hook_arm "{\"tool_input\":{\"file_path\":\"$FIXTURE/apps/api/src/index.ts\"}}"
+is "#50 build in flight blocks arming older plan in same workspace" "$(task_state stage "$old_plan")" "plan"
+is "#50 todays build remains in build stage" "$(task_state stage "$today_build")" "build"
+
+# --- issue #50: very old plan-only task is not armed with no build in flight ---
+new_fixture
+old_date2="$(date -d '3 months ago' +%Y_%m_%d 2>/dev/null || date -v-3m +%Y_%m_%d 2>/dev/null || echo 2026_07_24)"
+very_old="$(task_dir_on "$old_date2" very_old_plan)"
+write_spec "$very_old"; write_plan "$very_old"
+hook_arm "{\"tool_input\":{\"file_path\":\"$FIXTURE/apps/api/src/index.ts\"}}"
+is "#50 plan from 3 months ago is not armed" "$(task_state stage "$very_old")" "plan"
+
+# --- issue #50: cross-midnight - yesterday's plan armed today without -build ---
+new_fixture
+yesterday_date="$(date -d yesterday +%Y_%m_%d 2>/dev/null || date -v-1d +%Y_%m_%d 2>/dev/null || echo 2026_10_23)"
+yesterday_plan="$(task_dir_on "$yesterday_date" yesterday_plan)"
+write_spec "$yesterday_plan"; write_plan "$yesterday_plan"
+hook_arm "{\"tool_input\":{\"file_path\":\"$FIXTURE/apps/api/src/feature.ts\"}}"
+is "#50 yesterdays plan is armed today without -build" "$(task_state stage "$yesterday_plan")" "build"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
