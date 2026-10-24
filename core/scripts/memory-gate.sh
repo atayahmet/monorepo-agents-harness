@@ -42,7 +42,6 @@ JSON_MODE=0
 [ "${1:-}" = "--json" ] && JSON_MODE=1
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-TODAY="$(date +%Y_%m_%d)"
 RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.agents/monorepo-agents-harness}"
 BUNDLE_DIR="${BUNDLE_DIR:-$RUNTIME_DIR}"
 DETECT_SCRIPT="${DETECT_SCRIPT:-$RUNTIME_DIR/core/scripts/detect-monorepo-framework.sh}"
@@ -82,8 +81,8 @@ fi
 
 # All task dirs across discovered workspaces across all discovered workspaces, newest first BY THE DATE IN ITS
 # NAME (see harness_task_dirs_newest_first — not by file mtime, which a checkout or a rebase moves).
-# TODAY is the gate's scope, and hook-arm-build.sh arms nothing outside it: what the hook marks and
-# what the gate reads can never be two different sets of task dirs.
+# The hook arms plan-stage tasks (today or yesterday) in the workspace being written to and will not
+# arm a second task if there is already a build in flight in that workspace.
 CANDIDATE_DIRS=()
 if [ "${#scan_patterns[@]}" -gt 0 ]; then
   while IFS= read -r d; do

@@ -8,11 +8,12 @@
 # without ever running the build command. This hook covers it by watching the first write that is
 # NOT a task artifact — the same boundary the plan-reminder hook already describes in prose.
 #
-# It arms only what the gate would actually enforce, and the three rules that make that true are one
+# It arms only what the gate would actually enforce, and the rules that make that true are one
 # list: candidates are the task dirs (the gate reads no other date), a dir that already
-# has 3_memory.md is skipped (nothing left to arm), and a plan is armed only when the written path is
-# inside that plan's own workspace. Marking a task the gate never reads produced a dirty tracked file
-# on every unrelated write, and arming a plan-only task blocked the Stop hook for work never built.
+# has 3_memory.md is skipped (nothing left to arm), a plan is armed only when the written path is
+# inside that plan's own workspace, and the hook will not arm a second task if there is already a
+# build in flight in that workspace. Arming is also bounded to today or yesterday to avoid arming
+# abandoned plans from months ago (cross-midnight builds still work).
 #
 # Wiring: an agent's PreToolUse hook for Write/Edit/MultiEdit, whose command runs this script. It is
 # the arming half of ADR 0001 and depends on nothing but coreutils; the JSON on stdin is read with jq
@@ -27,6 +28,7 @@ set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 TODAY="$(date +%Y_%m_%d)"
+YESTERDAY="$(date -d yesterday +%Y_%m_%d 2>/dev/null || date -v-1d +%Y_%m_%d 2>/dev/null || echo "$TODAY")"
 RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.agents/monorepo-agents-harness}"
 BUNDLE_DIR="${BUNDLE_DIR:-$RUNTIME_DIR}"
 TASK_STATE="${TASK_STATE:-$RUNTIME_DIR/core/scripts/task-state.sh}"
@@ -35,7 +37,7 @@ DETECT_SCRIPT="${DETECT_SCRIPT:-$RUNTIME_DIR/core/scripts/detect-monorepo-framew
 [ -x "$DETECT_SCRIPT" ] || DETECT_SCRIPT="$BUNDLE_DIR/core/scripts/detect-monorepo-framework.sh"
 
 # The task-dir order is shared with memory-gate.sh (see harness_task_dirs_newest_first), so the hook
-# and the gate cannot disagree about which dir of the day is the newest one. Optional: without it the
+# and the gate cannot disagree about which dir is the newest one. Optional: without it the
 # hook keeps the raw glob order below, which is the pre-0.4.0-rc.10 behaviour, not a failure.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f "$SCRIPT_DIR/harness-common.sh" ]; then
@@ -176,21 +178,40 @@ for task_dir in "${candidates[@]}"; do
   # A task that already has its memory is recorded; there is nothing left to arm. Marking it would
   # dirty a finished, committed task dir on some later unrelated write.
   [ -f "$task_dir/3_memory.md" ] && continue
+  # Determine the workspace of this task dir.
+  ws_abs="${task_dir%%/.agents/artifacts/*}"
+  in_ws_target=0
+  if in_workspace "$canon_target" "$ws_abs"; then
+    in_ws_target=1
+  elif [ -n "$rel_target" ] && in_workspace "$rel_target" "${ws_abs#"$ROOT"/}"; then
+    in_ws_target=1
+  fi
+  # If there is already a build in flight in the same workspace as the write, stop — do not arm
+  # a second task. The write belongs to that build.
+  stage="$(bash "$TASK_STATE" stage "$task_dir" 2>/dev/null || true)"
+  if [ "$in_ws_target" -eq 1 ] && [ "$stage" = "build" ]; then
+    break
+  fi
   # "Is this a plan, and has its build not started?" is task-state.sh's answer, not a second parser
   # here — the same reader the gate uses, including the legacy plan file name.
-  [ "$(bash "$TASK_STATE" stage "$task_dir" 2>/dev/null || true)" = "plan" ] || continue
+  [ "$stage" = "plan" ] || continue
+  # Bound arming to today or yesterday to avoid arming abandoned plans from months ago
+  # (a build that spans midnight still needs yesterday's plan to be armable).
+  base="$(basename "$task_dir")"
+  dt=""
+  if command -v grep >/dev/null 2>&1; then
+    dt="$(printf '%s
+' "$base" | grep -oE '[0-9]{4}[_-][0-9]{2}[_-][0-9]{2}' | head -1 | sed 's/[-]/_/g' || true)"
+  fi
+  [ -n "$dt" ] || dt="0000_00_00"
+  if [ "$dt" != "$TODAY" ] && [ "$dt" != "$YESTERDAY" ]; then
+    continue
+  fi
   # Arm only a plan whose own workspace is being written to: a change in apps/docs says nothing about
   # whether the apps/api task is being built. The workspace is the path in front of the task's own
   # `.agents/artifacts/`, so this needs no lookup table and cannot disagree with where the dir lives.
   # Failing to match arms nothing: a hook that cannot place the write must not guess a task.
-  ws_abs="${task_dir%%/.agents/artifacts/*}"
-  in_ws=0
-  if in_workspace "$canon_target" "$ws_abs"; then
-    in_ws=1
-  elif [ -n "$rel_target" ] && in_workspace "$rel_target" "${ws_abs#"$ROOT"/}"; then
-    in_ws=1
-  fi
-  [ "$in_ws" -eq 1 ] || continue
+  [ "$in_ws_target" -eq 1 ] || continue
   plan="$task_dir/2_plan.md"
   [ -f "$plan" ] || plan="$task_dir/1_plan.md"   # legacy layout, same fallback the stage reader uses
   [ -f "$plan" ] || continue

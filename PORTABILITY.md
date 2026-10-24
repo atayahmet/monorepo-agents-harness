@@ -103,9 +103,10 @@ test enforces the boundary.
   itself, so the ordinary path needs nothing; an implementation that begins straight out of plan mode
   is armed by `core/scripts/hook-arm-build.sh` on the agent's first write outside the artifacts
   directory. The hook arms only a plan **in the workspace being written to** (the workspace is the
-  path in front of the task's own `.agents/artifacts/`) and only among task dirs **created today** that
-  have no `3_memory.md` — the same "created today, has no memory" scope the gate itself enforces, so a
-  write in `apps/docs` can never arm an `apps/api` task, nor a fresh write arm a task opened last week.
+  path in front of the task's own `.agents/artifacts/`) and only among plan-stage task dirs **from today or yesterday** that
+  have no `3_memory.md`; if there is already a build in flight in that workspace, the hook will not arm a second
+  task — the same scope the gate itself enforces, so a write in `apps/docs` can never arm an `apps/api` task,
+  nor a fresh write arm a task opened months ago.
   The **capability** (a plan-mode-exit build is still gated) is identical everywhere and
   the script is agent-neutral; only the *trigger* differs: claude-code wires it as a
   `PreToolUse[Write|Edit|MultiEdit]` hook, while codex — whose hook matchers on file writes cannot be
