@@ -74,9 +74,7 @@ Delete the dir after.
 ## 6. Optional extras
 
 - **CI** — `/monorepo-harness-ci` detects the provider and wires `memory-gate.sh` in.
-- **Intent inbox** — `/monorepo-harness-intent` (`core/governance/intents/AGENTS.md`); capture,
-  review, and PR-based reject (`--reject`) record the result in the intent's `## Prior art` /
-  `## Review` sections, reading `knowledge/` via `kb-index.sh query`.
+- **Intent inbox** — `/monorepo-harness-intent` (`core/governance/intents/AGENTS.md`); capture, review, and PR-based approve/reject (`--approve`/`--reject`) record the result in `## Prior art` / `## Review`, reading `knowledge/` via `kb-index.sh query`. `--approve` submits a real review via `forge.sh approve`; `--reject` merges without a PR approval.
 - **Intent dispatch** — `/monorepo-harness-intent-dispatch <intent.md>` checks the intent's PR for
   an approval and records it, checks the tracker for work already open (asking before filing it
   anyway), asks whether 2+ phases should hang under one parent **epic** issue, opens the epic and

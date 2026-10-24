@@ -1,6 +1,6 @@
 ---
 name: monorepo-harness-intent
-description: Capture a new intent, review pending intents and approve/reject them, or reject an intent from its PR link. Use when the user types /monorepo-harness-intent, describes a new feature/problem without being in an active coding task, asks to review pending intents, or asks to reject an intent from its PR link.
+description: Capture a new intent, review pending intents and approve/reject them, or approve/reject an intent from its PR link. Use when the user types /monorepo-harness-intent, describes a new feature/problem without being in an active coding task, asks to review pending intents, asks to approve an intent from its PR link, or asks to reject an intent from its PR link.
 ---
 
 Follow the shared instructions in
@@ -19,9 +19,17 @@ Follow the shared instructions in
    every `status: pending` intent with the hits it returned, present each, and ask "Approve
    this intent?" (yes/no/edit) — never change `status` without an explicit answer in the current
    turn. Approved/rejected intents are never deleted.
-3. If the user passes `--reject <PR-url> [<PR-url> ...]`: follow the skill's "Workflow — Reject" —
+4. If the user passes `--approve <PR-url> [<PR-url> ...]`: follow the skill's "Workflow — Approve" —
+   record `status: approved` plus a `## Review` section on each PR's own branch, commit and push
+   it, submit an approving review via
+   `bash .agents/monorepo-agents-harness/core/scripts/forge.sh approve <ref> --yes` (and never
+   through the intent file), then ask a separate merge question and merge via
+   `task-state.sh merge-intent-pr <intent.md> --pr <ref> --yes` only when the PR carries a real
+   approving review. Never merge without that review.
+5. If the user passes `--reject <PR-url> [<PR-url> ...]`: follow the skill's "Workflow — Reject" —
    record `status: rejected` plus a `## Review` section on each PR's own branch and merge via
    `task-state.sh merge-intent-pr <intent.md> --pr <ref> --reject --yes` (the merge is a separate
    consent question; a PR approval is never read or required).
 
-This skill captures, reviews, and rejects intents — it does not create task directories, plans, or specs.
+This skill captures, reviews, approves from a PR link, and rejects from a PR link — it does not
+create task directories, plans, or specs.

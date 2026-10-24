@@ -17,27 +17,21 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
-## [0.4.0-rc.25] - 2026-10-24
+## [0.4.0-rc.26] - 2026-10-24
 
 ### Added
 
-- **Adapter argument hints (issue #49)**: Claude Code slash commands now declare `argument-hint`
-  in frontmatter so the menu shows what each command expects. The seven commands that take an
-  argument carry the exact hint: `/monorepo-harness-spec [<intent.md>] [<task-issue-url>]`,
-  `/monorepo-harness-plan <1_spec.md>`, `/monorepo-harness-build <2_plan.md>`,
-  `/monorepo-harness-changeset <2_plan.md>`, `/monorepo-harness-intent [review | --reject <PR-url> ...]`,
-  `/monorepo-harness-intent-dispatch <intent.md>`, and `/monorepo-harness-kb-index [<question> | rebuild | links] [--kind <k>] [--workspace <w>] [--limit <n>]`. The argument-less commands
-  (`review`, `ci`, `update`, `self-improve`) stay without the key, enforced by a repo-local test.
-- **Task-linked spec for multi-phase intents**: `/monorepo-harness-spec` accepts an optional
-  second argument `<task-issue-url>`. `tracker-issue.sh --show <ref>` (read-only) reads the issue
-  title/body via `gh` and reports number/state/target/url; without a link, a dispatched intent that
-  lists more than one phase triggers a guard asking which task the spec should cover before any
-  task directory is created. One invocation writes exactly one spec, and `0_intent.md` still
-  references the whole intent as a seed.
-- **Files** — `adapters/claude-code/.claude/commands/monorepo-harness-{build,changeset,spec,plan,intent,intent-dispatch,kb-index}.md`;
-  `core/scripts/tracker-issue.sh` (`--show`); `core/skills/agent-workflow/SKILL.md`; the three
-  adapter `-spec` bodies; `tests/argument-hint.test.sh`; `tests/tracker-issue-show.test.sh`;
-  `PORTABILITY.md`. No new installed file requires a manifest row. `changelogs/version-0.4.0-rc.25.md`
+- **Intent approve from a PR link (issue #51)**: `/monorepo-harness-intent --approve <PR-url>...`
+  records `status: approved` plus a `## Review` section on the PR's own branch, commits and pushes
+  it, submits a real approving review through `core/scripts/forge.sh approve` (cli/rest; MCP/skill
+  forges hand off at exit 3, idempotent, dry-run by default, confirmed by re-reading, never
+  merges), then asks a separate merge question and runs
+  `task-state.sh merge-intent-pr <intent.md> --pr <ref> --yes`. The merge gate is **unchanged** —
+  the intent file's `status: approved` never substitutes for a PR approval; a review must exist for
+  the merge to pass. Guards mirror `--reject` (one `## Review` ever, already approved is a no-op,
+  rejected/refused, already merged skipped), mixed flags refused, partial batches continue, and
+  the command stops to hand off to `/monorepo-harness-intent-dispatch` (no inline dispatch).
+- **Files** — `core/scripts/forge.sh` (`approve`), `core/skills/intent-workflow/SKILL.md` ("Workflow — Approve", description, connection, edge cases), `adapters/{claude-code,opencode,codex}/.*/monorepo-harness-intent.*`, `core/governance/intents/AGENTS.md`, `README.md`, `INSTALL.md`, `PORTABILITY.md`, `tests/forge-approve.test.sh`, `tests/intent-approve-parity.test.sh`, `tests/argument-hint.test.sh`. No new installed file requires a manifest row.
   is added at the maintainer's request to document the upgrade steps below.
 
 ### Upgrade Notes
