@@ -9,12 +9,13 @@
 # tracker-issue.sh. A project can file Jira issues and open GitHub pull requests; one "platform"
 # answer cannot serve both questions. See ADR 0003.
 #
-# Subcommands (all read-only except `merge`):
+# Subcommands (all read-only except `merge` and `approve`):
 #   resolve [<ref>]      print the forge and how it was decided
 #   probe   [<ref>]      report which mechanism could reach it, and whether the harness can use it
 #   state   <ref>        print the PR's state, title, mergeability and merge status
 #   reviews <ref>        print "<reviewer>\t<state>\t<date>", one row per reviewer's LATEST review
 #   issues  [--search t] print the open issues matching the terms (the duplicate check's read path)
+#   approve <ref>        submit one approving review on the PR, or refuse; --explain to see the plan
 #   merge   <ref>        merge the PR with a merge commit, or refuse; --explain to see the plan only
 #   paste   <ref>        print the developer-facing manual steps for this forge
 #
@@ -23,6 +24,7 @@
 #   forge.sh state <ref>
 #   forge.sh reviews <ref>
 #   forge.sh issues --search <text> [--search <text> ...]
+#   forge.sh approve <ref> [--body <text>] [--yes] [--explain]
 #   forge.sh merge <ref> [--explain]
 #   forge.sh paste <ref>
 #
@@ -35,7 +37,9 @@
 #                    ref", not a malformed one.
 #   --forge <name>   force the platform (github, gitlab, bitbucket, gitea)
 #   --search <text>  keyword for `issues`; repeatable, results unioned
-#   --explain        for `merge`: print what would run and exit 0 without writing anything
+#   --body <text>    for `approve`: the review body. Empty is a complete approval.
+#   --yes            for `approve`: the developer's in-turn consent. Without it nothing is written.
+#   --explain        for `approve` and `merge`: print what would run and exit 0 without writing
 #
 # How the forge is decided, first hit wins:
 #   1. --forge <platform>
@@ -74,11 +78,15 @@
 #     auto. A platform is refused rather than downgraded to a method nobody agreed to.
 #   - Every REST merge pins its method explicitly (merge_method=merge / squash=false), so the method
 #     is visible in the recorded request rather than implied by a server default.
+#   - An approval is CONFIRMED, never assumed: `approve` re-reads the review board after writing and
+#     reports an unconfirmable write as unconfirmed. It never merges, and it never reports an
+#     approval the forge did not record.
 #
-# Exit codes: 0 = done (resolved / probed / read / listed / merged / already merged), 1 = refused or
-#             failed (the reason is on stderr), 2 = usage error, 3 = NOT DONE - the harness cannot
-#             reach this forge, or cannot verify what it is about to do. On 3 the caller relays the
-#             discovered mechanism or the paste-ready steps and does not claim a merge happened.
+# Exit codes: 0 = done (resolved / probed / read / listed / approved / merged / already in that
+#             state), 1 = refused or failed (the reason is on stderr), 2 = usage error, 3 = NOT DONE
+#             - the harness cannot reach this forge, or cannot verify what it is about to do. On 3
+#             the caller relays the discovered mechanism or the paste-ready steps and does not
+#             claim a write happened.
 # Dependencies: git, awk, sed, curl and jq only for the rest rung (a missing curl or jq makes that
 #             rung unusable, which is reported like any other missing mechanism); a platform CLI only
 #             for its own rung. Every absence is a supported path.
@@ -602,6 +610,56 @@ rest_merge() {
   esac
 }
 
+# --- approve --------------------------------------------------------------------------------------
+# One approving review, and nothing else. Unlike `merge`, this command exists to MAKE the unchanged
+# merge gate satisfiable on a forge that records reviews, instead of letting a text field stand in
+# for a human decision. It is therefore idempotent (an already-approved PR is left alone), dry-run
+# by default, and it never merges.
+
+# cli_approve <platform> <id> <body> - submit the review through the platform's CLI. Returns 2 when
+# that CLI has no approve command at all, so the caller can fall back to REST rather than pretend.
+cli_approve() {
+  case "$1" in
+    github)
+      if [ -n "${3:-}" ]; then gh pr review "$2" --approve --body "$3"
+      else gh pr review "$2" --approve; fi ;;
+    gitlab) glab mr approve "$2" ;;
+    *) return 2 ;;
+  esac
+}
+
+# approve_display <platform> <id> <body> - the same write, as a printable plan.
+approve_display() {
+  case "$1" in
+    github)
+      if [ -n "$3" ]; then printf 'gh pr review %s --approve --body %q' "$2" "$3"
+      else printf 'gh pr review %s --approve' "$2"; fi ;;
+    gitlab) printf 'glab mr approve %s' "$2" ;;
+    *) return 1 ;;
+  esac
+}
+
+# rest_approve — prints "<method> <path> <json-body>", the same three-part shape rest_merge uses.
+# The body is JSON-encoded by jq (the rest rung already depends on it); an empty body is "".
+rest_approve() {
+  local p="$1" host="$2" id="$3" proj="$4" body="$5" jbody
+  jbody="$(printf '%s' "$body" | jq -Rs . 2>/dev/null || true)"
+  [ -n "$jbody" ] || jbody='""'
+  proj="$(url_encode "$4")"
+  case "$p" in
+    github)    printf 'POST /repos/%s/pulls/%s/reviews {"event":"APPROVE","body":%s}' "$4" "$id" "$jbody" ;;
+    gitlab)    printf 'POST /projects/%s/merge_requests/%s/approve {}' "$proj" "$id" ;;
+    gitea)     printf 'POST /repos/%s/pulls/%s/reviews {"event":"APPROVED","body":%s}' "$4" "$id" "$jbody" ;;
+    bitbucket) printf 'POST /repositories/%s/pullrequests/%s/approve {}' "$4" "$id" ;;
+    *) return 1 ;;
+  esac
+}
+
+# approved_by <rows> - the first approving reviewer on the latest-per-reviewer board, or empty.
+approved_by() {
+  printf '%s\n' "$1" | awk -F'\t' '$2 == "APPROVED" { print $1; exit }'
+}
+
 # --- reports --------------------------------------------------------------------------------------
 # A handoff report: what was found, what the agent has to do, and that the harness did not do it.
 handoff_report() {
@@ -655,18 +713,30 @@ paste_report() {
 cmd="${1:-}"
 [ -n "$cmd" ] || usage
 case "$cmd" in
-  resolve|probe|state|reviews|merge|paste) shift ;;
+  resolve|probe|state|reviews|merge|approve|paste) shift ;;
   issues) shift ;;
   -h|--help) print_usage; exit 0 ;;
   *) echo "forge: unknown subcommand: $cmd" >&2; usage ;;
 esac
 
-FORGE_OVERRIDE=""; ref_arg=""; explain=0; searches=""; repo_override=""
+FORGE_OVERRIDE=""; ref_arg=""; explain=0; searches=""; repo_override=""; approve_body=""; approve_now=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --forge)  [ -n "${2:-}" ] || usage; FORGE_OVERRIDE="$2"; shift 2 ;;
     --search) [ -n "${2:-}" ] || usage; searches="$searches$2
 "; shift 2 ;;
+    # --body and --yes belong to `approve`. --yes is the developer's in-turn answer; without it the
+    # command only prints the plan, exactly like task-state.sh's merge-intent-pr.
+    --body)
+      case "$cmd" in
+        approve) [ -n "${2:-}" ] || usage; approve_body="$2"; shift 2 ;;
+        *) echo "forge: unknown option: $1" >&2; usage ;;
+      esac ;;
+    --yes)
+      case "$cmd" in
+        approve) approve_now=1; shift ;;
+        *) echo "forge: unknown option: $1" >&2; usage ;;
+      esac ;;
     # --repo is for `issues`, where the board may be a different repository than the current one.
     # It never overrides the PLATFORM: --repo says which board, --forge says which forge.
     --repo)
@@ -824,6 +894,113 @@ case "$cmd" in
     printf 'forge: open-match count=%s platform=%s target=%s terms=%s\n' \
       "$total" "$PLATFORM" "$PROJECT" "$(printf '%s' "$searches" | tr '\n' ' ' | sed -e 's/ $//')"
     [ "$total" -eq 0 ] || printf '%s\n' "$out"
+    exit 0
+    ;;
+
+  approve)
+    need_ref
+    st=0; normalize_ref "$ref_arg" || st=$?
+    [ "$st" -eq 1 ] && { echo "forge: '$ref_arg' names no pull request" >&2; exit 2; }
+    [ "$st" -eq 2 ] && { echo "forge: '$ref_arg' is not a PR ref this harness can read" >&2; exit 2; }
+    resolve_forge "$ref_arg" || true
+    [ "$PLATFORM" = "unknown" ] && not_done "the forge of '$ref_arg' could not be resolved - pass --forge or ask the developer"
+    [ -n "$PRID" ] || { echo "forge: '$ref_arg' names a repository, not a pull request" >&2; exit 2; }
+    [ -n "$PROJECT" ] || not_done "no repository for this pull request - pass a ref like owner/name#$PRID or the PR URL"
+    if ! probe_read "$PLATFORM" "$HOST"; then
+      handoff_report "$PLATFORM" "$ref_arg" "$HOST" "$PROJECT" "$PRID"
+      paste_report "$PLATFORM" "$ref_arg" "$HOST" "$PROJECT" "$PRID"
+      not_done "PR $PRID on $PLATFORM was NOT approved - the harness cannot reach it, so it cannot record an approving review"
+    fi
+    # State first: a merged or closed PR has nothing left to approve. Reading it before the write is
+    # what makes a re-run harmless instead of a refusal to be interpreted.
+    line=""
+    case "$MECHANISM" in
+      cli)  line="$(cli_state "$PLATFORM" "$PRID" "$PROJECT" || true)" ;;
+      rest) line="$(rest_state "$PLATFORM" "$HOST" "$PRID" "$PROJECT" || true)" ;;
+    esac
+    pr_state="$(printf '%s' "$line" | sed -n 's/.*state=\([A-Za-z_]*\).*/\1/p' | tr '[:lower:]' '[:upper:]')"
+    [ -n "$pr_state" ] || not_done "PR $PRID on $PLATFORM could not be read through $MECHANISM - nothing approved"
+    if [ "$pr_state" = "MERGED" ]; then
+      printf 'forge: PR %s on %s is already merged; nothing to approve\n' "$PRID" "$PLATFORM"
+      exit 0
+    fi
+    case "$pr_state" in
+      OPEN|OPENED) : ;;
+      *) echo "forge: PR $PRID on $PLATFORM is ${pr_state:-<unknown>}, not open; nothing approved" >&2; exit 1 ;;
+    esac
+    # Idempotence: an approving review already on the board means someone already decided. Writing a
+    # second one would add noise, not an approval. This reads the same board the merge gate reads.
+    rows=""
+    case "$MECHANISM" in
+      cli)  rows="$(cli_reviews "$PLATFORM" "$PRID" "$PROJECT" || true)" ;;
+      rest) rows="$(rest_reviews "$PLATFORM" "$HOST" "$PRID" "$PROJECT" || true)" ;;
+    esac
+    why=""
+    if [ -n "$rows" ]; then
+      why="$(validate_reviews "$rows" || true)"
+      [ -z "$why" ] || { printf 'forge: %s\n' "$why" >&2; not_done "PR $PRID on $PLATFORM returned a review list this harness cannot read - that is not an approval"; }
+      rows="$(printf '%s' "$rows" | latest_per_reviewer)"
+    fi
+    if [ -n "$(approved_by "$rows")" ]; then
+      printf 'forge: PR %s on %s is already approved by %s; nothing to do\n' \
+        "$PRID" "$PLATFORM" "$(approved_by "$rows")"
+      exit 0
+    fi
+    # Build the write plan. The rung probe_read chose is the preferred write rung; a CLI with no
+    # approve command falls back to REST when that rung is usable, and says so if it is not.
+    write_mech="$MECHANISM"; plan=""; rreq=""
+    if [ "$write_mech" = "cli" ]; then
+      plan="$(approve_display "$PLATFORM" "$PRID" "$approve_body" || true)"
+      if [ -z "$plan" ]; then
+        if probe_rest "$PLATFORM" "$HOST"; then
+          write_mech="rest"
+        else
+          not_done "the $MECHANISM mechanism cannot approve PR $PRID on $PLATFORM and no REST rung is usable - nothing approved"
+        fi
+      fi
+    fi
+    if [ "$write_mech" = "rest" ]; then
+      rreq="$(rest_approve "$PLATFORM" "$HOST" "$PRID" "$PROJECT" "$approve_body" || true)"
+      [ -n "$rreq" ] || not_done "no approval request is defined for $PLATFORM - nothing approved"
+      a_method="${rreq%% *}"; a_rest="${rreq#* }"
+      a_path="${a_rest%% *}"; a_body="${a_rest#* }"
+      plan="curl -X $a_method <base>$a_path -d $a_body"
+    fi
+    if [ "$explain" -eq 1 ] || [ "$approve_now" -eq 0 ]; then
+      printf 'forge: would approve PR %s on %s via %s: %s\n' "$PRID" "$PLATFORM" "$write_mech" "$plan"
+      [ "$explain" -eq 1 ] || echo "forge: nothing approved. Re-run with --yes only after the developer answers yes in this turn"
+      exit 0
+    fi
+    if [ "$write_mech" = "cli" ]; then
+      out="$(cli_approve "$PLATFORM" "$PRID" "$approve_body" 2>&1)" || {
+        printf 'forge: the approve command failed, PR %s was NOT approved:\n%s\n' \
+          "$PRID" "$(printf '%s' "$out" | head -3)" >&2
+        exit 1
+      }
+    else
+      var="$(token_var "$PLATFORM")"; base="$(api_base "$PLATFORM" "$HOST")"
+      out="$(curl -sS --max-time 30 -X "$a_method" \
+        -H "Authorization: Bearer ${!var}" -H 'Content-Type: application/json' \
+        -d "$a_body" "$base$a_path" 2>&1)" || {
+        printf 'forge: the approve request failed, PR %s was NOT approved:\n%s\n' \
+          "$PRID" "$(printf '%s' "$out" | head -3)" >&2
+        exit 1
+      }
+    fi
+    # Confirm by re-reading, not by exit code: an approval is a row on the board, or it is nothing.
+    rows=""
+    case "$MECHANISM" in
+      cli)  rows="$(cli_reviews "$PLATFORM" "$PRID" "$PROJECT" || true)" ;;
+      rest) rows="$(rest_reviews "$PLATFORM" "$HOST" "$PRID" "$PROJECT" || true)" ;;
+    esac
+    confirmed="$(approved_by "$rows")"
+    if [ -z "$confirmed" ]; then
+      printf 'forge: sent an approval for PR %s on %s, but could not confirm it - the review board still shows no approval:\n%s\n' \
+        "$PRID" "$PLATFORM" "$(printf '%s' "$out" | head -3)" >&2
+      exit 1
+    fi
+    printf 'forge: approved PR %s on %s by %s via %s: %s\n' \
+      "$PRID" "$PLATFORM" "$confirmed" "$write_mech" "$plan"
     exit 0
     ;;
 
