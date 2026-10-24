@@ -1,5 +1,6 @@
 ---
 description: Create the plan (2_plan.md), gated on the spec and plan-mode consent
+argument-hint: "<1_spec.md>"
 ---
 
 Follow the shared instructions in

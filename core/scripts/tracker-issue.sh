@@ -2,12 +2,14 @@
 # tracker-issue - create one tracker issue per harness task phase, through the developer's own
 # already-authenticated tooling. Agent-agnostic; the harness installs and stores no credential.
 #
-# Four modes:
+# Five modes:
 #   --infer          print the tracker this project's own git config points at, and where that
 #                    answer came from. Read-only, always exits 0, never writes.
 #   --list-open      print the OPEN work already on the tracker that matches the caller's keywords.
 #                    Read-only: the duplicate check dispatch runs before it files anything. Never
 #                    writes, never comments, never labels, never closes.
+#   --show <ref>     read ONE issue by number, #number or URL and print its number, state, url, title
+#                    and body. Read-only; this is how /monorepo-harness-spec resolves a task link.
 #   (default)        --dry-run: print exactly what would be created.
 #   --create         create the issue and print 'created number=<n>' then its URL, URL last.
 #
@@ -35,6 +37,7 @@
 # Usage (from the target repo root):
 #   tracker-issue.sh --infer
 #   tracker-issue.sh --list-open --search <text> [--search <text> ...]
+#   tracker-issue.sh --show <ref>
 #   tracker-issue.sh --title <text> (--body <text> | --body-file <path>)
 #                    [--parent <number-or-url>] [--plan <2_plan.md>] [--tracker <platform>]
 #                    [--repo <owner/name>] [--dry-run] [--create]
@@ -48,6 +51,11 @@
 #                    '#<number>\t<title>\t<url>' row per open item, unioned across the --search
 #                    terms and de-duplicated by issue number. No matches is NOT a failure: count=0
 #                    and exit 0. Nothing is created, changed or closed in this mode.
+#   --show <ref>     read one issue (URL, #N or N). Resolves the tracker and target exactly as
+#                    --create does and refuses the harness repo the same way. Prints
+#                    'tracker-issue: issue number=<n> state=<state> target=<t>', then the URL, then
+#                    '--- title ---' and '--- body ---' sections. GitHub only; any other platform
+#                    exits 3 with the read handed back to the caller. Writes nothing.
 #   --search <text>  keyword to look for in open items; repeatable, results unioned. The caller
 #                    picks 1-2 distinctive words from the intent, not a sentence.
 #   --plan <path>    OPTIONAL. The phase's 2_plan.md; supplies 'tracker:' when neither --tracker
@@ -70,14 +78,14 @@
 #   --create         create the issue; prints 'tracker-issue: created number=<n>' and then the URL,
 #                    URL last, so a caller that only wants the link keeps working unchanged.
 #
-# Exit codes: 0 = success (inferred / open work listed / dry-run printed / issue created), 1 = guard
-#             failure, 2 = usage error, 3 = NOT DONE, reason printed (gh missing or unauthenticated,
-#             an installed gh too old for --parent, or a recognized platform the harness does not
-#             implement) - the caller records "no issue yet" and continues. In --list-open, 3 means
-#             the check could not be performed at all, which the caller must report rather than treat
-#             as "nothing is open".
-# Dependencies: git + coreutils; 'gh' only for --create and --list-open, and its absence is a
-# supported path.
+# Exit codes: 0 = success (inferred / open work listed / issue read / dry-run printed / issue
+#             created), 1 = guard failure, 2 = usage error, 3 = NOT DONE, reason printed (gh missing
+#             or unauthenticated, an installed gh too old for --parent, or a recognized platform the
+#             harness does not implement) - the caller records "no issue yet" and continues. In
+#             --list-open and --show, 3 means the read could not be performed at all, which the
+#             caller must report rather than treat as empty.
+# Dependencies: git + coreutils; 'gh' only for --create, --list-open and --show, and its absence is
+# a supported path.
 # Knobs (env): HARNESS_UPSTREAM - upstream git URL of this harness, added to the never-target list.
 
 set -euo pipefail
@@ -145,12 +153,13 @@ BUNDLE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
 [ $# -ge 1 ] || usage
 
 plan=""; title=""; body=""; body_file=""; tracker=""; repo=""; create_mode=0; infer_mode=0
-list_mode=0; searches=""; parent=""
+list_mode=0; show_mode=0; show_ref=""; searches=""; parent=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --infer)      infer_mode=1; shift ;;
     --list-open)  list_mode=1; shift ;;
+    --show)       [ -n "${2:-}" ] || usage; show_mode=1; show_ref="$2"; shift 2 ;;
     --search)     [ -n "${2:-}" ] || usage; searches="$searches $2"; shift 2 ;;
     --plan)       [ -n "${2:-}" ] || usage; plan="$2"; shift 2 ;;
     --title)      [ -n "${2:-}" ] || usage; title="$2"; shift 2 ;;
@@ -248,9 +257,9 @@ fi
 # --- Guard cluster -----------------------------------------------------------------------------
 [ -n "$plan" ] && [ ! -f "$plan" ] && fail "plan file '$plan' missing"
 
-# The list mode reads the board; it has nothing to create, so the title/body requirements do not
-# apply to it. Every other mode keeps them.
-if [ "$list_mode" -eq 0 ]; then
+# The read modes have nothing to create, so the title/body requirements do not apply to them.
+# Every other mode keeps them.
+if [ "$list_mode" -eq 0 ] && [ "$show_mode" -eq 0 ]; then
   [ -n "$title" ] || fail "no --title given"
 
   if [ -n "$body_file" ]; then
@@ -259,7 +268,7 @@ if [ "$list_mode" -eq 0 ]; then
     body="$(cat "$body_file")"
   fi
   [ -n "$body" ] || fail "no issue body - pass --body <text> or --body-file <path>"
-else
+elif [ "$list_mode" -eq 1 ]; then
   searches="$(printf '%s' "$searches" | tr -s ' ' | sed -e 's/^ //' -e 's/ $//')"
   [ -n "$searches" ] || usage "--list-open needs at least one --search <text>"
 fi
@@ -275,6 +284,14 @@ fi
 if [ -z "$tracker" ]; then
   tracker="$(frontmatter_field "$plan" tracker || true)"
   tracker_source="plan"
+fi
+# --show is a read of this repository's board: when nothing else names the tracker, the origin
+# remote is direct evidence about this project. Creation still refuses rather than infer, because a
+# write must be pointed at a confirmed board (see the precedence note above).
+if [ -z "$tracker" ] && [ "$show_mode" -eq 1 ]; then
+  tracker="$(platform_for_host "$(remote_host "$(origin_url)")")"
+  [ "$tracker" = "unknown" ] && tracker=""
+  tracker_source="inferred"
 fi
 [ -n "${tracker// /}" ] || fail "no tracker resolved - run --infer and confirm the platform with the developer, or pass --tracker <platform>"
 
@@ -327,6 +344,41 @@ if [ "$list_mode" -eq 1 ]; then
     exit 3
   fi
   printf 'tracker-issue: %s\n' "$list_out"
+  exit 0
+fi
+
+# --- --show ------------------------------------------------------------------------------------
+# One issue, read back. Used by /monorepo-harness-spec to learn which task a tracker link names.
+# Same guard cluster as --list-open/--create above: the read must target this project's board and
+# must refuse the harness repo, or it would answer a question about a different repository.
+if [ "$show_mode" -eq 1 ]; then
+  if [ "$tracker" != "github" ]; then
+    echo "tracker-issue: cannot read issue '$show_ref' on '$tracker' - it is not implemented by this harness. Read '$tracker' yourself, then tell the developer what the task covers" >&2
+    exit 3
+  fi
+  # Accept N, #N and a full URL. gh reads the URL as-is (and rejects --repo alongside one); the
+  # short forms are normalized so the caller never has to know which spelling was pasted.
+  case "$show_ref" in
+    http://*|https://*) ;;
+    \#*) show_ref="${show_ref#\#}" ;;
+  esac
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "tracker-issue: 'gh' not found - could not read issue '$show_ref'; the task scope is UNKNOWN, not empty. Read it yourself or ask the developer" >&2
+    exit 3
+  fi
+  show_args=(issue view "$show_ref")
+  case "$show_ref" in
+    http://*|https://*) ;;
+    *) [ -n "$repo" ] && show_args+=(--repo "$repo") ;;
+  esac
+  show_args+=(--json number,state,title,body,url)
+  show_args+=(--jq '"tracker-issue: issue number=\(.number) state=\(.state) target='"$repo"'\n\(.url)\n--- title ---\n\(.title)\n--- body ---\n\(.body)"')
+  if ! show_out="$(gh "${show_args[@]}" 2>&1)"; then
+    printf '%s\n' "$show_out" >&2
+    echo "tracker-issue: could not read issue '$show_ref' - the task scope is UNKNOWN, not empty; report it and ask the developer" >&2
+    exit 3
+  fi
+  printf '%s\n' "$show_out"
   exit 0
 fi
 

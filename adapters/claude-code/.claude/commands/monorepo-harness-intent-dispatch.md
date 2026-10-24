@@ -1,5 +1,6 @@
 ---
 description: Turn an approved intent into phased tracker issues - check the intent's PR for an approval, record it, ask before filing work that may already be open, ask whether 2+ phases should be grouped under one parent epic issue, file the epic and its child issues, record every number back on the intent, then ask before merging the intent PR; writing no spec, plan or task directory (no implementation)
+argument-hint: "<intent.md>"
 ---
 
 Follow the shared instructions in

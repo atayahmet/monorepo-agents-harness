@@ -68,7 +68,7 @@ input (see `core/scripts/task-state.sh` for the checks):
 | Command | Validates | Writes |
 | ------- | --------- | ------ |
 | `/monorepo-harness-intent [review]` | — | `<workspace>/.agents/intents/intent_*.md` (`status: pending`, then `approved`) |
-| `/monorepo-harness-spec <intent.md?>` | intent **approved** (only when a path is given) | `1_spec.md` (+ `0_intent.md` = reference stub linking the approved intent) |
+| `/monorepo-harness-spec [<intent.md>] [<task-issue-url>]` | intent **approved** (only when a path is given); if the intent lists several tasks, pick one by link or answer | `1_spec.md` (+ `0_intent.md` = reference stub linking the approved intent; one task per invocation) |
 | `/monorepo-harness-plan <spec.md>` | spec present (`phase: spec`) + plan-mode consent | `2_plan.md` |
 | `/monorepo-harness-build <plan.md>` | chain: plan + spec present; intent approved **if** the task is intent-seeded | `build_started` on the plan, then for a `red-first` task the failing tests and their recorded output **before** implementation, then implementation (**confined to the spec/plan scope**, see Build scope below) + `3_memory.md` + `4_verify.md` (including `## Red evidence`) + `check-red-evidence` advisory + `kb-ingest.sh <task_dir>` + `check-kb` + a review suggestion (`build-review-tier.sh`, see "After the build" below) |
 
@@ -148,17 +148,28 @@ Design precedes Build); `2_plan.md` (the "how") then builds against this spec in
    (`cat apps/*/.agents/artifacts/index.md packages/*/.agents/artifacts/index.md`); for a
    **cross-cutting** task, also grep the sibling workspace indexes. When the project has no `apps/` or
    `packages/` (the workspace is the repo root), the index is `.agents/artifacts/index.md`.
-3. **Approved intent (via `-spec`, else best-effort)** — when `/monorepo-harness-spec <intent.md>`
-   is used, it runs `task-state.sh check-intent-approved`, refuses to write if the intent is not
-   approved, and writes a reference stub linking to the approved intent as `0_intent.md` — never a
-   copy of its content, so the intent file stays the single source of truth. When the spec is
-   written without `-spec` (plan-mode exit), fall back to the best-effort check below: if
-   `<workspace>/.agents/intents/` exists, check whether an `approved` intent plausibly matches this
-   task (by slug, keywords, or affected files). On a match, write the same reference stub into the
-   task directory as `0_intent.md`, include `intent: 0_intent.md` in the spec frontmatter, and
-   reference it from `2_plan.md`'s `## Problem` (Phase 2). Most ad-hoc tasks have no intent behind
-   them — omit the `intent:` frontmatter line and skip silently if none matches or the directory
-   doesn't exist. See `core/skills/intent-workflow/SKILL.md`.
+3. **Approved intent (via `-spec`, else best-effort)** — `/monorepo-harness-spec` accepts
+   `[<intent.md>] [<task-issue-url>]`. An intent is a **seed reference**, not a task: one
+   dispatched intent may be split into several phases/issues. A spec always covers **exactly one
+   task**.
+   - **If a task link is given:** run `bash <bundle>/core/scripts/tracker-issue.sh --show <task-issue-url>`
+     (GitHub via `gh`, exit 3 handoff otherwise), match it against the intent's **newest `## Dispatch`
+     block** (`#<number>` or URL), and write the spec for that single task only. If there is no match
+     or the read fails (exit 3), ask which task this spec covers and its scope — never guess.
+   - **If an intent path is given without a task link:** run `task-state.sh check-intent-approved`,
+     refuse to write if it is not approved, and **if the newest `## Dispatch` block lists more than one
+     phase/task, stop and ask "This intent has several tasks — which task should this spec cover?"**
+     (show the slugs and issue links). Do **not** create multiple task directories or write multiple
+     specs in one invocation. If exactly one phase exists or there is no `## Dispatch` block,
+     proceed for that task and write a reference stub linking to the approved intent as `0_intent.md`
+     (never a copy of its content, so the intent file stays the single source of truth).
+   - **Plan-mode exit / no `-spec`:** fall back to the best-effort check below: if
+     `<workspace>/.agents/intents/` exists, check whether an `approved` intent plausibly matches this
+     task (by slug, keywords, or affected files). On a match, write the same reference stub into the
+     task directory as `0_intent.md`, include `intent: 0_intent.md` in the spec frontmatter, and
+     reference it from `2_plan.md`'s `## Problem` (Phase 2). Most ad-hoc tasks have no intent behind
+     them — omit the `intent:` frontmatter line and skip silently if none matches or the directory
+     doesn't exist. See `core/skills/intent-workflow/SKILL.md`.
 
    To avoid copying the intent by mistake, generate this stub mechanically with
    `bash <bundle>/core/scripts/write-intent-ref.sh <task_dir> <intent.md>`. The script validates that
