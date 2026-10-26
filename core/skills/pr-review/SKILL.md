@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Review the current diff against this project's REVIEW.md policy (or built-in defaults) and, when the diff maps to a known task, against that task's 2_plan.md/1_spec.md/4_verify.md — including its recorded knowledge-base query. Reports findings tagged Important/Nit. Use when the user types /monorepo-harness-review or asks to review a PR, diff, or set of changes.
+description: Review the current diff against this project's REVIEW.md policy (or built-in defaults) and, when the diff maps to a known task, against that task's 2_plan.md/1_spec.md/4_verify.md — including its recorded knowledge-base query. Reports findings tagged Important/Nit. For a deeper security audit, use /monorepo-harness-security-review with the security-review skill. Use when the user types /monorepo-harness-review or asks to review a PR, diff, or set of changes.
 ---
 
 # PR Review

@@ -32,3 +32,4 @@ copy  .claude/agents/tracker.md
 
 merge .claude/settings.json
 tmpl  CLAUDE.md
+copy  .claude/commands/monorepo-harness-security-review.md
