@@ -41,9 +41,11 @@ Follow the shared instructions in
 8. When the build is finished, suggest a review. Run
    `bash .agents/monorepo-agents-harness/core/scripts/build-review-tier.sh <task_dir>` and read its
    first line. If it is `simple`, add one informational line to the closing report — the developer may
-   run `/monorepo-harness-review`. If it is `comprehensive`, ask the developer whether to run
-   `/monorepo-harness-review` now; on yes, run the `pr-review` skill inline and report its findings.
-   This step is advisory — it never blocks the task.
+   run `/monorepo-harness-review`. Also mention `/monorepo-harness-security-review` as an optional
+   deeper security review if desired. If it is `comprehensive`, ask the developer whether to run
+   reviews now; offer both `/monorepo-harness-review` (`pr-review` skill) and
+   `/monorepo-harness-security-review` (`security-review` skill). On yes, run the chosen review(s)
+   inline and report their findings. This step is advisory — it never blocks the task.
 
 Do **not** write `1_spec.md` or `2_plan.md` here — those belong to `/monorepo-harness-spec` and
 `/monorepo-harness-plan`.

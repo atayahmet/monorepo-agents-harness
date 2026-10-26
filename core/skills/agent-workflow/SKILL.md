@@ -330,15 +330,17 @@ bash <bundle>/core/scripts/build-review-tier.sh <task_dir>
 ```
 
 - **`simple`** (≤3 changed files **and** no architectural signal) — add one informational line to the
-  closing report: the developer may run `/monorepo-harness-review` to review the diff. Do **not** ask.
+  closing report: the developer may run `/monorepo-harness-review` to review the diff. Also mention
+  `/monorepo-harness-security-review` as an optional deeper security review if desired. Do **not** ask.
 - **`comprehensive`** (more files, or an architectural signal: an `adr/` file, or a non-`N/A`
   `## Architectural decisions` / `## API / contracts` / `## Data model` section) — ask the developer
-  whether to run `/monorepo-harness-review` now. On **yes**, run the `pr-review` skill inline and
-  report its findings; on **no**, finish normally.
+  whether to run reviews now. Offer both `/monorepo-harness-review` (`pr-review` skill) and
+  `/monorepo-harness-security-review` (`security-review` skill). On **yes**, run the chosen review(s)
+  inline and report their findings; on **no**, finish normally.
 
 This step is **advisory**: it never blocks a task from closing, never writes a file, and never runs a
-review without the developer's choice. The review itself stays report-only — see
-`core/skills/pr-review/SKILL.md`.
+review without the developer's choice. The reviews are report-only — see
+`core/skills/pr-review/SKILL.md` and `core/skills/security-review/SKILL.md`.
 
 ## Slug & directory naming rules
 
