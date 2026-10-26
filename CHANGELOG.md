@@ -17,6 +17,16 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.27] - 2026-10-26
+
+### Added
+
+- **Security review at end of build (issue #53)**: added a dedicated `security-review` skill under `core/skills/security-review/` for deeper security audits (authn/authz, injection, secrets, unsafe deserialization, webhooks/dependencies, OWASP Top 10-class issues) using task artifacts and diff scope. Added `monorepo-harness-security-review` command in every adapter that has `monorepo-harness-review` (Claude Code, Codex, OpenCode). Wired into the build closing stage: `build-review-tier.sh` behavior unchanged; for `simple` builds both reviews are mentioned as optional, for `comprehensive` builds the developer is asked and offered both `/monorepo-harness-review` (`pr-review`) and `/monorepo-harness-security-review` (`security-review`) to run inline if desired. The security review is report-only with the same advisory contract as `pr-review`. Added pointer from `pr-review` to `security-review`. New files added to adapter manifests.
+
+### Upgrade Notes
+
+- **Instruction/script-only release; nothing to run.** Changed skill, adapter commands and stubs ship via manifests/bundle; run `core/scripts/install-harness.sh --sync-only` and `core/scripts/install-adapter.sh <agent> --refresh` as usual.
+
 ## [0.4.0-rc.26] - 2026-10-24
 
 ### Added
