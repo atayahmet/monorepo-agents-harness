@@ -58,3 +58,9 @@ INSTALL.md
 PORTABILITY.md
 CHANGELOG.md
 LICENSE
+core/team
+core/team/AGENTS.md
+core/team/team.example.yml
+core/scripts/team.sh
+core/skills/team-registry
+core/skills/team-registry/SKILL.md
