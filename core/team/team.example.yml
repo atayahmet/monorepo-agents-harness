@@ -1,0 +1,38 @@
+# .agents/team.yml template
+# Copy to <repo-root>/.agents/team.yml and fill in. Installer never creates this file.
+version: 1
+
+members:
+  - key: alice
+    name: Alice Example
+    role: developer
+    title: Staff Engineer
+    ids:
+      git:
+        - alice@example.com
+        - alice@users.noreply.github.com
+      github: alice-example
+      # jira: "557058:0000"
+      # slack: U0000000
+  - key: carol
+    name: Carol Example
+    role: developer
+    title: Engineer
+    ids:
+      git:
+        - carol@example.com
+      github: carol-example
+
+contacts:
+  - key: bob
+    name: Bob Example
+    role: product_owner
+    title: Product Owner
+    ids:
+      slack: U1111111
+
+assignee_by_workspace:
+  .: [alice]
+  apps/api: [alice, carol]
+  apps/web: []
+  # libs/payments/*: [carol]
