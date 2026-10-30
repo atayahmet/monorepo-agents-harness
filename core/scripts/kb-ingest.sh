@@ -8,6 +8,10 @@
 # (WRITE mode) right after 3_memory.md / 4_verify.md / adr/ are written, so the KB update lands in
 # the same commit — there is no batch/backfill compiler. Running it twice is idempotent.
 #
+# The pages it writes are upserted into the derived SQLite index (kb-index.sh add), so they are
+# queryable the moment ingest ends. That step is best-effort: no sqlite3/FTS5 or a failed add never
+# fails the ingest (a later query or rebuild repairs the index).
+#
 # No task memory (research-only / N/A) => clean no-op (exit 0), nothing written.
 #
 # USAGE:
@@ -191,6 +195,22 @@ if [ "$adr_count" -gt 0 ]; then
 fi
 if [ -n "$vf_page" ]; then
   catalog_row "Verified facts (from 4_verify.md)" "| $slug | Claims from $rel/4_verify.md — [verified-facts/$slug.md](verified-facts/$slug.md) |"
+fi
+
+# --- 6. derived index: upsert every page this run wrote or left in place ------------------------------
+idx_pages=("modules/$ws.md" "sources/$slug.md" "log.md" "index.md")
+[ -z "$vf_page" ] || idx_pages+=("verified-facts/$slug.md")
+for adr in "$TASK_DIR"/adr/*.md; do
+  [ -f "$adr" ] && idx_pages+=("decision-records/$(basename "$adr")")
+done
+if [ "$WRITE" -eq 1 ]; then
+  if bash "$(dirname "${BASH_SOURCE[0]}")/kb-index.sh" add --kb "$KB" "${idx_pages[@]/#/$KB/}" 2>/dev/null; then
+    echo "kb-ingest:   index updated (${#idx_pages[@]} page(s))"
+  else
+    echo "kb-ingest:   index not updated (kb-index add exited $?) — the next query or rebuild repairs it"
+  fi
+else
+  echo "kb-ingest:   (dry-run) would update the index: ${idx_pages[*]}"
 fi
 
 echo "kb-ingest: done. Run 'task-state.sh check-kb $TASK_DIR' to verify coverage."

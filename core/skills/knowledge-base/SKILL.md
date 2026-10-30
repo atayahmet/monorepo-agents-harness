@@ -48,8 +48,9 @@ is unavailable — the workflow never depends on the cache being there.
 
 1. Ranked search first: `bash .agents/monorepo-agents-harness/core/scripts/kb-index.sh query
    "<terms>" [--kind <k>] [--workspace <w>] [--limit <n>]` — BM25-ranked paths with snippets
-   (kind, workspace, date per row). The index self-heals staleness before it answers, so a page
-   ingested a moment ago is found with no manual rebuild. Open only the top hits. Record the result
+   (kind, workspace, date per row). `kb-ingest.sh` upserts the pages it writes (`kb-index.sh add`), and
+   the index self-heals staleness before it answers, so a page ingested a moment ago is found with no
+   manual rebuild. Open only the top hits. Record the result
    in the plan's `## Related prior work` as a `- KB:` line — `- KB: [[<page>]] (knowledge/…)` for
    hits, or `- KB: no relevant pages` for none (the trace `check-plan`/`check-chain` advise on).
 2. Still broad — or the command printed one warning and exited non-zero (no `sqlite3`/FTS5):
