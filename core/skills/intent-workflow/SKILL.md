@@ -1,6 +1,6 @@
 ---
 name: intent-workflow
-description: Capture a stakeholder's problem description as an intent file before it becomes a plan-mode task, querying the repo-root knowledge base (kb-index.sh query) for prior art when capturing or reviewing, let a product owner or manager review pending intents and approve or reject them, approve an intent from its PR link (/monorepo-harness-intent --approve) by recording status: approved plus a Review section on the PR branch and submitting a real approving review on the forge so the unchanged merge gate passes, reject an intent from its PR link (/monorepo-harness-intent --reject) by recording status: rejected plus a Review section on the PR branch and merging it without a PR approval, and dispatch an approved intent into scoped phases with one tracker issue per phase - filing a single parent issue that groups them when there is more than one, asking first whether the work is already open and whether the intent's PR should be merged, and recording every issue it filed back on the intent - writing no spec, plan or task directory of its own. Use when the user types /monorepo-harness-intent or /monorepo-harness-intent-dispatch, describes a new feature/problem without being in an active coding task, asks to review pending intents, asks to approve an intent from its PR link, asks to reject an intent from its PR link, or asks to turn an approved intent into work.
+description: Capture a stakeholder's problem description as an intent file before it becomes a plan-mode task - with --pr [--draft], also pushing the intent/<slug> branch and opening its pull request on the project's forge (forge.sh create) and recording pr: on the intent - querying the repo-root knowledge base (kb-index.sh query) for prior art when capturing or reviewing, let a product owner or manager review pending intents and approve or reject them, approve an intent from its PR link (/monorepo-harness-intent --approve) by recording status: approved plus a Review section on the PR branch and submitting a real approving review on the forge so the unchanged merge gate passes, reject an intent from its PR link (/monorepo-harness-intent --reject) by recording status: rejected plus a Review section on the PR branch and merging it without a PR approval, and dispatch an approved intent into scoped phases with one tracker issue per phase - filing a single parent issue that groups them when there is more than one, asking first whether the work is already open and whether the intent's PR should be merged, and recording every issue it filed back on the intent - writing no spec, plan or task directory of its own. Use when the user types /monorepo-harness-intent or /monorepo-harness-intent-dispatch, describes a new feature/problem without being in an active coding task, asks to review pending intents, asks to capture an intent and open its PR (/monorepo-harness-intent --pr), asks to approve an intent from its PR link, asks to reject an intent from its PR link, or asks to turn an approved intent into work.
 ---
 # Intent Capture, Review, Reject, and Dispatch
 
@@ -36,7 +36,10 @@ read-only and its exit codes decide what you do (full table: `core/team/AGENTS.m
 ## Workflow — Capture
 
 Triggered when a stakeholder describes a new problem or feature idea, or explicitly asks to file an
-intent.
+intent. `/monorepo-harness-intent --pr [--draft] <description>` is the same flow carried through to an
+open pull request — see "With `--pr`" after step 7. `--draft` without `--pr` is a usage error, and so
+is `--pr` together with `--approve`, `--reject` or `review`: refuse before any read or write, and say
+which flag to drop.
 
 1. **Always ask which workspace the intent should be filed under.** Present the workspace you would
    recommend as the prompt's own suggestion, then let the author confirm or override it. Resolve the
@@ -52,14 +55,27 @@ intent.
    **with git** (`git switch -c intent/<slug>` or `git checkout -b intent/<slug>`) *before* writing
    the file, so the intent lives in isolation; if they decline, stay on the current branch and write
    the file there — never create a branch without the explicit in-turn answer, and never leave the
-   working tree on a branch the author didn't consent to.
+   working tree on a branch the author didn't consent to. **With `--pr` the flag is that answer**:
+   skip the question, check first that `intent/<slug>` exists neither locally
+   (`git show-ref --verify --quiet refs/heads/intent/<slug>`) nor on the remote
+   (`git ls-remote --exit-code --heads origin intent/<slug>`). If it exists, stop and ask for another
+   slug; never reuse or overwrite it. `ls-remote --exit-code` exits 2 when the branch is absent, and
+   that is the only exit that means "free": any other non-zero exit (network, credentials) means the
+   remote could not be checked, so stop and report it instead of going on. Then create the branch
+   **from the default branch**: take `<default>` from
+   `bash .agents/monorepo-agents-harness/core/scripts/forge.sh default-branch` (the same answer
+   `forge.sh create` uses as the PR base; exit 3 means it cannot tell, so ask the developer),
+   run `git fetch origin <default>`, and `git switch -c intent/<slug> origin/<default>`. If the fetch
+   fails, or git refuses because local changes would be overwritten, stop and report that; do not stash.
 4. **Ask separately whether to commit the intent file to that branch.** Only when step 3 created a
    branch, ask e.g. "Commit `intent_add_login_form.md` to `intent/add_login_form` now?" — a distinct
    consent, not bundled with the branch question. On an explicit yes, commit the `status: pending`
    intent file to the branch; on no or when no branch was created, leave the file in the working tree
    uncommitted. Do not commit an intent unless the author answers this in the current turn — the
    intent is still `pending` and the author decides whether it lives on a dedicated commit or just in
-   the working tree.
+   the working tree. **With `--pr` the flag is that answer too**: commit **only** the intent file, as
+   `chore(intent): capture <title>` (`git add -- <file>` then `git commit -m … -- <file>`), after step 6
+   has written it. Anything else in the working tree is left alone, unstaged — say so in the report.
 5. **Query the knowledge base first, before writing the intent (mandatory)** — run
    `bash .agents/monorepo-agents-harness/core/scripts/kb-index.sh query "<1-3 keywords>"` over the
    repo-root `knowledge/` (BM25-ranked; grep fallback when `sqlite3`/FTS5 is unavailable) and read the
@@ -76,7 +92,52 @@ intent.
    there are none. If a diagram would clarify the intent better than text alone, add an optional
    `## Visual summary` section with a mermaid diagram; do not add a diagram if it feels forced.
 7. Confirm to the author what was recorded (workspace, branch, commit status) and that it now awaits
-   review — do not imply it has been approved or that work will start.
+   review — do not imply it has been approved or that work will start. With `--pr`, do this after the
+   steps below instead, as part of their single report.
+
+### With `--pr` — push, open the PR, record it
+
+`--pr` is the author's consent to branch, commit, push and open the pull request; nothing is asked
+again except the workspace (step 1). It is **not** a review decision: it never enters the approve,
+reject or merge path. Steps 1–6 run as above (with the flag answering steps 3–4), then:
+
+1. **Push.** `git push -u origin intent/<slug>` — always `-u`, so the later push of `pr:` needs no
+   upstream. Never push the default branch, never force-push. If the push fails, keep the local
+   commit, open no PR, and report git's error.
+2. **Open the PR.** Write the body to a temp file with this fixed shape, then run
+   `bash .agents/monorepo-agents-harness/core/scripts/forge.sh create --head intent/<slug> --title "<the commit subject>" --body-file <tmp> [--draft] --yes`:
+
+   ```
+   Intent: `<workspace>/.agents/intents/intent_<YYYY_MM_DD>_<slug>.md`
+
+   <3-5 lines taken from ## Problem and ## Proposed outcome>
+
+   No code change. Approving this PR approves the intent.
+   ```
+
+   Add the adapter's agent-attribution line after it, as the adapter's rules require. The base is the
+   default branch; the script resolves it.
+3. **Read the script's answer.**
+   - **Exit 0, `created PR <url>`** or **`already open`** → the url is the PR. Continue to step 4.
+   - **Exit 3** → nothing was opened. Relay what it printed: for an MCP or skill forge it prints the
+     whole request (title, head, base, body) — open the PR yourself with that server's own tool, then
+     continue to step 4 with the url it returns. With no mechanism it prints paste-ready steps: give
+     them to the developer. The branch stays pushed and the intent stays valid without `pr:`.
+     `--draft` on a forge with no draft state (Bitbucket) also exits 3: ask whether to open a normal
+     PR, and re-run without `--draft` only on a yes.
+   - **Exit 1** → the forge refused or could not confirm. Report its message; do not retry blindly.
+   - **Exit 2** → the call itself was wrong (a missing or empty argument, or no default branch it can
+     find). Fix the call, for example by passing `--base <default>` from `forge.sh default-branch`, and
+     run it again. Nothing was opened.
+4. **Record the PR on the intent.** Set `pr: <url>` in the intent's frontmatter, commit only that file
+   as `chore(intent): record PR link`, and `git push`. If this commit or push fails, report the PR url
+   anyway — the PR is never lost, and `pr:` can be added by hand.
+5. **Report**: the branch, the commits, the PR url (or the exact reason there is none), what was left
+   alone in the working tree, and the next step: `/monorepo-harness-intent --approve <url>`.
+
+A capture session that records several intents runs this whole sequence once per intent, one after
+another: each gets its own `intent/<slug>` branch from the default branch, its own commit and its own
+PR. Never put two intents in one commit or one PR.
 
 ## Workflow — Review
 
@@ -501,7 +562,8 @@ the harness docs or the session history.
 An approved intent is optional input to plan-mode work, not a requirement — see
 `core/governance/intents/AGENTS.md`'s "Relationship to the plan/spec/memory/verify workflow" and
 `core/skills/agent-workflow/SKILL.md` Phase 1. **Capture** and **Review** create nothing beyond the
-intent file itself, **Approve** adds only the intent's status/`## Review` section (on the PR branch),
+intent file itself (**Capture with `--pr`** adds only the `intent/<slug>` branch and its push, the pull
+request through `forge.sh create`, and the `pr:` line on the intent), **Approve** adds only the intent's status/`## Review` section (on the PR branch),
 a real forge approving review (via `forge.sh approve`), and (on yes) the PR merge through
 `task-state.sh merge-intent-pr` (the file never substitutes for that review); **Reject** adds only
 the intent's status/`## Review` section (on the PR branch) and the merge; and **Dispatch** adds only
@@ -520,6 +582,17 @@ re-reading the conversation, which is why each is a question first and a script 
 
 ## Edge cases
 
+- **`--pr` and `intent/<slug>` already exists** (locally or on the remote): stop before writing
+  anything and ask for another slug. Never reuse, reset or overwrite the branch.
+- **`--pr` with other changes in the working tree**: only the intent file is staged and committed; say
+  that the rest was left alone. Never `git add -A` or `git commit -a`.
+- **`--pr` and the push fails**: the local commit stays, no PR is opened, and git's error is reported.
+- **`--pr` opened the PR but the `pr:` commit or its push failed**: report the PR url first, then the
+  failure. The intent is still valid without `pr:`.
+- **`--pr` and the forge cannot be reached by the script** (exit 3): not a failure of the capture. The
+  intent is committed and the branch is pushed; hand over the request or the paste-ready steps.
+- **`--pr` is never a review decision**: it does not write `status:` or `## Review`, submit a review
+  or merge anything. Approval and merge stay with `--approve` / `--reject` / Dispatch.
 - **No `<workspace>/.agents/intents/` yet**: run
   `core/scripts/scaffold-workspace-agents.sh` first (it seeds `intents/AGENTS.md` for every
   discovered workspace), or create the directory manually before writing the first intent.

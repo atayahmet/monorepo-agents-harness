@@ -97,6 +97,13 @@ record stays readable after the person leaves the registry. Without a registry t
 exactly as before. Existing intents are never rewritten to normalize old values — they were true on
 their date.
 
+**`pr:` can be written at capture time.** `/monorepo-harness-intent --pr` pushes the `intent/<slug>`
+branch, opens the pull request through `core/scripts/forge.sh create`, and then records the PR url in
+`pr:` in a second commit (`chore(intent): record PR link`) on the same branch — so `--approve`,
+`--reject` and Dispatch find the PR without asking. The flag is only the author's consent to branch,
+commit, push and open the PR: it writes no `status:` and no `## Review`, and is never a review
+decision. Without `--pr` the field stays optional and is filled by hand, as before.
+
 A `## Review` section is written **once per intent, ever** — Review writes it on the interactive
 decision, `/monorepo-harness-intent --approve <PR-url>` writes it on the PR-based approve path,
 and `/monorepo-harness-intent --reject <PR-url>` writes it on the PR-based decline path
