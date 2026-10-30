@@ -159,6 +159,13 @@ both="$(idx links)"
 says "links with no flag runs both lints" "$both" "orphan: concepts/orphan.md"
 says "links with no flag runs both lints" "$both" "missing: concepts/ghost"
 
+echo "kb-index — relative links resolve to a page"
+
+new_fixture
+printf '# Concept: rel\n\nSee [retry](../concepts/retry.md) and [src](./../sources/task_2026_01_02_add_retry.md).\n' > "$FIXTURE/knowledge/modules/rel.md"
+idx rebuild
+is "a ../ link normalizes to its page" "$(db "SELECT group_concat(target) FROM (SELECT target FROM links WHERE from_path='modules/rel.md' ORDER BY target);")" "concepts/retry,sources/task_2026_01_02_add_retry"
+
 echo "kb-index — usage and dry-run"
 
 new_fixture
@@ -168,6 +175,76 @@ is "an unknown subcommand is a usage error" "$(idx_code bogus)" "2"
 is "a non-numeric --limit is rejected" "$(idx_code query retry --limit x)" "2"
 idx rebuild --dry-run >/dev/null
 if [ -f "$FIXTURE/knowledge/.index.sqlite" ]; then bad "dry-run writes nothing" ".index.sqlite exists"; else ok "dry-run writes nothing"; fi
+
+echo "kb-index — incremental add (issue #63)"
+
+dump() { sqlite3 "$FIXTURE/knowledge/.index.sqlite" "SELECT path,kind,COALESCE(workspace,''),COALESCE(task_slug,''),COALESCE(date,''),title,body FROM docs ORDER BY path; SELECT from_path,target FROM links ORDER BY 1,2;"; }
+fts_hits() { sqlite3 "$FIXTURE/knowledge/.index.sqlite" "SELECT count(*) FROM docs_fts WHERE docs_fts MATCH '$1';"; }
+
+new_fixture
+idx rebuild
+printf '# Concept: fallback\n\nWithout sqlite3 the skill falls back to grep. See [[concepts/retry]].\n' > "$FIXTURE/knowledge/concepts/fallback.md"
+out="$(idx_all add knowledge/concepts/fallback.md)"
+says "add upserts in place" "$out" "updated 1 page(s)"
+not_says "add does not fall back to a rebuild" "$out" "indexed"
+is "add exits 0" "$(idx_code add concepts/fallback.md)" "0"
+is "add inserts the page" "$(db 'SELECT count(*) FROM docs;')" "7"
+says "a page added incrementally is found by query" "$(idx query "fallback grep")" "concepts/fallback.md"
+is "its link edges are recorded" "$(db "SELECT count(*) FROM links WHERE from_path='concepts/fallback.md';")" "1"
+idx add concepts/fallback.md "$FIXTURE/knowledge/concepts/fallback.md"
+is "adding twice keeps one docs row" "$(db "SELECT count(*) FROM docs WHERE path='concepts/fallback.md';")" "1"
+is "adding twice keeps one links row" "$(db "SELECT count(*) FROM links WHERE from_path='concepts/fallback.md';")" "1"
+is "adding twice keeps one FTS row per page" "$(fts_hits fallback)" "1"
+fts_ok() { sqlite3 "$FIXTURE/knowledge/.index.sqlite" "INSERT INTO docs_fts(docs_fts,rank) VALUES('integrity-check',1);" >/dev/null 2>&1 && echo ok || echo corrupt; }
+is "docs_fts passes the FTS5 integrity check" "$(fts_ok)" "ok"
+
+printf '# Concept: fallback\n\nNow it talks about zebra instead.\n' > "$FIXTURE/knowledge/concepts/fallback.md"
+idx add concepts/fallback.md
+silent "old terms stop matching after an update" "$(idx query "grep")"
+says "new terms match after an update" "$(idx query "zebra")" "concepts/fallback.md"
+is "the update dropped the old link edges" "$(db "SELECT count(*) FROM links WHERE from_path='concepts/fallback.md';")" "0"
+is "no stale FTS row survives the update" "$(fts_hits grep)" "0"
+is "docs_fts still passes the integrity check after an update" "$(fts_ok)" "ok"
+
+# equivalence: pages upserted one by one into an existing index equal a full rebuild
+new_fixture
+idx rebuild
+silent "add with no database is a quiet no-op" "$(rm -f "$FIXTURE/knowledge/.index.sqlite"; idx_all add knowledge/index.md)"
+is "add with no database creates none" "$([ -f "$FIXTURE/knowledge/.index.sqlite" ] && echo yes || echo no)" "no"
+idx rebuild
+sleep 1
+pages="index.md modules/api.md modules/README.md concepts/retry.md concepts/orphan.md sources/task_2026_01_02_add_retry.md"
+for f in $pages; do printf '\nextra line for %s\n' "$f" >> "$FIXTURE/knowledge/$f"; done
+out="$(idx_all add $pages)"
+says "an add of known pages upserts all of them" "$out" "updated 6 page(s)"
+not_says "an add of known pages is not a rebuild" "$out" "indexed"
+inc="$(dump)"
+q_inc="$(idx query "retry extra")"
+rm -f "$FIXTURE/knowledge/.index.sqlite"
+idx rebuild
+is "incremental dump equals a full rebuild" "$inc" "$(dump)"
+is "incremental query output equals a full rebuild" "$q_inc" "$(idx query "retry extra")"
+
+# guard: a page changed behind the index's back must not be hidden by an add of another page
+new_fixture
+idx rebuild
+sleep 1
+printf '# Concept: sneaky\n\nWritten after the index and never added.\n' > "$FIXTURE/knowledge/concepts/sneaky.md"
+printf '# Concept: other\n\nAdded explicitly.\n' > "$FIXTURE/knowledge/concepts/other.md"
+idx add concepts/other.md
+says "the explicitly added page is found" "$(idx query "explicitly")" "concepts/other.md"
+says "a page changed behind the index is not hidden by add" "$(idx query "sneaky")" "concepts/sneaky.md"
+
+# degraded and usage paths
+new_fixture
+idx rebuild
+is "add without paths is a usage error" "$(idx_code add)" "2"
+is "add of a missing file is a usage error" "$(idx_code add concepts/ghost.md)" "2"
+is "add of a file outside knowledge/ is a usage error" "$(idx_code add /etc/hosts)" "2"
+err="$( cd "$FIXTURE" && PATH=/nonexistent /bin/bash "$SCRIPT" add concepts/retry.md 2>&1 )"
+rc=$?
+is "add without sqlite3 exits 1" "$rc" "1"
+says "add without sqlite3 warns once about the cause" "$err" "sqlite3 not found"
 
 echo
 echo "kb-index: $pass passed, $fail failed"

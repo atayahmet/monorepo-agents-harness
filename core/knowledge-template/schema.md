@@ -38,9 +38,12 @@ update this file in the same change that updates the pages.
 
 - Markdown is the source of truth; the database is derived, gitignored, never hand-edited and
   always safe to delete — the next `query` rebuilds it.
-- It self-heals staleness: before answering, `kb-index.sh` rebuilds when any page is newer than the
-  index or the page count differs. `kb-ingest.sh` deliberately never touches it, so task-end cost
-  stays zero.
+- `kb-ingest.sh` upserts the pages it writes with `kb-index.sh add <path>...` (one transaction; the
+  old row, FTS entry and link edges of a page are replaced, never duplicated), so a task's pages are
+  queryable the moment ingest ends. A missing `sqlite3`/FTS5 or a failed add never fails the ingest.
+- `rebuild` stays the full, safe path, and the index self-heals staleness: before answering,
+  `kb-index.sh` rebuilds when any page is newer than the index or the page count differs. `add` does
+  the same check for every page it was NOT given, so it can never hide an unindexed page.
 - Tables: `docs` (path, kind, workspace, task_slug, date, title, body, mtime), `docs_fts` (FTS5 over
   title + body — BM25 ranking and `snippet()`), `links` (`from_path` → `target` edges from both
   `[[wiki-link]]` and markdown links).

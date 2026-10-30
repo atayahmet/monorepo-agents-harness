@@ -17,6 +17,46 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.32] - 2026-10-30
+
+### Added
+
+- **`kb-index.sh add <path>...` (issue #63)**: upserts single `knowledge/` pages into the SQLite FTS5 index in
+  one transaction. For each page the old `docs` row, its `docs_fts` entry (FTS5 `'delete'` command with the old
+  values) and its `links` rows are replaced, so repeating an add duplicates nothing. Paths may be absolute,
+  cwd-relative or `knowledge/`-relative. No index yet is a quiet no-op (the first `query` builds it); no
+  `sqlite3`/FTS5 exits 1 with the usual single warning. If any page other than the ones given changed since the
+  index was written, `add` rebuilds in full instead, so a bumped database mtime can never hide an unindexed page
+  from `query`. Rows come from the same `page_sql` function `rebuild` uses, so an index grown page by page equals
+  a full rebuild.
+- Repo-local tests: `tests/kb-ingest-index.test.sh`; `tests/kb-index.test.sh` gains an `add` section.
+
+### Changed
+
+- **`kb-ingest.sh`** now upserts every page it writes or leaves in place (module, sources, verified-facts, ADR
+  copies, `log.md`, `index.md`) with `kb-index.sh add`, so a task's pages are queryable the moment ingest ends,
+  with no full rebuild. The step is best-effort: a missing `sqlite3`/FTS5 or a failed add is reported and never
+  fails the ingest: it says so when there is no index yet, and prints the reason when an add fails for any
+  cause other than a missing `sqlite3`/FTS5. `--dry-run` names the pages it would index and writes nothing.
+- `core/knowledge-template/schema.md` (index-layer rules: ingest used to be documented as never touching the
+  index) and `core/skills/knowledge-base/SKILL.md` (query step 1).
+
+### Fixed
+
+- **`kb-index.sh` relative links**: `norm_path` dropped the last segment of a path whose text had no trailing
+  newline, so `[x](../concepts/foo.md)` was stored as an edge to `concepts` and `links --missing` / `--orphans`
+  misjudged such pages. It now resolves to `concepts/foo`. Found while testing `add`, whose path handling
+  uses the same function; run `kb-index.sh rebuild` once to refresh edges already stored.
+
+### Upgrade Notes
+
+- Nothing to run. `/monorepo-harness-update` syncs the changed scripts and skill; no manifest row was added.
+  An existing `knowledge/.index.sqlite` stays valid and is updated in place by the next ingest.
+  `changelogs/version-0.4.0-rc.32.md` lists one optional follow-up: `knowledge/schema.md` in a consumer
+  project is seeded once and not overwritten, so its index-layer bullet still says ingest never touches the
+  index. Nothing depends on that sentence.
+- No change to `core/root-AGENTS.md`.
+
 ## [0.4.0-rc.31] - 2026-10-30
 
 ### Added
