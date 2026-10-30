@@ -17,6 +17,41 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.31] - 2026-10-30
+
+### Added
+
+- **`/monorepo-harness-intent --pr [--draft]` (issue #60)**: capture can now carry an intent through to an
+  open pull request. The flag is the author's consent to branch, commit, push and open the PR: the harness
+  creates `intent/<slug>` from the default branch, commits only the intent file, pushes with
+  `git push -u`, opens the PR on the project's forge, then records `pr: <url>` in a second commit
+  (`chore(intent): record PR link`) so `--approve` / `--reject` / dispatch find it without asking. The
+  workspace question is still asked. It is never a review decision: it writes no `status:` or `## Review`,
+  and never approves or merges. Guards: an existing `intent/<slug>` stops the run, only the intent file is
+  staged, a failed push opens no PR, and a failed `pr:` commit still reports the PR url. A capture session
+  with several intents opens one PR per intent.
+- **`forge.sh create`**: opens the pull request. Same mechanism ladder as `approve` / `merge`: `gh` / `glab`
+  / `tea`, then REST with the project's existing token variable, then a handoff for MCP and project-skill
+  forges (it prints the whole request and exits 3), then paste-ready steps. Dry-run unless `--yes`;
+  `--explain` prints the plan. An open PR for the head branch is reported, not duplicated, and a create is
+  confirmed by the url the forge returns (a response with no url exits 1). `--draft` works on GitHub,
+  GitLab and Gitea; Bitbucket has no draft state and exits 3. It never pushes, approves, merges or
+  assigns reviewers.
+- Repo-local tests: `tests/forge-create.test.sh` and `tests/intent-pr-parity.test.sh`;
+  `tests/argument-hint.test.sh` follows the new hint.
+
+### Changed
+
+- `core/skills/intent-workflow/SKILL.md` (Capture steps 3-4, new "With `--pr`" section, edge cases),
+  the three `monorepo-harness-intent` adapter entry points, `core/governance/intents/AGENTS.md`, `README.md`,
+  `INSTALL.md`, `PORTABILITY.md` and `docs/intents.md`.
+
+### Upgrade Notes
+
+- Nothing to run. `/monorepo-harness-update` syncs the changed files; no manifest row was added.
+- No change to `core/root-AGENTS.md`.
+- Reviewers from the team registry (#55) are not added to the PR; the forge's default reviewers apply.
+
 ## [0.4.0-rc.30] - 2026-10-30
 
 ### Fixed

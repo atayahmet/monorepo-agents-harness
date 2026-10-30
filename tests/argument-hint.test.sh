@@ -69,7 +69,7 @@ expected_hint() {
     monorepo-harness-plan)            printf '%s' '<1_spec.md>' ;;
     monorepo-harness-build)           printf '%s' '<2_plan.md>' ;;
     monorepo-harness-changeset)       printf '%s' '<2_plan.md>' ;;
-    monorepo-harness-intent)          printf '%s' '[review | --approve <PR-url> ... | --reject <PR-url> ...]' ;;
+    monorepo-harness-intent)          printf '%s' '[--pr [--draft] <description> | review | --approve <PR-url> ... | --reject <PR-url> ...]' ;;
     monorepo-harness-intent-dispatch) printf '%s' '<intent.md>' ;;
     monorepo-harness-security-review) printf '%s' '[diff-range-or-branch]' ;;
     monorepo-harness-team)            printf '%s' '[init | add | remove <key> | lint | migrate]' ;;

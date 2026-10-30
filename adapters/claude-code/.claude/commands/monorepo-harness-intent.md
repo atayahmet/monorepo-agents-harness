@@ -1,6 +1,6 @@
 ---
-description: Capture a new intent, review pending intents and approve/reject them, or approve/reject an intent from its PR link
-argument-hint: "[review | --approve <PR-url> ... | --reject <PR-url> ...]"
+description: Capture a new intent, review pending intents and approve/reject them, or approve/reject an intent from its PR link, with --pr [--draft] opening the intent's PR
+argument-hint: "[--pr [--draft] <description> | review | --approve <PR-url> ... | --reject <PR-url> ...]"
 ---
 
 Follow the shared instructions in
@@ -30,6 +30,11 @@ Follow the shared instructions in
    record `status: rejected` plus a `## Review` section on each PR's own branch and merge via
    `task-state.sh merge-intent-pr <intent.md> --pr <ref> --reject --yes` (the merge is a separate
    consent question; a PR approval is never read or required).
+6. If the user passes `--pr [--draft]` with a description: follow the skill's Capture steps through
+   "With `--pr`" — the flag answers the branch and commit questions, so create `intent/<slug>` from the
+   default branch, commit only the intent file, `git push -u origin intent/<slug>`, then open the PR via
+   `bash .agents/monorepo-agents-harness/core/scripts/forge.sh create --head intent/<slug> --title <subject> --body-file <file> [--draft] --yes`
+   and record `pr: <url>` in a second commit. It is never a review decision: no approve, no merge.
 
-This skill captures, reviews, approves from a PR link, and rejects from a PR link — it does not
+This skill captures (and with `--pr` opens the intent's PR), reviews, approves from a PR link, and rejects from a PR link — it does not
 create task directories, plans, or specs.

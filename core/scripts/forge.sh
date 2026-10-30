@@ -9,12 +9,13 @@
 # tracker-issue.sh. A project can file Jira issues and open GitHub pull requests; one "platform"
 # answer cannot serve both questions. See ADR 0003.
 #
-# Subcommands (all read-only except `merge` and `approve`):
+# Subcommands (all read-only except `create`, `merge` and `approve`):
 #   resolve [<ref>]      print the forge and how it was decided
 #   probe   [<ref>]      report which mechanism could reach it, and whether the harness can use it
 #   state   <ref>        print the PR's state, title, mergeability and merge status
 #   reviews <ref>        print "<reviewer>\t<state>\t<date>", one row per reviewer's LATEST review
 #   issues  [--search t] print the open issues matching the terms (the duplicate check's read path)
+#   create  --head <b>   open a pull request for a pushed branch, or hand the plan back; --explain to see it
 #   approve <ref>        submit one approving review on the PR, or refuse; --explain to see the plan
 #   merge   <ref>        merge the PR with a merge commit, or refuse; --explain to see the plan only
 #   paste   <ref>        print the developer-facing manual steps for this forge
@@ -24,6 +25,8 @@
 #   forge.sh state <ref>
 #   forge.sh reviews <ref>
 #   forge.sh issues --search <text> [--search <text> ...]
+#   forge.sh create --head <branch> --title <text> (--body <text> | --body-file <file>) [--base <branch>]
+#                   [--draft] [--yes] [--explain]
 #   forge.sh approve <ref> [--body <text>] [--yes] [--explain]
 #   forge.sh merge <ref> [--explain]
 #   forge.sh paste <ref>
@@ -37,9 +40,15 @@
 #                    ref", not a malformed one.
 #   --forge <name>   force the platform (github, gitlab, bitbucket, gitea)
 #   --search <text>  keyword for `issues`; repeatable, results unioned
-#   --body <text>    for `approve`: the review body. Empty is a complete approval.
-#   --yes            for `approve`: the developer's in-turn consent. Without it nothing is written.
-#   --explain        for `approve` and `merge`: print what would run and exit 0 without writing
+#   --body <text>    for `approve`: the review body. Empty is a complete approval. For `create`: the PR
+#                    description (required, here or as --body-file).
+#   --head <branch>  for `create`: the pushed branch the PR is opened from. The script never pushes it.
+#   --base <branch>  for `create`: the branch the PR targets. Default: origin/HEAD, then main, then master.
+#   --title <text>   for `create`: the PR title.
+#   --body-file <f>  for `create`: read the PR description from a file.
+#   --draft          for `create`: open a draft. Refused (exit 3) on a forge with no draft state.
+#   --yes            for `approve` and `create`: the developer's in-turn consent. Without it nothing is written.
+#   --explain        for `approve`, `create` and `merge`: print what would run and exit 0 without writing
 #
 # How the forge is decided, first hit wins:
 #   1. --forge <platform>
@@ -78,11 +87,14 @@
 #     auto. A platform is refused rather than downgraded to a method nobody agreed to.
 #   - Every REST merge pins its method explicitly (merge_method=merge / squash=false), so the method
 #     is visible in the recorded request rather than implied by a server default.
+#   - `create` opens a pull request and nothing else: it never pushes, approves, merges or assigns
+#     reviewers. A PR that is already open for the head branch is reported, never duplicated, and a
+#     create is CONFIRMED by the PR url the forge returns - a 2xx with no url is reported as unconfirmed.
 #   - An approval is CONFIRMED, never assumed: `approve` re-reads the review board after writing and
 #     reports an unconfirmable write as unconfirmed. It never merges, and it never reports an
 #     approval the forge did not record.
 #
-# Exit codes: 0 = done (resolved / probed / read / listed / approved / merged / already in that
+# Exit codes: 0 = done (resolved / probed / read / listed / opened / approved / merged / already in that
 #             state), 1 = refused or failed (the reason is on stderr), 2 = usage error, 3 = NOT DONE
 #             - the harness cannot reach this forge, or cannot verify what it is about to do. On 3
 #             the caller relays the discovered mechanism or the paste-ready steps and does not
@@ -709,17 +721,175 @@ paste_report() {
   fi
 }
 
+# --- create ---------------------------------------------------------------------------------------
+# One pull request for a branch that is already pushed, and nothing else. The caller pushes; this
+# never does, because a push is a git decision and `create` is a forge one. It is dry-run by default
+# like `approve`, idempotent (an open PR for the head is reported, not duplicated), and it never
+# reports a PR the forge did not return a url for.
+
+# default_branch - the branch a PR targets when --base is absent: origin/HEAD, then main, then master,
+# the same order task-state.sh resolves its default ref in. Prints the bare branch name, which is what
+# a forge API wants (not a ref), and returns 1 when none of them exists.
+default_branch() {
+  local r ref b; r="$(root)"
+  ref="$(git -C "$r" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+  if [ -n "$ref" ]; then printf '%s' "${ref#origin/}"; return 0; fi
+  for b in main master; do
+    if git -C "$r" rev-parse --verify --quiet "refs/heads/$b" >/dev/null 2>&1 \
+       || git -C "$r" rev-parse --verify --quiet "refs/remotes/origin/$b" >/dev/null 2>&1; then
+      printf '%s' "$b"; return 0
+    fi
+  done
+  return 1
+}
+
+# draft_title <platform> <title> - GitLab and Gitea record a draft as a title prefix. GitHub has a real
+# draft state, and Bitbucket has none (the caller refuses it before getting here).
+draft_title() {
+  case "$1" in
+    gitlab) printf 'Draft: %s' "$2" ;;
+    gitea)  printf 'WIP: %s' "$2" ;;
+    *)      printf '%s' "$2" ;;
+  esac
+}
+
+# cli_create_argv <platform> <head> <base> <title> <body> <draft> - fill CREATE_ARGV with the command
+# the platform's own CLI is run with. An array, never a string: a title or body is free text, and
+# building it into a string that is later eval'd is how a quote in a title becomes a command.
+# Returns 1 when that platform's CLI has no create command, so the caller can fall back to REST.
+CREATE_ARGV=()
+cli_create_argv() {
+  local p="$1" head="$2" base="$3" title="$4" body="$5" draft="$6"
+  CREATE_ARGV=()
+  case "$p" in
+    github)
+      CREATE_ARGV=(gh pr create --base "$base" --head "$head" --title "$title" --body "$body")
+      [ "$draft" -eq 0 ] || CREATE_ARGV+=(--draft) ;;
+    gitlab)
+      CREATE_ARGV=(glab mr create --source-branch "$head" --target-branch "$base" --title "$title" --description "$body" --yes)
+      [ "$draft" -eq 0 ] || CREATE_ARGV+=(--draft) ;;
+    gitea)
+      [ "$draft" -eq 0 ] || title="$(draft_title gitea "$title")"
+      CREATE_ARGV=(tea pulls create --base "$base" --head "$head" --title "$title" --description "$body") ;;
+    *) return 1 ;;
+  esac
+}
+
+# rest_create <platform> <project> <head> <base> <title> <body> <draft> - prints
+# "<method> <path> <json-body>", the same three-part shape rest_merge and rest_approve use. The body is
+# built by jq from --arg values, so no title or description is ever spliced into JSON by hand.
+rest_create() {
+  local p="$1" proj="$2" head="$3" base="$4" title="$5" body="$6" draft="$7" eproj jdraft="false"
+  eproj="$(url_encode "$proj")"
+  [ "$draft" -eq 0 ] || jdraft="true"
+  case "$p" in
+    github)
+      printf 'POST /repos/%s/pulls %s' "$proj" "$(jq -nc --arg t "$title" --arg h "$head" --arg b "$base" --arg d "$body" --argjson draft "$jdraft" \
+        '{title:$t, head:$h, base:$b, body:$d, draft:$draft}')" ;;
+    gitlab)
+      [ "$draft" -eq 0 ] || title="$(draft_title gitlab "$title")"
+      printf 'POST /projects/%s/merge_requests %s' "$eproj" "$(jq -nc --arg t "$title" --arg h "$head" --arg b "$base" --arg d "$body" \
+        '{title:$t, source_branch:$h, target_branch:$b, description:$d}')" ;;
+    gitea)
+      [ "$draft" -eq 0 ] || title="$(draft_title gitea "$title")"
+      printf 'POST /repos/%s/pulls %s' "$proj" "$(jq -nc --arg t "$title" --arg h "$head" --arg b "$base" --arg d "$body" \
+        '{title:$t, head:$h, base:$b, body:$d}')" ;;
+    bitbucket)
+      printf 'POST /repositories/%s/pullrequests %s' "$proj" "$(jq -nc --arg t "$title" --arg h "$head" --arg b "$base" --arg d "$body" \
+        '{title:$t, description:$d, source:{branch:{name:$h}}, destination:{branch:{name:$b}}}')" ;;
+    *) return 1 ;;
+  esac
+}
+
+# create_url <platform> <mechanism> <text> - the PR url in a create response. A CLI prints it on
+# stdout; the REST APIs name it differently per platform. Empty means the forge did not say, which is
+# not a creation.
+create_url() {
+  local p="$1" mech="$2" text="$3"
+  if [ "$mech" = "cli" ]; then
+    printf '%s\n' "$text" | grep -Eo 'https?://[^[:space:]]+' | tail -1
+    return 0
+  fi
+  case "$p" in
+    github|gitea) printf '%s' "$text" | jq -r '.html_url // empty' 2>/dev/null ;;
+    gitlab)       printf '%s' "$text" | jq -r '.web_url // empty' 2>/dev/null ;;
+    bitbucket)    printf '%s' "$text" | jq -r '.links.html.href // empty' 2>/dev/null ;;
+  esac
+}
+
+# open_pr_for_head <platform> <host> <project> <head> - the url of an open PR whose head is this
+# branch, or nothing. Best effort and read-only: a platform or rung with no head-filtered read prints
+# nothing, which only costs the idempotence check, never a wrong write.
+open_pr_for_head() {
+  local p="$1" host="$2" proj="$3" head="$4" eproj owner
+  eproj="$(url_encode "$proj")"; owner="${proj%%/*}"
+  case "$MECHANISM:$p" in
+    cli:github)
+      gh pr list --head "$head" --state open --json url -q '.[0].url // empty' 2>/dev/null || true ;;
+    cli:gitlab)
+      glab mr list --source-branch "$head" -F json 2>/dev/null | jq -r '.[0].web_url // empty' 2>/dev/null || true ;;
+    rest:github)
+      rest_get "$p" "$host" "/repos/$proj/pulls?state=open&head=$(url_encode "$owner:$head")" 2>/dev/null \
+        | jq -r 'if type == "array" then (.[0].html_url // empty) else empty end' 2>/dev/null || true ;;
+    rest:gitlab)
+      rest_get "$p" "$host" "/projects/$eproj/merge_requests?state=opened&source_branch=$(url_encode "$head")" 2>/dev/null \
+        | jq -r 'if type == "array" then (.[0].web_url // empty) else empty end' 2>/dev/null || true ;;
+    rest:gitea)
+      rest_get "$p" "$host" "/repos/$proj/pulls?state=open&limit=50" 2>/dev/null \
+        | jq -r --arg h "$head" 'if type == "array" then (map(select(.head.ref == $h)) | .[0].html_url // empty) else empty end' 2>/dev/null || true ;;
+    rest:bitbucket)
+      rest_get "$p" "$host" "/repositories/$proj/pullrequests?state=OPEN&pagelen=50" 2>/dev/null \
+        | jq -r --arg h "$head" '(.values // []) | map(select(.source.branch.name == $h)) | .[0].links.html.href // empty' 2>/dev/null || true ;;
+  esac
+}
+
+# create_handoff_report - the mcp / skill rungs, which a shell script cannot call. It carries the whole
+# request (title, head, base, body) so the agent opens the PR with its own tool without re-deriving it.
+create_handoff_report() {
+  local platform="$1" host="$2" proj="$3" head="$4" base="$5" title="$6" body="$7" draft="$8" skill="" m=""
+  printf 'forge: platform=%s host=%s project=%s head=%s base=%s\n' "$platform" "${host:-<none>}" "${proj:-<none>}" "$head" "$base"
+  if skill="$(find_project_skill "$platform" 2>/dev/null)"; then
+    printf 'forge: mechanism=skill detail=%s\n' "$skill"
+    printf 'forge: the project defines its own procedure for this forge - follow it, and do not use a\n'
+    printf 'forge: generic command instead.\n'
+  fi
+  if m="$(find_mcp_server "$platform" 2>/dev/null)"; then
+    printf 'forge: mechanism=mcp config=%s server=%s\n' "${m%%|*}" "${m##*|}"
+    printf 'forge: a shell script cannot call an MCP tool. Open the pull request with that server'"'"'s own\n'
+    printf 'forge: tools, using the request below.\n'
+  fi
+  printf 'forge: request title=%s\n' "$title"
+  printf 'forge: request head=%s base=%s draft=%s\n' "$head" "$base" "$([ "$draft" -eq 1 ] && echo yes || echo no)"
+  printf 'forge: request body:\n%s\n' "$body"
+  printf 'forge: the harness cannot open this pull request itself. Nothing was opened.\n'
+}
+
+create_paste_report() {
+  local platform="$1" host="$2" proj="$3" head="$4" base="$5" title="$6" body="$7" url=""
+  case "$platform" in
+    github)    url="https://github.com/$proj/compare/$base...$head?expand=1" ;;
+    gitlab)    url="https://$host/$proj/-/merge_requests/new?merge_request[source_branch]=$head&merge_request[target_branch]=$base" ;;
+    bitbucket) url="https://$host/$proj/pull-requests/new?source=$head&dest=$base" ;;
+    gitea)     url="https://$host/$proj/compare/$base...$head" ;;
+  esac
+  printf '\n--- forge ---\n%s (%s)\n--- open the pull request yourself ---\n' "${platform:-unknown}" "${host:-<none>}"
+  [ -z "$url" ] || printf '%s\n' "$url"
+  printf -- '--- head -> base ---\n%s -> %s\n--- title ---\n%s\n--- description ---\n%s\n' "$head" "$base" "$title" "$body"
+  printf 'The branch stays pushed, and the intent stays valid without a pr: field.\n'
+}
+
 # --- argument parsing ------------------------------------------------------------------------------
 cmd="${1:-}"
 [ -n "$cmd" ] || usage
 case "$cmd" in
-  resolve|probe|state|reviews|merge|approve|paste) shift ;;
+  resolve|probe|state|reviews|merge|approve|create|paste) shift ;;
   issues) shift ;;
   -h|--help) print_usage; exit 0 ;;
   *) echo "forge: unknown subcommand: $cmd" >&2; usage ;;
 esac
 
 FORGE_OVERRIDE=""; ref_arg=""; explain=0; searches=""; repo_override=""; approve_body=""; approve_now=0
+create_head=""; create_base=""; create_title=""; create_body=""; create_body_file=""; create_draft=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --forge)  [ -n "${2:-}" ] || usage; FORGE_OVERRIDE="$2"; shift 2 ;;
@@ -730,11 +900,32 @@ while [ $# -gt 0 ]; do
     --body)
       case "$cmd" in
         approve) [ -n "${2:-}" ] || usage; approve_body="$2"; shift 2 ;;
+        create)  [ -n "${2:-}" ] || usage; create_body="$2"; shift 2 ;;
         *) echo "forge: unknown option: $1" >&2; usage ;;
       esac ;;
     --yes)
       case "$cmd" in
-        approve) approve_now=1; shift ;;
+        approve|create) approve_now=1; shift ;;
+        *) echo "forge: unknown option: $1" >&2; usage ;;
+      esac ;;
+    # The rest of the create options. Each is meaningless anywhere else, so each is refused there
+    # instead of being silently ignored.
+    --head|--base|--title|--body-file)
+      case "$cmd" in
+        create)
+          [ -n "${2:-}" ] || usage
+          case "$1" in
+            --head) create_head="$2" ;;
+            --base) create_base="$2" ;;
+            --title) create_title="$2" ;;
+            --body-file) create_body_file="$2" ;;
+          esac
+          shift 2 ;;
+        *) echo "forge: unknown option: $1" >&2; usage ;;
+      esac ;;
+    --draft)
+      case "$cmd" in
+        create) create_draft=1; shift ;;
         *) echo "forge: unknown option: $1" >&2; usage ;;
       esac ;;
     # --repo is for `issues`, where the board may be a different repository than the current one.
@@ -1001,6 +1192,85 @@ case "$cmd" in
     fi
     printf 'forge: approved PR %s on %s by %s via %s: %s\n' \
       "$PRID" "$PLATFORM" "$confirmed" "$write_mech" "$plan"
+    exit 0
+    ;;
+
+  create)
+    [ -n "$create_head" ] || { echo "forge: create needs --head <branch> - the pushed branch the PR opens from" >&2; exit 2; }
+    [ -n "$create_title" ] || { echo "forge: create needs --title" >&2; exit 2; }
+    if [ -n "$create_body_file" ]; then
+      [ -f "$create_body_file" ] || { echo "forge: --body-file '$create_body_file' is not a file" >&2; exit 2; }
+      create_body="$(cat "$create_body_file")"
+    fi
+    [ -n "$create_body" ] || { echo "forge: create needs --body or --body-file" >&2; exit 2; }
+    resolve_forge "" || true
+    [ "$PLATFORM" = "unknown" ] && not_done "the forge could not be resolved - pass --forge or ask the developer which host this project uses"
+    [ -n "$PROJECT" ] || not_done "no repository to open the pull request in - the 'origin' remote is missing"
+    if [ "$create_draft" -eq 1 ] && [ "$PLATFORM" = "bitbucket" ]; then
+      not_done "bitbucket has no draft pull requests, so the PR for $create_head was NOT opened - ask the developer whether to open it as a normal PR"
+    fi
+    if [ -z "$create_base" ]; then
+      create_base="$(default_branch || true)"
+      [ -n "$create_base" ] || { echo "forge: could not find the default branch (origin/HEAD, main, master) - pass --base <branch>" >&2; exit 2; }
+    fi
+    if ! probe_read "$PLATFORM" "$HOST"; then
+      create_handoff_report "$PLATFORM" "$HOST" "$PROJECT" "$create_head" "$create_base" "$create_title" "$create_body" "$create_draft"
+      create_paste_report "$PLATFORM" "$HOST" "$PROJECT" "$create_head" "$create_base" "$create_title" "$create_body"
+      not_done "the PR for $create_head on $PLATFORM was NOT opened - the harness cannot reach it"
+    fi
+    existing="$(open_pr_for_head "$PLATFORM" "$HOST" "$PROJECT" "$create_head")"
+    if [ -n "$existing" ]; then
+      printf 'forge: PR %s on %s is already open for %s; nothing to do\n' "$existing" "$PLATFORM" "$create_head"
+      exit 0
+    fi
+    # Build the write plan. The rung probe_read chose is the preferred write rung; a CLI with no
+    # create command falls back to REST when that rung is usable, and says so if it is not.
+    write_mech="$MECHANISM"; plan=""; c_method=""; c_path=""; c_body=""
+    if [ "$write_mech" = "cli" ]; then
+      if cli_create_argv "$PLATFORM" "$create_head" "$create_base" "$create_title" "$create_body" "$create_draft"; then
+        plan="$(printf '%q ' "${CREATE_ARGV[@]}")"
+      elif probe_rest "$PLATFORM" "$HOST"; then
+        write_mech="rest"
+      else
+        not_done "the $MECHANISM mechanism cannot open a PR on $PLATFORM and no REST rung is usable - the PR for $create_head was NOT opened"
+      fi
+    fi
+    if [ "$write_mech" = "rest" ]; then
+      rreq="$(rest_create "$PLATFORM" "$PROJECT" "$create_head" "$create_base" "$create_title" "$create_body" "$create_draft" || true)"
+      [ -n "$rreq" ] || not_done "no create request is defined for $PLATFORM - the PR for $create_head was NOT opened"
+      c_method="${rreq%% *}"; c_rest="${rreq#* }"
+      c_path="${c_rest%% *}"; c_body="${c_rest#* }"
+      plan="curl -X $c_method <base>$c_path -d $c_body"
+    fi
+    if [ "$explain" -eq 1 ] || [ "$approve_now" -eq 0 ]; then
+      printf 'forge: would open PR %s -> %s on %s via %s: %s\n' "$create_head" "$create_base" "$PLATFORM" "$write_mech" "$plan"
+      [ "$explain" -eq 1 ] || echo "forge: nothing opened. Re-run with --yes only after the developer's consent covers opening the PR"
+      exit 0
+    fi
+    if [ "$write_mech" = "cli" ]; then
+      out="$("${CREATE_ARGV[@]}" 2>&1)" || {
+        printf 'forge: the create command failed, the PR for %s was NOT opened:\n%s\n' \
+          "$create_head" "$(printf '%s' "$out" | head -3)" >&2
+        exit 1
+      }
+    else
+      var="$(token_var "$PLATFORM")"; base="$(api_base "$PLATFORM" "$HOST")"
+      out="$(curl -sS --max-time 30 -X "$c_method" \
+        -H "Authorization: Bearer ${!var}" -H 'Content-Type: application/json' \
+        -d "$c_body" "$base$c_path" 2>&1)" || {
+        printf 'forge: the create request failed, the PR for %s was NOT opened:\n%s\n' \
+          "$create_head" "$(printf '%s' "$out" | head -3)" >&2
+        exit 1
+      }
+    fi
+    # Confirm by the url the forge returned, not by an exit code: a PR is a url, or it is nothing.
+    pr_url="$(create_url "$PLATFORM" "$write_mech" "$out")"
+    if [ -z "$pr_url" ]; then
+      printf 'forge: sent a create for %s on %s, but could not confirm it - no PR url came back:\n%s\n' \
+        "$create_head" "$PLATFORM" "$(printf '%s' "$out" | head -3)" >&2
+      exit 1
+    fi
+    printf 'forge: created PR %s on %s via %s: %s\n' "$pr_url" "$PLATFORM" "$write_mech" "$plan"
     exit 0
     ;;
 

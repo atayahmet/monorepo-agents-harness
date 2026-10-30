@@ -89,7 +89,7 @@ Rules while you do this:
 - **Auditable tasks** — Per-task `1_spec.md`, `2_plan.md`, `3_memory.md`, `4_verify.md` in `<ws>/.agents/artifacts/`. [agent-workflow](core/skills/agent-workflow/SKILL.md)
 - **Tiered red-first tests** — `Tier: red-first` or `evidence-only`; failures recorded in `4_verify.md`. [agent-workflow](core/skills/agent-workflow/SKILL.md)
 - **Architecture decisions** — ADRs written next to plan/spec when needed. [adr-workflow](core/skills/adr-workflow/SKILL.md)
-- **Intent capture & dispatch** — File, approve, and dispatch intents to tracked work; approve/reject directly from an intent PR link (`--approve` submits a real review, `--reject` declines on the branch and merges). [docs/intents.md](docs/intents.md)
+- **Intent capture & dispatch** — File, approve, and dispatch intents to tracked work; `--pr` pushes the intent branch and opens its PR on your forge; approve/reject directly from an intent PR link (`--approve` submits a real review, `--reject` declines on the branch and merges). [docs/intents.md](docs/intents.md)
 - **Deterministic install/update** — Manifest-driven scripts, self-healing adapters. [INSTALL.md](INSTALL.md)
 - **CI & PR review** — Enforce memory-gate in CI and review diffs against task artifacts. [ci-integration](core/skills/ci-integration/SKILL.md) · [pr-review](core/skills/pr-review/SKILL.md)
 - **Knowledge base & self-improvement** — Query past work, harvest reusable rules/skills. [knowledge-base](core/skills/knowledge-base/SKILL.md) · [self-improvement-workflow](core/skills/self-improvement-workflow/SKILL.md)
