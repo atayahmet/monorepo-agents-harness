@@ -44,8 +44,9 @@ Release procedure (harness maintainers):
 
 - Nothing to run. `/monorepo-harness-update` syncs the changed scripts and skill; no manifest row was added.
   An existing `knowledge/.index.sqlite` stays valid and is updated in place by the next ingest.
-- `knowledge/schema.md` in a consumer project is seeded once and is not overwritten; its index-layer bullet
-  still says ingest never touches the index. Nothing depends on that sentence.
+  `changelogs/version-0.4.0-rc.32.md` lists one optional follow-up: `knowledge/schema.md` in a consumer
+  project is seeded once and not overwritten, so its index-layer bullet still says ingest never touches the
+  index. Nothing depends on that sentence.
 - No change to `core/root-AGENTS.md`.
 
 ## [0.4.0-rc.31] - 2026-10-30
