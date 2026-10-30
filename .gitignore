@@ -35,3 +35,5 @@ todo.md
 knowledge/.index.sqlite*
 # Working state for agents
 .agents/
+# Adapter payloads are shipped sources, not working state
+!/adapters/*/.agents/

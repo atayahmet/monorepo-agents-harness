@@ -18,7 +18,8 @@ SKILL="$REPO/core/skills/team-registry/SKILL.md"
 body() { awk 'NR==1 && /^---[[:space:]]*$/ {fm=1; next} fm && !d && /^---[[:space:]]*$/ {d=1; next} d || !fm {print}' "$1"; }
 
 for f in "$CLAUDE" "$OPENCODE" "$CODEX"; do
-  [ -f "$f" ] && ok "exists: ${f#"$REPO"/}" || bad "exists: ${f#"$REPO"/}" "missing"
+  if git -C "$REPO" ls-files --error-unmatch -- "${f#"$REPO"/}" >/dev/null 2>&1; then ok "tracked: ${f#"$REPO"/}"
+  else bad "tracked: ${f#"$REPO"/}" "missing or not tracked by git (issue #66)"; fi
 done
 same "claude and opencode bodies identical" "$(body "$CLAUDE")" "$(body "$OPENCODE")"
 same "claude and codex bodies identical" "$(body "$CLAUDE")" "$(body "$CODEX")"
