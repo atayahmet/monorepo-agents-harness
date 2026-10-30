@@ -16,6 +16,7 @@
 #   reviews <ref>        print "<reviewer>\t<state>\t<date>", one row per reviewer's LATEST review
 #   issues  [--search t] print the open issues matching the terms (the duplicate check's read path)
 #   create  --head <b>   open a pull request for a pushed branch, or hand the plan back; --explain to see it
+#   default-branch       print the branch a PR targets when --base is absent (origin/HEAD, main, master)
 #   approve <ref>        submit one approving review on the PR, or refuse; --explain to see the plan
 #   merge   <ref>        merge the PR with a merge commit, or refuse; --explain to see the plan only
 #   paste   <ref>        print the developer-facing manual steps for this forge
@@ -753,24 +754,36 @@ draft_title() {
   esac
 }
 
-# cli_create_argv <platform> <head> <base> <title> <body> <draft> - fill CREATE_ARGV with the command
+# cli_repo_arg <platform> <host> <project> - the repository a platform CLI is pointed at. Without it
+# the CLI acts on whatever repository the current directory belongs to, which is not necessarily the
+# one the plan and the duplicate check were computed for (a submodule, another clone). A host other than
+# the hosted default is spelled out, so a self-hosted instance is addressed on its own host.
+cli_repo_arg() {
+  case "$1" in
+    github) case "$2" in github.com|"") printf '%s' "$3" ;; *) printf '%s/%s' "$2" "$3" ;; esac ;;
+    gitlab) case "$2" in gitlab.com|"") printf '%s' "$3" ;; *) printf '%s/%s' "$2" "$3" ;; esac ;;
+    *)      printf '%s' "$3" ;;
+  esac
+}
+
+# cli_create_argv <platform> <head> <base> <title> <body> <draft> <repo> - fill CREATE_ARGV with the command
 # the platform's own CLI is run with. An array, never a string: a title or body is free text, and
 # building it into a string that is later eval'd is how a quote in a title becomes a command.
 # Returns 1 when that platform's CLI has no create command, so the caller can fall back to REST.
 CREATE_ARGV=()
 cli_create_argv() {
-  local p="$1" head="$2" base="$3" title="$4" body="$5" draft="$6"
+  local p="$1" head="$2" base="$3" title="$4" body="$5" draft="$6" repo="$7"
   CREATE_ARGV=()
   case "$p" in
     github)
-      CREATE_ARGV=(gh pr create --base "$base" --head "$head" --title "$title" --body "$body")
+      CREATE_ARGV=(gh pr create --repo "$repo" --base "$base" --head "$head" --title "$title" --body "$body")
       [ "$draft" -eq 0 ] || CREATE_ARGV+=(--draft) ;;
     gitlab)
-      CREATE_ARGV=(glab mr create --source-branch "$head" --target-branch "$base" --title "$title" --description "$body" --yes)
+      CREATE_ARGV=(glab mr create --repo "$repo" --source-branch "$head" --target-branch "$base" --title "$title" --description "$body" --yes)
       [ "$draft" -eq 0 ] || CREATE_ARGV+=(--draft) ;;
     gitea)
       [ "$draft" -eq 0 ] || title="$(draft_title gitea "$title")"
-      CREATE_ARGV=(tea pulls create --base "$base" --head "$head" --title "$title" --description "$body") ;;
+      CREATE_ARGV=(tea pulls create --repo "$repo" --base "$base" --head "$head" --title "$title" --description "$body") ;;
     *) return 1 ;;
   esac
 }
@@ -807,7 +820,7 @@ rest_create() {
 create_url() {
   local p="$1" mech="$2" text="$3"
   if [ "$mech" = "cli" ]; then
-    printf '%s\n' "$text" | grep -Eo 'https?://[^[:space:]]+' | tail -1
+    printf '%s\n' "$text" | grep -Eo 'https?://[^[:space:]]+' | head -1
     return 0
   fi
   case "$p" in
@@ -819,15 +832,19 @@ create_url() {
 
 # open_pr_for_head <platform> <host> <project> <head> - the url of an open PR whose head is this
 # branch, or nothing. Best effort and read-only: a platform or rung with no head-filtered read prints
-# nothing, which only costs the idempotence check, never a wrong write.
+# nothing, which only costs the idempotence check, never a wrong write. The REST reads that cannot
+# filter by head walk the open PRs page by page (capped) instead of trusting the first page.
 open_pr_for_head() {
-  local p="$1" host="$2" proj="$3" head="$4" eproj owner
-  eproj="$(url_encode "$proj")"; owner="${proj%%/*}"
+  local p="$1" host="$2" proj="$3" head="$4" eproj owner repo pg body hit n
+  eproj="$(url_encode "$proj")"; owner="${proj%%/*}"; repo="$(cli_repo_arg "$p" "$host" "$proj")"
   case "$MECHANISM:$p" in
     cli:github)
-      gh pr list --head "$head" --state open --json url -q '.[0].url // empty' 2>/dev/null || true ;;
+      gh pr list --repo "$repo" --head "$head" --state open --json url -q '.[0].url // empty' 2>/dev/null || true ;;
     cli:gitlab)
-      glab mr list --source-branch "$head" -F json 2>/dev/null | jq -r '.[0].web_url // empty' 2>/dev/null || true ;;
+      glab mr list --repo "$repo" --source-branch "$head" -F json 2>/dev/null | jq -r '.[0].web_url // empty' 2>/dev/null || true ;;
+    cli:gitea)
+      tea pulls list --repo "$repo" --state open --output json 2>/dev/null \
+        | jq -r --arg h "$head" 'if type == "array" then (map(select((.head | if type == "object" then .ref else . end) == $h)) | .[0] | (.url // .html_url) // empty) else empty end' 2>/dev/null || true ;;
     rest:github)
       rest_get "$p" "$host" "/repos/$proj/pulls?state=open&head=$(url_encode "$owner:$head")" 2>/dev/null \
         | jq -r 'if type == "array" then (.[0].html_url // empty) else empty end' 2>/dev/null || true ;;
@@ -835,11 +852,24 @@ open_pr_for_head() {
       rest_get "$p" "$host" "/projects/$eproj/merge_requests?state=opened&source_branch=$(url_encode "$head")" 2>/dev/null \
         | jq -r 'if type == "array" then (.[0].web_url // empty) else empty end' 2>/dev/null || true ;;
     rest:gitea)
-      rest_get "$p" "$host" "/repos/$proj/pulls?state=open&limit=50" 2>/dev/null \
-        | jq -r --arg h "$head" 'if type == "array" then (map(select(.head.ref == $h)) | .[0].html_url // empty) else empty end' 2>/dev/null || true ;;
+      pg=1
+      while [ "$pg" -le 10 ]; do
+        body="$(rest_get "$p" "$host" "/repos/$proj/pulls?state=open&limit=50&page=$pg" 2>/dev/null || true)"
+        hit="$(printf '%s' "$body" | jq -r --arg h "$head" 'if type == "array" then (map(select(.head.ref == $h)) | .[0].html_url // empty) else empty end' 2>/dev/null || true)"
+        if [ -n "$hit" ]; then printf '%s\n' "$hit"; return 0; fi
+        n="$(printf '%s' "$body" | jq 'if type == "array" then length else 0 end' 2>/dev/null || echo 0)"
+        [ "${n:-0}" -ge 50 ] || return 0
+        pg=$((pg + 1))
+      done ;;
     rest:bitbucket)
-      rest_get "$p" "$host" "/repositories/$proj/pullrequests?state=OPEN&pagelen=50" 2>/dev/null \
-        | jq -r --arg h "$head" '(.values // []) | map(select(.source.branch.name == $h)) | .[0].links.html.href // empty' 2>/dev/null || true ;;
+      pg=1
+      while [ "$pg" -le 10 ]; do
+        body="$(rest_get "$p" "$host" "/repositories/$proj/pullrequests?state=OPEN&pagelen=50&page=$pg" 2>/dev/null || true)"
+        hit="$(printf '%s' "$body" | jq -r --arg h "$head" '(.values // []) | map(select(.source.branch.name == $h)) | .[0].links.html.href // empty' 2>/dev/null || true)"
+        if [ -n "$hit" ]; then printf '%s\n' "$hit"; return 0; fi
+        [ -n "$(printf '%s' "$body" | jq -r '.next // empty' 2>/dev/null || true)" ] || return 0
+        pg=$((pg + 1))
+      done ;;
   esac
 }
 
@@ -882,7 +912,7 @@ create_paste_report() {
 cmd="${1:-}"
 [ -n "$cmd" ] || usage
 case "$cmd" in
-  resolve|probe|state|reviews|merge|approve|create|paste) shift ;;
+  resolve|probe|state|reviews|merge|approve|create|default-branch|paste) shift ;;
   issues) shift ;;
   -h|--help) print_usage; exit 0 ;;
   *) echo "forge: unknown subcommand: $cmd" >&2; usage ;;
@@ -900,7 +930,8 @@ while [ $# -gt 0 ]; do
     --body)
       case "$cmd" in
         approve) [ -n "${2:-}" ] || usage; approve_body="$2"; shift 2 ;;
-        create)  [ -n "${2:-}" ] || usage; create_body="$2"; shift 2 ;;
+        # An empty value is parsed, then named by `create` itself ("needs --body"), not a usage dump.
+        create)  [ $# -ge 2 ] || usage; create_body="$2"; shift 2 ;;
         *) echo "forge: unknown option: $1" >&2; usage ;;
       esac ;;
     --yes)
@@ -1195,6 +1226,13 @@ case "$cmd" in
     exit 0
     ;;
 
+  default-branch)
+    b="$(default_branch || true)"
+    [ -n "$b" ] || not_done "could not find the default branch (origin/HEAD, main, master) - pass --base <branch> to create"
+    printf '%s\n' "$b"
+    exit 0
+    ;;
+
   create)
     [ -n "$create_head" ] || { echo "forge: create needs --head <branch> - the pushed branch the PR opens from" >&2; exit 2; }
     [ -n "$create_title" ] || { echo "forge: create needs --title" >&2; exit 2; }
@@ -1227,7 +1265,8 @@ case "$cmd" in
     # create command falls back to REST when that rung is usable, and says so if it is not.
     write_mech="$MECHANISM"; plan=""; c_method=""; c_path=""; c_body=""
     if [ "$write_mech" = "cli" ]; then
-      if cli_create_argv "$PLATFORM" "$create_head" "$create_base" "$create_title" "$create_body" "$create_draft"; then
+      create_repo="$(cli_repo_arg "$PLATFORM" "$HOST" "$PROJECT")"
+      if cli_create_argv "$PLATFORM" "$create_head" "$create_base" "$create_title" "$create_body" "$create_draft" "$create_repo"; then
         plan="$(printf '%q ' "${CREATE_ARGV[@]}")"
       elif probe_rest "$PLATFORM" "$HOST"; then
         write_mech="rest"
@@ -1248,11 +1287,16 @@ case "$cmd" in
       exit 0
     fi
     if [ "$write_mech" = "cli" ]; then
-      out="$("${CREATE_ARGV[@]}" 2>&1)" || {
+      # stdout and stderr are kept apart: the PR url is read from stdout only, so a url in a notice
+      # the CLI prints on stderr (an upgrade banner, a warning link) can never be taken for the PR.
+      errf="$(mktemp "${TMPDIR:-/tmp}/forge-create.XXXXXX")"
+      out="$("${CREATE_ARGV[@]}" 2>"$errf")" || {
         printf 'forge: the create command failed, the PR for %s was NOT opened:\n%s\n' \
-          "$create_head" "$(printf '%s' "$out" | head -3)" >&2
+          "$create_head" "$(printf '%s\n%s' "$out" "$(cat "$errf")" | head -3)" >&2
+        rm -f "$errf"
         exit 1
       }
+      rm -f "$errf"
     else
       var="$(token_var "$PLATFORM")"; base="$(api_base "$PLATFORM" "$HOST")"
       out="$(curl -sS --max-time 30 -X "$c_method" \

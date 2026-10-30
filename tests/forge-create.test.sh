@@ -53,7 +53,8 @@ case "${1:-}" in
       list) [ -n "${GH_EXISTING:-}" ] && printf '%s\n' "$GH_EXISTING" ;;
       create)
         if [ "${GH_CREATE_EXIT:-0}" -ne 0 ]; then echo "gh: could not create pull request" >&2; exit "$GH_CREATE_EXIT"; fi
-        [ "${GH_CREATE_EMPTY:-0}" = "1" ] || printf '%s\n' "${GH_CREATE_URL:-https://github.com/acme/web/pull/7}" ;;
+        [ "${GH_CREATE_EMPTY:-0}" = "1" ] || printf '%s\n' "${GH_CREATE_URL:-https://github.com/acme/web/pull/7}"
+        [ -z "${GH_NOTICE:-}" ] || printf 'A new release of gh is available: https://github.com/cli/cli/releases/tag/v9\n' >&2 ;;
     esac ;;
 esac
 exit 0
@@ -61,12 +62,28 @@ STUB
   cat > "$FIXTURE/restbin/curl" <<'STUB'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "${CURL_LOG:?}"
+case "$*" in
+  *page=2*) [ -z "${CURL_BODY_2:-}" ] || { printf '%s' "$CURL_BODY_2"; exit 0; } ;;
+esac
 printf '%s' "${CURL_BODY:-{\}}"
 exit 0
 STUB
-  chmod +x "$FIXTURE/bin/gh" "$FIXTURE/restbin/curl"
+  cat > "$FIXTURE/bin/tea" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${TEA_LOG:?}"
+case "${1:-}" in
+  login) exit 0 ;;
+  pulls)
+    case "${2:-}" in
+      list) printf '%s' "${TEA_LIST:-[]}" ;;
+      create) printf '%s\n' "https://gitea.com/acme/web/pulls/11" ;;
+    esac ;;
+esac
+exit 0
+STUB
+  chmod +x "$FIXTURE/bin/gh" "$FIXTURE/bin/tea" "$FIXTURE/restbin/curl"
   [ -z "$JQ_BIN" ] || ln -s "$JQ_BIN" "$FIXTURE/restbin/jq"
-  : > "$FIXTURE/gh.log"; : > "$FIXTURE/curl.log"
+  : > "$FIXTURE/gh.log"; : > "$FIXTURE/curl.log"; : > "$FIXTURE/tea.log"
 }
 
 # create <args> — the cli rung: stub gh first on PATH, no token in the environment.
@@ -74,7 +91,7 @@ create() {
   (
     cd "$FIXTURE" || exit 99
     env -u GITHUB_TOKEN -u GITLAB_TOKEN -u BITBUCKET_TOKEN -u GITEA_TOKEN -u HARNESS_FORGE \
-      PATH="$FIXTURE/bin:$PATH" GH_LOG="$FIXTURE/gh.log" \
+      PATH="$FIXTURE/bin:$PATH" GH_LOG="$FIXTURE/gh.log" TEA_LOG="$FIXTURE/tea.log" \
       bash ./forge.sh create --head intent/add_login --title "chore(intent): capture add login" \
         --body "No code change." "$@" 2>&1
   )
@@ -92,6 +109,7 @@ create_rest() {
 }
 logged() { grep -q -- "$1" "$FIXTURE/gh.log"; }
 gh_logged() { if logged "$1"; then echo yes; else echo no; fi; }
+tea_logged() { if grep -q -- "$1" "$FIXTURE/tea.log"; then echo yes; else echo no; fi; }
 curl_logged() { if grep -q -- "$1" "$FIXTURE/curl.log"; then echo yes; else echo no; fi; }
 
 # --- the happy path: a real write, the URL comes back ---------------------------------------------------
@@ -261,6 +279,74 @@ out="$(cd "$FIXTURE" && bash ./forge.sh state 42 --head h 2>&1)"; code=$?
 is "--head is refused outside create (exit 2)" "$code" "2"
 out="$(cd "$FIXTURE" && bash ./forge.sh approve 42 --draft 2>&1)"; code=$?
 is "--draft is refused outside create (exit 2)" "$code" "2"
+
+
+# --- review round: the CLI is pointed at the resolved repository, not at whatever the cwd is -----------
+new_fixture
+out="$(create --yes)"
+is "gh create is given the resolved repo" "$(gh_logged 'pr create --repo acme/web')" "yes"
+new_fixture
+out="$(create --yes)"
+is "the duplicate check is given the resolved repo" "$(gh_logged 'pr list --repo acme/web')" "yes"
+
+# --- review round: the PR url is the one on stdout, not a notice on stderr ---------------------------------
+new_fixture
+export GH_NOTICE=1
+out="$(create --yes)"; code=$?
+is "a create with a stderr notice exits 0" "$code" "0"
+says "the PR url wins over a url in a stderr notice" "$out" "$URL"
+not_says "a url in a stderr notice is never taken for the PR" "$out" "releases/tag"
+unset GH_NOTICE
+
+# --- review round: tea has a duplicate check too ------------------------------------------------------------
+new_fixture "https://gitea.com/acme/web.git"
+export TEA_LIST='[{"index":3,"head":{"ref":"intent/add_login"},"url":"https://gitea.com/acme/web/pulls/3"}]'
+out="$(create --yes)"; code=$?
+is "tea: an already-open PR exits 0" "$code" "0"
+says "tea: the no-op names the existing PR" "$out" "pulls/3"
+is "tea: no second PR was created" "$(tea_logged 'pulls create')" "no"
+unset TEA_LIST
+new_fixture "https://gitea.com/acme/web.git"
+out="$(create --yes)"; code=$?
+is "tea: create exits 0 when nothing is open" "$code" "0"
+is "tea: create is given the resolved repo" "$(tea_logged 'pulls create --repo acme/web')" "yes"
+
+# --- review round: a head on page 2 of the open PRs is still found ----------------------------------------
+if [ -n "$JQ_BIN" ]; then
+  page1="$(jq -nc '[range(50) | {head:{ref:"other\(.)"}, html_url:"https://gitea.com/acme/web/pulls/\(.)"}]')"
+  new_fixture "https://gitea.com/acme/web.git"
+  export CURL_BODY="$page1"
+  export CURL_BODY_2='[{"head":{"ref":"intent/add_login"},"html_url":"https://gitea.com/acme/web/pulls/77"}]'
+  out="$(create_rest GITEA_TOKEN=x --yes)"; code=$?
+  is "gitea rest: a head on page 2 exits 0" "$code" "0"
+  says "gitea rest: the page-2 PR is reported" "$out" "pulls/77"
+  is "gitea rest: no PR was created over it" "$(curl_logged '-X POST')" "no"
+
+  new_fixture "https://bitbucket.org/acme/web.git"
+  export CURL_BODY='{"values":[{"source":{"branch":{"name":"other"}},"links":{"html":{"href":"https://bitbucket.org/acme/web/pull-requests/1"}}}],"next":"https://api.bitbucket.org/2.0/x?page=2"}'
+  export CURL_BODY_2='{"values":[{"source":{"branch":{"name":"intent/add_login"}},"links":{"html":{"href":"https://bitbucket.org/acme/web/pull-requests/88"}}}]}'
+  out="$(create_rest BITBUCKET_TOKEN=x --yes)"; code=$?
+  is "bitbucket rest: a head on page 2 exits 0" "$code" "0"
+  says "bitbucket rest: the page-2 PR is reported" "$out" "pull-requests/88"
+  is "bitbucket rest: no PR was created over it" "$(curl_logged '-X POST')" "no"
+  unset CURL_BODY CURL_BODY_2
+fi
+
+# --- review round: an empty --body is named, not a bare usage dump --------------------------------------------
+new_fixture
+out="$(cd "$FIXTURE" && bash ./forge.sh create --head h --title t --body "" 2>&1)"; code=$?
+is "an empty --body is a usage error (exit 2)" "$code" "2"
+says "an empty --body is named" "$out" "create needs --body"
+
+# --- review round: the default branch has one source of truth ---------------------------------------------------
+new_fixture
+out="$(cd "$FIXTURE" && bash ./forge.sh default-branch 2>&1)"; code=$?
+is "default-branch exits 0" "$code" "0"
+is "default-branch prints the bare branch name" "$out" "main"
+git -C "$FIXTURE" branch -m main trunk 2>/dev/null
+out="$(cd "$FIXTURE" && bash ./forge.sh default-branch 2>&1)"; code=$?
+is "default-branch exits 3 when it cannot tell" "$code" "3"
+says "default-branch says to pass --base" "$out" "--base"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

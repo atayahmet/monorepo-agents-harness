@@ -58,10 +58,15 @@ which flag to drop.
    working tree on a branch the author didn't consent to. **With `--pr` the flag is that answer**:
    skip the question, check first that `intent/<slug>` exists neither locally
    (`git show-ref --verify --quiet refs/heads/intent/<slug>`) nor on the remote
-   (`git ls-remote --exit-code --heads origin intent/<slug>`) — if it does, stop and ask for another
-   slug, never reuse or overwrite it — then create it **from the default branch**
-   (`git switch -c intent/<slug> <default>`; `<default>` is `origin/HEAD`, then `main`, then `master`).
-   If git refuses because local changes would be overwritten, stop and report that; do not stash.
+   (`git ls-remote --exit-code --heads origin intent/<slug>`). If it exists, stop and ask for another
+   slug; never reuse or overwrite it. `ls-remote --exit-code` exits 2 when the branch is absent, and
+   that is the only exit that means "free": any other non-zero exit (network, credentials) means the
+   remote could not be checked, so stop and report it instead of going on. Then create the branch
+   **from the default branch**: take `<default>` from
+   `bash .agents/monorepo-agents-harness/core/scripts/forge.sh default-branch` (the same answer
+   `forge.sh create` uses as the PR base; exit 3 means it cannot tell, so ask the developer),
+   run `git fetch origin <default>`, and `git switch -c intent/<slug> origin/<default>`. If the fetch
+   fails, or git refuses because local changes would be overwritten, stop and report that; do not stash.
 4. **Ask separately whether to commit the intent file to that branch.** Only when step 3 created a
    branch, ask e.g. "Commit `intent_add_login_form.md` to `intent/add_login_form` now?" — a distinct
    consent, not bundled with the branch question. On an explicit yes, commit the `status: pending`
@@ -121,6 +126,9 @@ reject or merge path. Steps 1–6 run as above (with the flag answering steps 3�
      `--draft` on a forge with no draft state (Bitbucket) also exits 3: ask whether to open a normal
      PR, and re-run without `--draft` only on a yes.
    - **Exit 1** → the forge refused or could not confirm. Report its message; do not retry blindly.
+   - **Exit 2** → the call itself was wrong (a missing or empty argument, or no default branch it can
+     find). Fix the call, for example by passing `--base <default>` from `forge.sh default-branch`, and
+     run it again. Nothing was opened.
 4. **Record the PR on the intent.** Set `pr: <url>` in the intent's frontmatter, commit only that file
    as `chore(intent): record PR link`, and `git push`. If this commit or push fails, report the PR url
    anyway — the PR is never lost, and `pr:` can be added by hand.

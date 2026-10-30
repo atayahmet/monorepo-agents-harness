@@ -37,6 +37,8 @@ Release procedure (harness maintainers):
   confirmed by the url the forge returns (a response with no url exits 1). `--draft` works on GitHub,
   GitLab and Gitea; Bitbucket has no draft state and exits 3. It never pushes, approves, merges or
   assigns reviewers.
+- **`forge.sh default-branch`**: prints the branch a PR targets (`origin/HEAD`, then `main`, then `master`), so
+  the capture flow and `create` use the same base.
 - Repo-local tests: `tests/forge-create.test.sh` and `tests/intent-pr-parity.test.sh`;
   `tests/argument-hint.test.sh` follows the new hint.
 
@@ -49,6 +51,7 @@ Release procedure (harness maintainers):
 ### Upgrade Notes
 
 - Nothing to run. `/monorepo-harness-update` syncs the changed files; no manifest row was added.
+  `changelogs/version-0.4.0-rc.31.md` lists one follow-up: re-apply local edits to the intent command copy.
 - No change to `core/root-AGENTS.md`.
 - Reviewers from the team registry (#55) are not added to the PR; the forge's default reviewers apply.
 

@@ -30,6 +30,10 @@ says "skill reports the approve next step" "$skill" "/monorepo-harness-intent --
 says "skill guards an existing branch" "$skill" "intent/<slug>\` already exists"
 says "skill never stages more than the intent" "$skill" "Never \`git add -A\`"
 says "skill keeps --pr out of the review path" "$skill" "never a review decision"
+says "skill tells ls-remote 'absent' from 'could not check'" "$skill" "exits 2 when the branch is absent"
+says "skill takes the default branch from forge.sh" "$skill" "forge.sh default-branch"
+says "skill fetches the default branch before branching" "$skill" "git fetch origin <default>"
+says "skill has a defined answer for forge.sh exit 2" "$skill" "**Exit 2**"
 says "skill refuses --pr with --approve/--reject" "$skill" 'usage error'
 says "skill runs one PR per intent" "$skill" "Never put two intents in one commit or one PR"
 
@@ -44,7 +48,13 @@ says "the --pr bullet is no review decision" "$b1" "no approve, no merge"
 says "claude argument-hint lists --pr" "$(grep -m1 '^argument-hint:' "$CLAUDE")" "--pr [--draft]"
 
 says "forge has a create subcommand" "$(grep -n '^  create)' "$FORGE")" "create)"
-says "forge create never pushes" "$(grep -c 'git push' "$FORGE")" "0"
+# The pattern must catch every spelling of a push, so it is proven on samples before it is trusted.
+PUSH_RE='git( +-C +[^ ]+)? +push'
+for sample in 'git push origin x' 'git -C "$r" push' 'git -C /tmp/x push -u'; do
+  printf '%s\n' "$sample" | grep -Eq "$PUSH_RE" && ok "push pattern catches: $sample" || bad "push pattern catches: $sample" "no match"
+done
+is_zero() { if [ "$2" = "0" ]; then ok "$1"; else bad "$1" "expected 0, got $2"; fi; }
+is_zero "forge.sh never pushes" "$(grep -Ec "$PUSH_RE" "$FORGE" || true)"
 says "governance says pr: can be written at capture" "$(cat "$GOV")" "capture"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
