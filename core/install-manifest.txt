@@ -64,3 +64,4 @@ core/team/team.example.yml
 core/scripts/team.sh
 core/skills/team-registry
 core/skills/team-registry/SKILL.md
+core/scripts/team-infer.sh

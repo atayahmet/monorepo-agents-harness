@@ -71,6 +71,17 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
    tests, skipped steps and risks as they are. Follow
    `.agents/monorepo-agents-harness/core/governance/rules/objectivity.md`.
 
+8. **Skills and commands never hardcode people or their IDs.** Names, tracker account IDs, chat
+   IDs, emails and "who owns this workspace" live in one file, `.agents/team.yml`, and every skill,
+   command and rule reads it through `.agents/monorepo-agents-harness/core/scripts/team.sh`
+   (`whoami`, `get`, `find --role`, `assignee <workspace>`). Ask for "the manager" by role, not by
+   name. If `team.sh` finds no match or no registry, ask the developer — never guess an assignee.
+   Set the registry up with `/monorepo-harness-team`. **When someone leaves**, run
+   `/monorepo-harness-team remove <key>`: delete their entry, then fix only the forward-looking
+   files that still name them (project skills, commands, rules, living docs, CI). The rule is
+   forward-only: never rewrite intents, task artifacts, fixtures or git history — they were true on
+   their date. Details: `.agents/monorepo-agents-harness/core/team/AGENTS.md`.
+
 ## Before You Start — Mandatory Checklist
 
 - [ ] Resolve the **target workspace** (`apps/<name>`, `packages/<name>`, or the equivalent for the detected framework) — see Workspace Routing below.
@@ -162,6 +173,7 @@ skill that does not exist.
 | AGENTS.md upkeep in workspace directories | `.agents/rules/local-agents-md.md` |
 | Write everything in simple English | `.agents/monorepo-agents-harness/core/governance/rules/simple-english.md` |
 | Be objective; never flatter the developer | `.agents/monorepo-agents-harness/core/governance/rules/objectivity.md` |
+| Team registry (`.agents/team.yml`: people, IDs, roles, assignee routing) | `.agents/monorepo-agents-harness/core/team/AGENTS.md` |
 | Knowledge base (Karpathy-style compiled wiki) | `.agents/monorepo-agents-harness/core/skills/knowledge-base/SKILL.md` |
 | Self-improvement workflow | `.agents/monorepo-agents-harness/core/skills/self-improvement-workflow/SKILL.md` |
 | Project rules directory | `.agents/rules/*.md` |

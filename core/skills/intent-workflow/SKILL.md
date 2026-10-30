@@ -18,6 +18,21 @@ Full format and lifecycle rules: `core/governance/intents/AGENTS.md`.
 `../../governance/rules/simple-english.md` — short sentences, common words, active voice. This matters
 most in **Dispatch**, whose issue titles and bodies are read by people outside the engineering pair.
 
+## People — the team registry (optional)
+
+When `<repo-root>/.agents/team.yml` exists, every person this skill records comes from it through
+`bash .agents/monorepo-agents-harness/core/scripts/team.sh`, never from memory or a guess. It is
+read-only and its exit codes decide what you do (full table: `core/team/AGENTS.md`):
+
+- **exit 0** — use the answer. Always write the registry **name** (`team.sh get <key> name`), never the
+  key: a record has to stay readable after the person leaves the registry (the forward-only rule).
+- **exit 3** — not found (an unknown email, no matching entry). Fall back to what the skill did
+  before: ask the developer or use what the forge reported. Never guess.
+- **exit 4** — there is no registry. Behave exactly as before this section existed, and say once, in
+  one line: "run `/monorepo-harness-team` to set up a team registry". Never start that setup inside
+  this flow.
+- **exit 5** — the registry cannot be read. Report it and ask; do not silently fall back.
+
 ## Workflow — Capture
 
 Triggered when a stakeholder describes a new problem or feature idea, or explicitly asks to file an
@@ -54,7 +69,9 @@ intent.
    returns nothing, or `knowledge/` does not exist yet, record `- KB: no relevant pages` — never a
    fabricated hit.
 6. Write `<workspace>/.agents/intents/intent_<YYYY_MM_DD>_<slug>.md` following the template in
-   `core/governance/intents/AGENTS.md`, frontmatter `status: pending`, including the `## Prior art`
+   `core/governance/intents/AGENTS.md`, frontmatter `status: pending`. Fill `author:` from
+   `bash .agents/monorepo-agents-harness/core/scripts/team.sh whoami` (the registry **name**, see
+   "People" above); with no registry or no match, use what the author told you. Include the `## Prior art`
    section from step 5 — `- KB: [[<page>]] (knowledge/…)` per hit, or `- KB: no relevant pages` when
    there are none. If a diagram would clarify the intent better than text alone, add an optional
    `## Visual summary` section with a mermaid diagram; do not add a diagram if it feels forced.
@@ -79,7 +96,8 @@ Triggered when a product owner/manager asks to review pending intents, or via
    explicit answer in the current turn — same discipline as
    `core/skills/agents-md-merge/SKILL.md`'s "Apply this merge to AGENTS.md?" gate.
    - **Yes** → set `status: approved`, append a `## Review` section (Decision, Reviewer, Date,
-     optional Notes).
+     optional Notes). **Reviewer** is the registry name from `team.sh whoami` when there is a
+     registry (see "People" above), else the developer's own answer.
    - **No** → set `status: rejected`, append the same `## Review` section with a reason if given.
      The file is **never deleted**.
    - **Edit** → apply the requested changes to the intent's content, leave `status: pending`, and
@@ -115,8 +133,8 @@ rejection itself is the decision, written in the current turn.
    **No file write, commit, push or merge happens without that explicit yes in the current turn** —
    same discipline as Capture's consent questions and Dispatch's sign-off.
 4. **Per PR, on yes:** set `status: rejected`, append the `## Review` section (Decision
-   `rejected`, Reviewer = the developer who ran the command, Date = today, Notes = the reason or
-   empty), commit **on the PR's own branch** as `chore(intent): reject <intent title>`, and push
+   `rejected`, Reviewer = the developer who ran the command (registry name from `team.sh whoami`
+   when there is a registry), Date = today, Notes = the reason or empty), commit **on the PR's own branch** as `chore(intent): reject <intent title>`, and push
    that branch to the PR's remote. Never main, never a force-push, never a branch the PR did not
    name. The intent file is **never deleted**.
 5. **One batch merge question:** **"Merge these N PRs now?"** (yes / no / later) — a separate
@@ -172,8 +190,9 @@ PR is merged only on a separate yes. The approval is never inferred from `status
    read empty). The note is applied to every intent in the batch. **No file write, commit, push,
    forge approval or merge happens without that explicit yes in the current turn.**
 4. **Per PR, on yes:** set `status: approved`, append the `## Review` section (Decision
-   `approved`, Reviewer = the forge's confirmed login when `forge.sh approve` returned one, else the
-   developer who ran the command, Date = today, Notes = the note or empty), commit **on the PR's
+   `approved`, Reviewer = the forge's confirmed login when `forge.sh approve` returned one — mapped to the
+   registry name with `team.sh resolve github <login>` when there is a registry, else the login
+   as the forge printed it — else the developer who ran the command (`team.sh whoami`), Date = today, Notes = the note or empty), commit **on the PR's
    own branch** as `chore(intent): approve <intent title>`, and push that branch to the PR's
    remote. Never main, never a force-push, never a branch the PR did not name.
 5. **Submit a real approving review.** Per PR: `bash .agents/monorepo-agents-harness/core/scripts/forge.sh approve <ref> --yes [--body <note>]`.
@@ -255,6 +274,12 @@ parent link are in ADR
      approved` and append the `## Review` section, taking **Reviewer** and **Date** from the script's
      output. Never invent either.
    - **Already `approved` in the file** → change nothing. The section is already there.
+   - **Self-approval check (registry only).** Resolve the approver's forge login with
+     `team.sh resolve github <login>` and the intent's `author:` with `team.sh resolve name "<author>"`.
+     When both resolve to the **same key**, say "self-approval" in the run report, naming the person.
+     It is a fact to report, not a block — whether self-approval counts is the project's rule. If
+     either side does not resolve (exit 3), say the check could not be made; never infer a match
+     from similar spellings.
 2. **Hand the approval to the PR, if the intent names one.** An intent may carry an optional `pr:`
    frontmatter field. When it is present, push the commit that carries the approval (the one adding
    its `## Review` section) to that PR's branch with `git push <remote> <sha>:<branch>`, then report
@@ -269,7 +294,8 @@ parent link are in ADR
    a neighbour. Equally, do not split a phase that only makes sense as a whole. Give every phase a
    `snake_case` slug (3-5 words, `[a-z0-9_]`), unique across the **whole intent**, so two issues never
    describe the same work.
-5. **Get the sign-off.** Show the phase table — number, title, workspace, verification — and ask
+5. **Get the sign-off.** Show the phase table — number, title, workspace, verification, and (with a
+   team registry) **assignee** — and ask
    **"Start these N phases?"** (yes / edit / fewer). A "fewer" answer means re-split and ask again.
    No issue exists before an explicit yes in the current turn.
    - **Two or more phases means one parent issue, so ask about it in the same breath.** At **N ≥ 2**
@@ -283,6 +309,12 @@ parent link are in ADR
      to justify one.
    - Propose the epic title yourself: the intent's own short title, since the epic *is* the intent
      on the board. Do not paste the intent's whole body into the epic — the phases carry the detail.
+   - **Assignee (team registry only; never assign on a guess).** For each phase run
+     `bash .agents/monorepo-agents-harness/core/scripts/team.sh assignee <phase workspace>` and show the
+     answer in the table's Assignee column: **one key** → propose that person; **several keys** → the
+     developer picks one of them in the same answer as the sign-off; **`ask`** → the developer names
+     someone or says "unassigned". No policy ever picks for them. The Assignee column is part of the
+     sign-off, so it is not a second consent round. Exit 4 → no column, no question: file as today.
 6. **Find the tracker, then confirm it with the developer.** The tracker belongs to **this
    consumer project**, never to the harness. In this order:
    a. **If `<repo-root>/.agents/tracker.md` already records a platform, use it.** Do not ask
@@ -366,8 +398,12 @@ parent link are in ADR
      compose the issue title and body from the phase row — scope, workspace, verification command, and
      a link to the intent file — then run
      `core/scripts/tracker-issue.sh --title "<issue title>" --body-file <file> [--parent <epic number>]
-     --create`. Pass `--parent` **only** when step 7.5 produced an epic number, and pass the same
-     number to every phase. The script prints `created number=<n>` and then the URL; **keep both**.
+     [--assignee <id>] --create`. Pass `--parent` **only** when step 7.5 produced an epic number, and pass the same
+     number to every phase. Pass `--assignee` **only** with the person the developer confirmed in step 5,
+     as that tracker's own ID — `team.sh get <key> ids.<tracker platform>` (`ids.github` for GitHub,
+     `ids.jira` for Jira, and so on); the epic itself is not assigned. No ID recorded for that tracker →
+     file the phase unassigned and say so. The script prints `created number=<n>` and then the URL;
+     **keep both**.
    - **Append the `## Dispatch` block to the intent file.** One block per run, appended after any
      existing one, never rewritten, holding today's date, the tracker, the epic (omitted entirely when
      there is no epic) and one line per phase slug with the `#<number>` and URL the create actually

@@ -90,6 +90,13 @@ review, the reviewer appends a `## Review` section:
 - Notes: <optional>
 ```
 
+**`author:` and `Reviewer:` are people.** When the project has a team registry
+(`.agents/team.yml`, `core/team/AGENTS.md`), the agent fills both with the registry **name**
+(`team.sh whoami`, or `team.sh resolve github <login>` for a forge approver), never the key, so the
+record stays readable after the person leaves the registry. Without a registry they stay free text,
+exactly as before. Existing intents are never rewritten to normalize old values — they were true on
+their date.
+
 A `## Review` section is written **once per intent, ever** — Review writes it on the interactive
 decision, `/monorepo-harness-intent --approve <PR-url>` writes it on the PR-based approve path,
 and `/monorepo-harness-intent --reject <PR-url>` writes it on the PR-based decline path

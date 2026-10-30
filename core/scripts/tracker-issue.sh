@@ -39,7 +39,8 @@
 #   tracker-issue.sh --list-open --search <text> [--search <text> ...]
 #   tracker-issue.sh --show <ref>
 #   tracker-issue.sh --title <text> (--body <text> | --body-file <path>)
-#                    [--parent <number-or-url>] [--plan <2_plan.md>] [--tracker <platform>]
+#                    [--parent <number-or-url>] [--assignee <id>] [--plan <2_plan.md>]
+#                    [--tracker <platform>]
 #                    [--repo <owner/name>] [--dry-run] [--create]
 #
 #   --infer          print 'platform=<p> target=<t> source=cache|inferred|none origin=<url>' and
@@ -72,6 +73,15 @@
 #                    block carries a 'parent: <ref>' line for the developer to set by hand. If the
 #                    installed 'gh' has no --parent flag (an older CLI), nothing is created: the
 #                    script prints the paste-ready text and exits 3, the same floor as no 'gh' at all.
+#   --assignee <id>  OPTIONAL. The tracker's own ID for the person to assign - a GitHub login for
+#                    'github', an account ID elsewhere. The CALLER resolves and confirms it (from
+#                    the team registry, core/scripts/team.sh); this script never looks anyone up and
+#                    never assigns on its own. Only read in the create modes. On 'jira'/'linear' the
+#                    harness creates nothing, so the paste-ready block carries an '--- assignee ---'
+#                    section for the developer to set by hand. On GitHub, if the create is refused
+#                    because of the assignee (not a collaborator, unknown login), the issue is
+#                    created once more WITHOUT it and a note goes to stderr: an unassignable person
+#                    never costs the developer the issue.
 #   --tracker <name> platform override; see the platform table above
 #   --repo <o/n>     target repository (default: the cache's target, else the 'origin' remote)
 #   --dry-run        print the issue that would be created, create nothing (default)
@@ -153,7 +163,7 @@ BUNDLE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
 [ $# -ge 1 ] || usage
 
 plan=""; title=""; body=""; body_file=""; tracker=""; repo=""; create_mode=0; infer_mode=0
-list_mode=0; show_mode=0; show_ref=""; searches=""; parent=""
+list_mode=0; show_mode=0; show_ref=""; searches=""; parent=""; assignee=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -166,6 +176,7 @@ while [ $# -gt 0 ]; do
     --body)       [ -n "${2:-}" ] || usage; body="$2"; shift 2 ;;
     --body-file)  [ -n "${2:-}" ] || usage; body_file="$2"; shift 2 ;;
     --parent)     [ -n "${2:-}" ] || usage; parent="$2"; shift 2 ;;
+    --assignee)   [ -n "${2:-}" ] || usage; assignee="$2"; shift 2 ;;
     --tracker)    tracker="${2:-}"; shift 2 ;;
     --repo)       repo="${2:-}"; shift 2 ;;
     --dry-run)    create_mode=0; shift ;;
@@ -409,6 +420,9 @@ paste_ready() {
   if [ -n "$parent" ]; then
     printf '\n--- parent ---\n%s\n' "$parent"
   fi
+  if [ -n "$assignee" ]; then
+    printf '\n--- assignee ---\n%s\n' "$assignee"
+  fi
   printf '\n--- target ---\n%s\n--- title ---\n%s\n--- body ---\n%s\n%s\n' \
     "${repo:-<none recorded>}" "$title" "$body" "$footer"
 }
@@ -418,6 +432,7 @@ if [ "$create_mode" -eq 0 ]; then
   printf 'tracker-issue: would create a %s issue in %s (run with --create to create it)\n' \
     "$tracker" "${repo:-<none recorded>}"
   [ -n "$parent" ] && printf 'tracker-issue: as a sub-issue of %s\n' "$parent"
+  [ -n "$assignee" ] && printf 'tracker-issue: assigned to %s\n' "$assignee"
   printf '\n--- title ---\n%s\n--- body ---\n%s\n%s\n' "$title" "$body" "$footer"
   exit 0
 fi
@@ -428,6 +443,7 @@ fi
 if [ "$tracker" != "github" ]; then
   echo "tracker-issue: '$tracker' is not implemented by this harness - issue NOT created. Use your own MCP server, project skill, or CLI for '$tracker', or paste this by hand:" >&2
   [ -n "$parent" ] && echo "tracker-issue: --parent is not applied on '$tracker' - set the parent relationship yourself from the block below" >&2
+  [ -n "$assignee" ] && echo "tracker-issue: --assignee is not applied on '$tracker' - assign it yourself from the block below" >&2
   paste_ready
   exit 3
 fi
@@ -458,10 +474,21 @@ fi
 create_args=(--repo "$repo" --title "$title" --body "$body"$'\n'"$footer")
 [ -n "$parent" ] && create_args+=(--parent "$parent")
 
-url="$(gh issue create "${create_args[@]}" 2>&1)" || {
+create_failed() {
   printf 'tracker-issue: gh issue create failed:\n%s\n' "$url" >&2
   exit 1
 }
+if [ -n "$assignee" ]; then
+  if ! url="$(gh issue create "${create_args[@]}" --assignee "$assignee" 2>&1)"; then
+    # Refused over the assignee: nothing exists yet, so file it unassigned and say so. Any other
+    # refusal is a create failure like any other.
+    printf '%s' "$url" | grep -qi 'assign' || create_failed
+    echo "tracker-issue: could not assign '$assignee' - filing the issue unassigned; assign it by hand" >&2
+    url="$(gh issue create "${create_args[@]}" 2>&1)" || create_failed
+  fi
+else
+  url="$(gh issue create "${create_args[@]}" 2>&1)" || create_failed
+fi
 
 # Machine-readable first, URL last. The URL stays the final line on purpose: the tracker subagent and
 # every installed copy of it read "the last stdout line is the URL", and they must keep working.
