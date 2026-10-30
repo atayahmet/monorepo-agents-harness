@@ -47,6 +47,7 @@ new_fixture
 before="$(db 'SELECT count(*) FROM docs;')"
 out="$(ingest)"
 says "ingest reports the index update" "$out" "index updated"
+case "$out" in *"indexed "*) bad "ingest upserts instead of rebuilding" "$out" ;; *) ok "ingest upserts instead of rebuilding" ;; esac
 want="$(find "$KB" -type f -name '*.md' | wc -l | tr -d ' ')"
 is "docs holds every page on disk right after ingest" "$(db 'SELECT count(*) FROM docs;')" "$want"
 is "ingest added pages" "$([ "$want" -gt "$before" ] && echo yes || echo no)" "yes"
@@ -81,13 +82,24 @@ trap 'rm -rf "$FIXTURE" "$NOSQL"' EXIT
 for t in bash git dirname basename find sed grep awk date wc tr cat head mv cp mkdir sort cut stat touch rm printf; do
   src="$(command -v "$t" 2>/dev/null || true)"; [ -n "$src" ] && ln -sf "$src" "$NOSQL/$t"
 done
+( cd "$FIXTURE" && bash "$INDEX" rebuild 2>/dev/null )   # an index must exist for ingest to try the add
 out="$( cd "$FIXTURE" && PATH="$NOSQL" "$NOSQL/bash" "$INGEST" "$TASK" 2>&1 )"; rc=$?
 says "no sqlite3: the fallback is reported, not fatal" "$out" "index not updated"
 is "no sqlite3: ingest still exits 0" "$rc" "0"
-is "no sqlite3: no database is created" "$([ -f "$KB/.index.sqlite" ] && echo yes || echo no)" "no"
+case "$out" in *unavailable*|*"sqlite3 not found"*) bad "no sqlite3: the fallback stays quiet" "$out" ;; *) ok "no sqlite3: the fallback stays quiet" ;; esac
 new_fixture
 out="$(ingest)"
 is "no index yet: ingest exits 0 and builds none" "$([ -f "$KB/.index.sqlite" ] && echo yes || echo no)" "no"
+says "no index yet: the output says so" "$out" "no search index yet"
+case "$out" in *"index updated"*) bad "no index yet: never claims an update" "$out" ;; *) ok "no index yet: never claims an update" ;; esac
+new_fixture
+( cd "$FIXTURE" && bash "$INDEX" rebuild 2>/dev/null )
+chmod -w "$KB/.index.sqlite"
+out="$(ingest)"; rc=$?
+chmod +w "$KB/.index.sqlite"
+is "a failed add: ingest still exits 0" "$rc" "0"
+says "a failed add: ingest says it was not updated" "$out" "index not updated"
+says "a failed add: the reason is shown" "$out" "kb-index: add failed"
 out="$( cd "$FIXTURE" && bash "$INGEST" "$TASK" --dry-run 2>&1 )"
 says "dry-run names the pages it would index" "$out" "would update the index"
 

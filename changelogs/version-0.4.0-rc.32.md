@@ -30,6 +30,10 @@ index yet it does nothing. `rebuild` is unchanged and stays the full, safe path.
 
 ## Manual follow-ups for the user
 
+- Run `bash .agents/monorepo-agents-harness/core/scripts/kb-index.sh rebuild` once: this release fixes how
+  `kb-index.sh` resolves relative links such as `../concepts/foo.md`, and edges already stored in
+  `knowledge/.index.sqlite` keep the old, wrong target until the index is rebuilt (the next `query` does not
+  notice, because no page changed).
 - Optional: your project's `knowledge/schema.md` was seeded once and is never overwritten. Its "Index
   layer" section still says `kb-ingest.sh` never touches the index. Replace that sentence with: ingest
   adds the pages it writes to the index with `kb-index.sh add`; `rebuild` and the query-time self-heal
@@ -38,4 +42,5 @@ index yet it does nothing. `rebuild` is unchanged and stays the full, safe path.
 ## Release summary
 
 - Added `kb-index.sh add <path>...` and made `kb-ingest.sh` use it (issue #63).
+- Fixed relative-link resolution in `kb-index.sh` (needs one `rebuild`).
 - No change to `core/root-AGENTS.md`.

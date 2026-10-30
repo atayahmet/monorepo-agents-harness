@@ -36,9 +36,17 @@ Release procedure (harness maintainers):
 - **`kb-ingest.sh`** now upserts every page it writes or leaves in place (module, sources, verified-facts, ADR
   copies, `log.md`, `index.md`) with `kb-index.sh add`, so a task's pages are queryable the moment ingest ends,
   with no full rebuild. The step is best-effort: a missing `sqlite3`/FTS5 or a failed add is reported and never
-  fails the ingest. `--dry-run` names the pages it would index and writes nothing.
+  fails the ingest: it says so when there is no index yet, and prints the reason when an add fails for any
+  cause other than a missing `sqlite3`/FTS5. `--dry-run` names the pages it would index and writes nothing.
 - `core/knowledge-template/schema.md` (index-layer rules: ingest used to be documented as never touching the
   index) and `core/skills/knowledge-base/SKILL.md` (query step 1).
+
+### Fixed
+
+- **`kb-index.sh` relative links**: `norm_path` dropped the last segment of a path whose text had no trailing
+  newline, so `[x](../concepts/foo.md)` was stored as an edge to `concepts` and `links --missing` / `--orphans`
+  misjudged such pages. It now resolves to `concepts/foo`. Found while testing `add`, whose path handling
+  uses the same function; run `kb-index.sh rebuild` once to refresh edges already stored.
 
 ### Upgrade Notes
 

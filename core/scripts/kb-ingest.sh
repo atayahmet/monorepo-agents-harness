@@ -204,10 +204,21 @@ for adr in "$TASK_DIR"/adr/*.md; do
   [ -f "$adr" ] && idx_pages+=("decision-records/$(basename "$adr")")
 done
 if [ "$WRITE" -eq 1 ]; then
-  if bash "$(dirname "${BASH_SOURCE[0]}")/kb-index.sh" add --kb "$KB" "${idx_pages[@]/#/$KB/}" 2>/dev/null; then
-    echo "kb-ingest:   index updated (${#idx_pages[@]} page(s))"
+  if [ ! -f "$KB/.index.sqlite" ]; then
+    echo "kb-ingest:   no search index yet — the first kb-index.sh query builds it"
   else
-    echo "kb-ingest:   index not updated (kb-index add exited $?) — the next query or rebuild repairs it"
+    rc=0
+    err="$(bash "$(dirname "${BASH_SOURCE[0]}")/kb-index.sh" add --kb "$KB" "${idx_pages[@]/#/$KB/}" 2>&1)" || rc=$?
+    if [ "$rc" -eq 0 ]; then
+      echo "kb-ingest:   index updated (${#idx_pages[@]} page(s))"
+    else
+      echo "kb-ingest:   index not updated (kb-index add exited $rc) — the next query or rebuild repairs it"
+      # No sqlite3/FTS5 is the quiet fallback; any other reason (lock, read-only or damaged file) is shown.
+      case "$err" in
+        *unavailable*) ;;
+        *) printf '%s\n' "$err" | sed 's/^/kb-ingest:     /' ;;
+      esac
+    fi
   fi
 else
   echo "kb-ingest:   (dry-run) would update the index: ${idx_pages[*]}"

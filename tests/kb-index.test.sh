@@ -159,6 +159,13 @@ both="$(idx links)"
 says "links with no flag runs both lints" "$both" "orphan: concepts/orphan.md"
 says "links with no flag runs both lints" "$both" "missing: concepts/ghost"
 
+echo "kb-index — relative links resolve to a page"
+
+new_fixture
+printf '# Concept: rel\n\nSee [retry](../concepts/retry.md) and [src](./../sources/task_2026_01_02_add_retry.md).\n' > "$FIXTURE/knowledge/modules/rel.md"
+idx rebuild
+is "a ../ link normalizes to its page" "$(db "SELECT group_concat(target) FROM (SELECT target FROM links WHERE from_path='modules/rel.md' ORDER BY target);")" "concepts/retry,sources/task_2026_01_02_add_retry"
+
 echo "kb-index — usage and dry-run"
 
 new_fixture
@@ -177,7 +184,10 @@ fts_hits() { sqlite3 "$FIXTURE/knowledge/.index.sqlite" "SELECT count(*) FROM do
 new_fixture
 idx rebuild
 printf '# Concept: fallback\n\nWithout sqlite3 the skill falls back to grep. See [[concepts/retry]].\n' > "$FIXTURE/knowledge/concepts/fallback.md"
-is "add exits 0" "$(idx_code add knowledge/concepts/fallback.md)" "0"
+out="$(idx_all add knowledge/concepts/fallback.md)"
+says "add upserts in place" "$out" "updated 1 page(s)"
+not_says "add does not fall back to a rebuild" "$out" "indexed"
+is "add exits 0" "$(idx_code add concepts/fallback.md)" "0"
 is "add inserts the page" "$(db 'SELECT count(*) FROM docs;')" "7"
 says "a page added incrementally is found by query" "$(idx query "fallback grep")" "concepts/fallback.md"
 is "its link edges are recorded" "$(db "SELECT count(*) FROM links WHERE from_path='concepts/fallback.md';")" "1"
@@ -205,7 +215,9 @@ idx rebuild
 sleep 1
 pages="index.md modules/api.md modules/README.md concepts/retry.md concepts/orphan.md sources/task_2026_01_02_add_retry.md"
 for f in $pages; do printf '\nextra line for %s\n' "$f" >> "$FIXTURE/knowledge/$f"; done
-idx add $pages
+out="$(idx_all add $pages)"
+says "an add of known pages upserts all of them" "$out" "updated 6 page(s)"
+not_says "an add of known pages is not a rebuild" "$out" "indexed"
 inc="$(dump)"
 q_inc="$(idx query "retry extra")"
 rm -f "$FIXTURE/knowledge/.index.sqlite"

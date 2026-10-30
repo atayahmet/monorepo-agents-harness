@@ -118,7 +118,7 @@ norm_path() { # collapse "." and ".." segments of a /-separated path (string bas
       ..) case "$out" in */*) out="${out%/*}" ;; *) out="" ;; esac ;;
       *) out="${out:+$out/}$seg" ;;
     esac
-  done < <(printf '%s' "$1" | tr '/' '\n')
+  done < <(printf '%s\n' "$1" | tr '/' '\n')   # the newline matters: read drops an unterminated last segment
   printf '%s' "$out"
 }
 
@@ -144,12 +144,16 @@ stale() { # [<rel>...] true when the index is missing, older than any .md, or th
           # the optional paths are left out of both checks (add: they are about to be rewritten)
   [ -f "$DB" ] || return 0
   local f rel x skip want have notin="" n_ex=0
-  for x in "$@"; do notin="${notin:+$notin,}'$(esc "$x")'"; n_ex=$((n_ex + 1)); done
-  while IFS= read -r f; do
-    rel="${f#"$KB"/}"; skip=0
-    for x in "$@"; do [ "$x" = "$rel" ] && { skip=1; break; }; done
-    [ "$skip" -eq 1 ] || return 0
-  done < <(find "$KB" -type f -name '*.md' -newer "$DB" -print 2>/dev/null)
+  if [ "$#" -eq 0 ]; then
+    [ -z "$(find "$KB" -type f -name '*.md' -newer "$DB" -print -quit 2>/dev/null)" ] || return 0
+  else
+    for x in "$@"; do notin="${notin:+$notin,}'$(esc "$x")'"; n_ex=$((n_ex + 1)); done
+    while IFS= read -r f; do
+      rel="${f#"$KB"/}"; skip=0
+      for x in "$@"; do [ "$x" = "$rel" ] && { skip=1; break; }; done
+      [ "$skip" -eq 1 ] || return 0
+    done < <(find "$KB" -type f -name '*.md' -newer "$DB" -print 2>/dev/null)
+  fi
   want="$(find "$KB" -type f -name '*.md' | wc -l | tr -d ' ')"; want=$((want - n_ex))
   have="$(sqlite3 "$DB" "SELECT count(*) FROM docs${notin:+ WHERE path NOT IN ($notin)};" 2>/dev/null || echo 0)"
   [ "$want" = "$have" ] || return 0
