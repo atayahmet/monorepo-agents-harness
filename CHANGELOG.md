@@ -17,7 +17,7 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
-## [0.4.0-rc.28] - 2026-10-30
+## [0.4.0-rc.29] - 2026-10-30
 
 ### Added
 
@@ -63,6 +63,8 @@ Release procedure (harness maintainers):
 
 ### Upgrade Notes
 
+- **Version note:** the `v0.4.0-rc.28` tag sits on the earlier read-only registry core (#62) and has no
+  changelog entry; everything above ships in `0.4.0-rc.29`.
 - **Nothing to run.** New files ship through the bundle and adapter manifests: run
   `core/scripts/install-harness.sh --sync-only` and `core/scripts/install-adapter.sh <agent> --refresh`.
 - `core/root-AGENTS.md` changed (new rule 8): the update flow's consent-gated `AGENTS.md` merge offers it.
