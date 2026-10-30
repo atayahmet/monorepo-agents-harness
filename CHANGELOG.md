@@ -17,6 +17,27 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.30] - 2026-10-30
+
+### Fixed
+
+- **Codex adapter shipped a manifest row without its file (issue #66)**: `v0.4.0-rc.29` listed
+  `.agents/skills/monorepo-harness-team/SKILL.md` in `adapters/codex/manifest.txt`, but the file was never
+  committed: the bare `.agents/` rule in `.gitignore` also matched `adapters/codex/.agents/`. So
+  `install-adapter.sh codex --refresh` failed and `/monorepo-harness-update` stopped at step 7.5 for every
+  project with the Codex adapter. The skill is now tracked and `.gitignore` has an exception for adapter
+  payloads (`!/adapters/*/.agents/`).
+- `tests/manifest-sources-tracked.test.sh` (new, repo-local) fails when a manifest row's source is not
+  tracked by git or when anything under `adapters/` or `core/` is ignored; the team parity test now checks
+  git tracking instead of the working tree.
+
+### Upgrade Notes
+
+- **Codex projects on `0.4.0-rc.29`**: update to this release. Nothing else to run; step 7.5 of the update
+  flow (`install-adapter.sh codex --refresh`) now installs `/monorepo-harness-team`. The `v0.4.0-rc.29` tag
+  is not moved.
+- No change to `core/root-AGENTS.md`. Claude Code and opencode adapters are unaffected.
+
 ## [0.4.0-rc.29] - 2026-10-30
 
 ### Added
