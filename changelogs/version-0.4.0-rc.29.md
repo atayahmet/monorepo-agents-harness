@@ -1,4 +1,4 @@
-# Upgrade notes for 0.4.0-rc.28
+# Upgrade notes for 0.4.0-rc.29
 
 This release adds the team registry (issue #55). No commands to run and no manual migrations are
 required — the new files ship via the bundle and adapter manifests.
