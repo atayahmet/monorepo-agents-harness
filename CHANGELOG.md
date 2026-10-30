@@ -55,7 +55,10 @@ Release procedure (harness maintainers):
   exit 5 for a registry it cannot read, and no gawk-only awk. After review: the most specific glob wins
   (not the longest string), registry keys are normalized like lookups, quoted names keep their escapes
   (and `--json` escapes them), unknown top-level keys are ignored with a lint warning, and `team-infer.sh`
-  reads CODEOWNERS in GitHub's order (`.github/` first, last matching line wins).
+  reads CODEOWNERS in GitHub's order (`.github/` first, last matching line wins). Also: `lint` no longer
+  warns falsely for repo paths with regex characters or a `*` workspace glob and skips build-output dirs,
+  IDs are case-folded only for git/github/gitlab/bitbucket (Jira and chat IDs are exact), `refs` sets no
+  shell trap, and `tracker-issue.sh` retries unassigned only on gh's real assignee-refusal wording.
 - `tests/argument-hint.test.sh` classifies `monorepo-harness-security-review` (it was failing on `main`).
 
 ### Upgrade Notes

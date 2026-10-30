@@ -222,5 +222,52 @@ YAML
 run assignee apps/api; is "key written with a trailing slash matches" "$out" "alice"
 run assignee apps/web; is "key written with ./ matches" "$out" "alice"
 
+# --- review findings, second round (PR #64) -----------------------------------------------------------
+# 7. lint must not warn falsely when the repo path has regex/glob characters
+weird="$tmp/we[ird]+dir.x"; mkdir -p "$weird/apps/api" "$weird/.agents"
+( cd "$weird" && git init -q . && printf 'packages:\n  - "apps/*"\n' > pnpm-workspace.yaml )
+printf 'version: 1\nmembers:\n  - key: alice\n    name: Alice\nassignee_by_workspace:\n  apps/api: [alice]\n' > "$weird/.agents/team.yml"
+out="$( cd "$weird" && "$TEAM" lint 2>&1 )"; ec=$?
+is "lint in a repo path with [ + . characters exits 0" "$ec" "0"
+saysn "no false 'not under a workspace' warning for such a path" "$out" "not under a workspace"
+# a "*" workspace glob makes the repo root the detector's parent dir (".") and covers every directory.
+# A stub detector keeps this independent of PyYAML/jq being installed.
+rm -rf "$tmp/star" "$tmp/stub"; mkdir -p "$tmp/star/svc/api" "$tmp/star/.agents" "$tmp/stub"
+cp "$TEAM" "$tmp/stub/team.sh"
+printf '#!/usr/bin/env bash\ngit rev-parse --show-toplevel\n' > "$tmp/stub/detect-monorepo-framework.sh"
+( cd "$tmp/star" && git init -q . )
+printf 'version: 1\nmembers:\n  - key: alice\n    name: Alice\nassignee_by_workspace:\n  svc/api: [alice]\n' > "$tmp/star/.agents/team.yml"
+out="$( cd "$tmp/star" && bash "$tmp/stub/team.sh" lint 2>&1 )"
+saysn "a '*' workspace glob does not trigger the warning" "$out" "not under a workspace"
+
+# 8. build output directories are not workspaces
+mkdir -p build/pkg/api
+printf 'version: 1\nmembers:\n  - key: alice\n    name: Alice\nassignee_by_workspace:\n  "build/pkg/*": [alice]\n' > .agents/team.yml
+run lint; says "lint ignores directories under build/ (pruned)" "$out" "matches no directory"
+
+# 9. refs cleans up after itself without a lingering RETURN trap
+cp "$tmp/good.yml" .agents/team.yml
+mkdir -p "$tmp/tt"; TMPDIR="$tmp/tt" "$TEAM" refs alice >/dev/null 2>&1
+is "refs leaves no temp file behind" "$(ls -A "$tmp/tt" | wc -l | tr -d ' ')" "0"
+if grep -Eq 'trap .*RETURN' "$TEAM"; then bad "team.sh sets no RETURN trap" "trap ... RETURN found"; else ok "team.sh sets no RETURN trap"; fi
+
+# 10. only case-insensitive platforms ignore case
+cat > .agents/team.yml << 'YAML'
+version: 1
+members:
+  - key: ann
+    name: Ann A
+    ids: { git: Ann@Example.com, github: Ann-Dev, jira: "AbC123" }
+  - key: ben
+    name: Ben B
+    ids: { jira: "abc123" }
+YAML
+run lint; is "ids differing only by case on a case-sensitive platform are not duplicates" "$ec" "0"
+run resolve jira abc123; says "resolve jira is exact (lower case)" "$out" "ben"
+run resolve jira AbC123; says "resolve jira is exact (mixed case)" "$out" "ann"
+run resolve jira ABC123; is "resolve jira does not fold case" "$ec" "3"
+run resolve github ann-dev; says "github logins stay case-insensitive" "$out" "ann"
+run whoami --email ann@example.com; says "git emails stay case-insensitive" "$out" "ann"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

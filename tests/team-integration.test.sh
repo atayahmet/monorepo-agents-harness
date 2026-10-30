@@ -30,7 +30,7 @@ case "$1 $2" in
   "auth status") exit 0 ;;
   "issue create") [ "${3:-}" = "--help" ] && { echo "  --assignee --parent"; exit 0; }
                   if [ "${GH_BAD_ASSIGNEE:-0}" = "1" ] && case " $* " in *" --assignee "*) true;; *) false;; esac; then
-                    echo "could not assign user: not a collaborator" >&2; exit 1
+                    echo "${GH_ASSIGN_MSG:-could not assign user: not a collaborator}" >&2; exit 1
                   fi
                   [ "${GH_FAIL_CREATE:-0}" = "1" ] && { echo "boom" >&2; exit 1; }
                   echo "https://github.com/acme/web/issues/7"; exit 0 ;;
@@ -57,6 +57,15 @@ out="$( cd "$FIXTURE" && PATH="$FIXTURE/bin:$PATH" GH_LOG="$FIXTURE/gh.log" GH_B
 says "refused assignee still files the issue" "$out" "created number=7"
 says "refused assignee is reported" "$out" "could not assign"
 is "refused assignee retried exactly once without it" "$(grep -c 'issue create' "$FIXTURE/gh.log")" "2"
+# gh's own wording for an unknown login also counts as an assignee refusal
+: > "$FIXTURE/gh.log"
+out="$( cd "$FIXTURE" && PATH="$FIXTURE/bin:$PATH" GH_LOG="$FIXTURE/gh.log" GH_BAD_ASSIGNEE=1 GH_ASSIGN_MSG="GraphQL: Could not resolve to a User with the login of 'ghost'. (assignees)" bash tracker-issue.sh --tracker github --title T --body B --assignee ghost --create 2>&1 )"
+says "an unknown login is retried unassigned" "$out" "created number=7"
+# a failure that merely mentions assignees is NOT an assignee refusal: no retry, exit 1
+: > "$FIXTURE/gh.log"
+code="$( cd "$FIXTURE" && PATH="$FIXTURE/bin:$PATH" GH_LOG="$FIXTURE/gh.log" GH_BAD_ASSIGNEE=1 GH_ASSIGN_MSG="API rate limit exceeded for the request carrying assignees" bash tracker-issue.sh --tracker github --title T --body B --assignee alice-example --create >/dev/null 2>&1; echo $? )"
+is "a rate-limit error mentioning assignees fails the create" "$code" "1"
+is "and is not retried" "$(grep -c 'issue create' "$FIXTURE/gh.log")" "1"
 # any other create failure is still a failure
 is "unrelated create failure exits 1" "$( cd "$FIXTURE" && PATH="$FIXTURE/bin:$PATH" GH_LOG="$FIXTURE/gh.log" GH_FAIL_CREATE=1 bash tracker-issue.sh --tracker github --title T --body B --assignee alice-example --create >/dev/null 2>&1; echo $? )" "1"
 out="$(ti --title T --body B --assignee 557058:0000 --tracker jira --create)"

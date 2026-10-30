@@ -482,7 +482,7 @@ if [ -n "$assignee" ]; then
   if ! url="$(gh issue create "${create_args[@]}" --assignee "$assignee" 2>&1)"; then
     # Refused over the assignee: nothing exists yet, so file it unassigned and say so. Any other
     # refusal is a create failure like any other.
-    printf '%s' "$url" | grep -qi 'assign' || create_failed
+    printf '%s' "$url" | grep -Eqi 'could not (assign|resolve to a user)|cannot assign|unable to assign|not a collaborator|login of' || create_failed
     echo "tracker-issue: could not assign '$assignee' - filing the issue unassigned; assign it by hand" >&2
     url="$(gh issue create "${create_args[@]}" 2>&1)" || create_failed
   fi

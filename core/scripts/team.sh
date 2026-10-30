@@ -59,6 +59,8 @@ function val(s,   q, i, c, n, out) {
   }
   sub(/[ \t]+#.*$/, "", s); return trim(s)
 }
+function ci(p) { p = tolower(p); return p == "git" || p == "github" || p == "gitlab" || p == "bitbucket" }
+function norm(p, v) { return ci(p) ? tolower(v) : v }
 function segmatch(pat, seg,   re) {
   re = pat
   gsub(/[][\\.+?(){}^$|]/, "\\\\&", re)
@@ -204,12 +206,12 @@ cmd_whoami() {
 # also be `key` or `name`, so a free-text intent author can be mapped back to a registry key.
 emit_match() {
   local plat="$1" want="$2" json="$3" rk rn rkind
-  rk="$(awk -F'\t' -v p="$plat" -v w="$want" '
+  rk="$(awk -F'\t' -v p="$plat" -v w="$want" "$AWK_LIB"'
     BEGIN { pl = tolower(p); lw = tolower(w) }
     $1=="ITEM" { id = $2; k = $4 }
     pl=="key"  && $1=="ITEM" && tolower($4)==lw { print k; exit }
     pl=="name" && $1=="NAME" && tolower($3)==lw { print k; exit }
-    $1=="ID" && $2==id && tolower($3)==pl && tolower($4)==lw { print k; exit }
+    $1=="ID" && $2==id && tolower($3)==pl && norm(pl, $4)==norm(pl, w) { print k; exit }
   ' <<< "$DATA")"
   [ -n "$rk" ] || exit 3
   rn="$(awk -F'\t' -v k="$rk" '$1=="ITEM"{on=($4==k)} on && $1=="NAME"{print $3; exit}' <<< "$DATA")"
@@ -296,19 +298,20 @@ cmd_assignee() {
   if [ "$json" -eq 1 ]; then printf '%s\n' "$keys" | json_list; else printf '%s\n' "$keys"; fi
 }
 
-# workspace_dirs - every directory under the repo (depth <= 6), relative, without vendor dirs.
+# workspace_dirs - every directory under the repo (depth <= 6), relative, without vendor and build-output
+# dirs (a workspace is never one of those).
 workspace_dirs() {
-  ( cd "$ROOT" && find . -maxdepth 6 -type d \( -name node_modules -o -name .git -o -name .harness-trash \) -prune -o -type d -print 2>/dev/null \
+  ( cd "$ROOT" && find . -maxdepth 6 -type d \( -name node_modules -o -name .git -o -name .harness-trash -o -name dist -o -name build -o -name .next -o -name .turbo -o -name target -o -name vendor -o -name coverage -o -name .cache -o -name .venv -o -name __pycache__ \) -prune -o -type d -print 2>/dev/null \
       | sed -e 's#^\./##' -e '/^\.$/d' )
 }
 
 cmd_lint() {
   load
   local errs warns
-  errs="$(awk -F'\t' '
+  errs="$(awk -F'\t' "$AWK_LIB"'
     $1=="ITEM" { id=$2; k=$4; kind[k]=$3; cnt[k]++; hasname[id]=0; keyof[id]=k }
     $1=="NAME" && $3 != "" { hasname[$2]=1 }
-    $1=="ID" { seen[tolower($3) "\t" tolower($4)] = seen[tolower($3) "\t" tolower($4)] " " keyof[$2]; c[tolower($3) "\t" tolower($4)]++ ; disp[tolower($3) "\t" tolower($4)] = $3 ": " $4 }
+    $1=="ID" { x = tolower($3) "\t" norm($3, $4); seen[x] = seen[x] " " keyof[$2]; c[x]++; disp[x] = $3 ": " $4 }
     $1=="ASGN" { n = split($3, a, ","); for (i = 1; i <= n; i++) if (a[i] != "") { ws[++wn] = $2; wk[wn] = a[i] } }
     END {
       for (k in cnt) if (cnt[k] > 1) printf "duplicate key: %s\n", k
@@ -324,7 +327,12 @@ cmd_lint() {
   warns="$(
     awk -F'\t' '$1=="TOP"{printf "warning: unknown top-level key %s ignored\n", $2}' <<< "$DATA"
     dirs="$(workspace_dirs)"
-    detected="$(cd "$ROOT" && bash "$SCRIPT_DIR/detect-monorepo-framework.sh" --workspaces 2>/dev/null | sed -e "s#^$ROOT/##" || true)"
+    detected=""
+    while IFS= read -r l; do
+      [ -n "$l" ] || continue
+      if [ "$l" = "$ROOT" ]; then l="."; else l="${l#"$ROOT"/}"; fi
+      detected="$detected$l"$'\n'
+    done < <(cd "$ROOT" && bash "$SCRIPT_DIR/detect-monorepo-framework.sh" --workspaces 2>/dev/null || true)
     awk -F'\t' '$1=="ASGN"{print $2}' <<< "$DATA" | while IFS= read -r w; do
       [ "$w" = "." ] && continue
       hits="$(printf '%s\n' "$dirs" | awk "$AWK_LIB"'{ if (globmatch(w, $0)) print }' w="$w")"
@@ -332,9 +340,9 @@ cmd_lint() {
         printf 'warning: assignee_by_workspace %s matches no directory (renamed or moved workspace?)\n' "$w"
       elif [ -n "$detected" ]; then
         printf '%s\n' "$hits" | awk "$AWK_LIB"'
-          NR==FNR { d[++dn] = $0; next }
-          { for (i = 1; i <= dn; i++) if ($0 == d[i] || index($0, d[i] "/") == 1 || globmatch(d[i] "/**", $0)) { ok = 1 } }
-          END { exit ok ? 0 : 1 }' <(printf '%s\n' "$detected") - \
+          NR==FNR { if ($0 != "") d[++dn] = $0; next }
+          { for (i = 1; i <= dn; i++) if (d[i] == "." || $0 == d[i] || index($0, d[i] "/") == 1 || globmatch(d[i] "/**", $0)) { ok = 1 } }
+          END { exit ok ? 0 : 1 }' <(printf '%s' "$detected") - \
           || printf 'warning: assignee_by_workspace %s is not under a workspace detect-monorepo-framework.sh finds\n' "$w"
       fi
     done
@@ -358,8 +366,6 @@ cmd_refs() {
   ' <<< "$DATA")" || exit 3
   [ -n "$pats" ] || { echo "refs: nothing searchable for $key"; return 0; }
   local pf files hits
-  pf="$(mktemp)"; trap 'rm -f "$pf"' RETURN
-  printf '%s\n' "$pats" | sort -u > "$pf"
   files="$( cd "$ROOT" && { git ls-files -co --exclude-standard 2>/dev/null || find . -type f -not -path './.git/*' | sed 's#^\./##'; } \
     | awk '
       /(^|\/)\.agents\/intents\// || /(^|\/)\.agents\/artifacts\// || /(^|\/)\.agents\/session-log\.md$/ { next }
@@ -369,7 +375,10 @@ cmd_refs() {
       /(^|\/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?)$/ { next }
       { print }' )"
   [ -n "$files" ] || { echo "refs: none"; return 0; }
+  pf="$(mktemp)"
+  printf '%s\n' "$pats" | sort -u > "$pf"
   hits="$( cd "$ROOT" && printf '%s\n' "$files" | tr '\n' '\0' | xargs -0 grep -InHF -f "$pf" 2>/dev/null || true )"
+  rm -f "$pf"
   if [ -z "$hits" ]; then echo "refs: none"; else printf '%s\n' "$hits"; fi
 }
 
