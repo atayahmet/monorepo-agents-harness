@@ -161,5 +161,66 @@ before="$(find . -path ./.git -prune -o -type f -print | sort | xargs cat | cksu
 after="$(find . -path ./.git -prune -o -type f -print | sort | xargs cat | cksum)"
 is "refs edits nothing" "$before" "$after"
 
+# --- review findings (PR #64) -------------------------------------------------------------------------
+# 1. an unknown top-level key WITH children must not make the registry unreadable
+cp "$tmp/good.yml" .agents/team.yml
+printf 'settings:\n  theme: dark\n  nested:\n    - a\nnotes: later\n' >> .agents/team.yml
+run assignee apps/api; is "unknown top-level key with children: lookups still work" "$ec" "0"
+run lint; is "unknown top-level key with children: lint exits 0" "$ec" "0"
+says "unknown top-level key is reported as a warning" "$out" "settings"
+run whoami; is "unknown top-level key with children: whoami works" "$ec" "0"
+
+# 2. the most specific glob wins, not the longest string
+cat > .agents/team.yml << 'YAML'
+version: 1
+members:
+  - key: bob
+    name: Bob B
+  - key: eve
+    name: Eve E
+  - key: zed
+    name: Zed Z
+assignee_by_workspace:
+  "apps/*": [bob]
+  "apps/**": [eve]
+  "a/**/x": [eve]
+  "a/b/*": [zed]
+YAML
+run assignee apps/api; is "'*' beats the longer '**' pattern" "$out" "bob"
+run assignee apps/api/deep; is "'**' still covers deeper paths" "$out" "eve"
+run assignee a/b/x; is "fewer '**' wins on equal literals" "$out" "zed"
+
+# 3. quoted scalars: escapes are honoured and JSON output stays valid
+cat > .agents/team.yml << 'YAML'
+version: 1
+members:
+  - key: bob
+    name: "Bob \"B\" O'Neil"
+    ids: { git: bob@example.com }
+  - key: sue
+    name: 'Sue O''Hara'
+    ids: { git: sue@example.com }
+YAML
+run get bob name; is "double-quoted escapes are decoded" "$out" "Bob \"B\" O'Neil"
+run get sue name; is "single-quoted '' is one quote" "$out" "Sue O'Hara"
+run whoami --email bob@example.com --json
+says "--json escapes quotes in names" "$out" '"name":"Bob \"B\" O'"'"'Neil"'
+if command -v python3 >/dev/null 2>&1; then
+  python3 -c 'import json,sys; json.loads(sys.argv[1])' "$out" 2>/dev/null && ok "--json output parses as JSON" || bad "--json output parses as JSON" "$out"
+fi
+
+# 4. registry keys are normalized like the lookup argument
+cat > .agents/team.yml << 'YAML'
+version: 1
+members:
+  - key: alice
+    name: Alice Example
+assignee_by_workspace:
+  apps/api/: [alice]
+  ./apps/web: [alice]
+YAML
+run assignee apps/api; is "key written with a trailing slash matches" "$out" "alice"
+run assignee apps/web; is "key written with ./ matches" "$out" "alice"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

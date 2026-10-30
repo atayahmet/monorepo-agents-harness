@@ -92,14 +92,18 @@ git -C "$ROOT" log --since="$since" --format='%aE%x09%aN%x09%at' 2>/dev/null \
   | sort -t$'\t' -k4,4nr -k2,2
 
 # --- CODEOWNERS: directory ownership seeds ----------------------------------------------------------
-for f in CODEOWNERS .github/CODEOWNERS docs/CODEOWNERS; do
+# Same lookup order as GitHub (.github/, then the root, then docs/); the LAST matching line wins, so
+# each path prints once, with its last owners.
+for f in .github/CODEOWNERS CODEOWNERS docs/CODEOWNERS; do
   [ -f "$ROOT/$f" ] || continue
   tr -d '\r' < "$ROOT/$f" | awk '
       /^[ \t]*(#|$)/ { next }
       { pat = $1; owners = ""; for (i = 2; i <= NF; i++) { if ($i ~ /^#/) break; owners = owners (owners == "" ? "" : ",") $i }
         sub(/^\//, "", pat); sub(/\/(\*\*|\*)?$/, "", pat)
         if (pat == "" || pat ~ /[*?\[]/ || owners == "") next
-        print pat "\t" owners }
+        if (!(pat in own)) order[++n] = pat
+        own[pat] = owners }
+      END { for (i = 1; i <= n; i++) print order[i] "\t" own[order[i]] }
     ' | while IFS=$'\t' read -r path owners; do
       if [ -d "$ROOT/$path" ]; then printf 'owners\t%s\t%s\n' "$path" "$owners"; fi
     done

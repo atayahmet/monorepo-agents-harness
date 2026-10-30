@@ -46,8 +46,9 @@ Rules:
 ## Workspace matching
 - Keys are workspace directory paths from the repo root — the one thing every framework has, and what
   the harness already uses for `<workspace>/.agents/`. Package names and Nx project names are not keys.
-- A lookup normalizes `./apps/api/` to `apps/api`, matches the **exact path first**, then the
-  **longest matching glob**. `*` matches inside one path segment, `**` matches zero or more segments.
+- Keys and lookups are normalized alike (`./apps/api/` is `apps/api`). A lookup matches the **exact
+  path first**, then the **most specific matching glob**: most literal characters, then fewer `**`,
+  then fewer `*`. `*` matches inside one path segment, `**` matches zero or more segments.
 - Not found, or an empty list → `ask`. The harness never picks for the developer (no round-robin).
 
 ## Commands (`team.sh`)
@@ -87,6 +88,7 @@ logs, fixtures or git history: they were true on their date.
 ## Parser constraints (YAML subset)
 `key: value`, quoted strings, `# comments`, `- key:` entries, `ids:` as a block map or a one-line
 `{ a: b }` map, lists as `[a, b]` or `- item`. Assignee values are `[a, b]`, `[]`, one key, or a block
-list. Anything else in a known section is exit 5 with the line number, never a guess. No anchors,
+list. Anything else in a known section is exit 5 with the line number, never a guess. An unknown
+top-level key (with any children) is ignored and `lint` warns about it. No anchors,
 multi-line scalars, or nested maps. In a one-line `{ }` map, give one git email (use the block form
 for several).

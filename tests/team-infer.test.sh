@@ -72,6 +72,20 @@ before="$(git status --porcelain; git log --oneline | wc -l)"
 is "inference writes nothing" "$(git status --porcelain; git log --oneline | wc -l)" "$before"
 [ ! -e .agents/team.yml ] && ok "inference never creates team.yml" || bad "inference never creates team.yml" "file exists"
 
+# CODEOWNERS: GitHub reads .github/ first, then the root, then docs/; the LAST matching line wins.
+cd "$tmp"
+git add -A >/dev/null 2>&1; git -c user.name=t -c user.email=t@e.c commit -qm co >/dev/null 2>&1 || true
+printf '/apps/api/ @stale-root-owner\n' > CODEOWNERS
+printf '/apps/api/ @first\n/apps/api/ @last-wins\n' > .github/CODEOWNERS
+out="$("$INFER" 2>&1)"
+says ".github/CODEOWNERS takes precedence over the root file" "$out" "owners	apps/api	@last-wins"
+saysn "the root CODEOWNERS is ignored when .github has one" "$out" "@stale-root-owner"
+is "one owners record per path (last match wins)" "$(grep -c $'^owners\tapps/api\t' <<< "$out")" "1"
+saysn "an overridden earlier line is dropped" "$out" "@first"
+rm -f .github/CODEOWNERS
+out="$("$INFER" 2>&1)"
+says "root CODEOWNERS is used when .github has none" "$out" "owners	apps/api	@stale-root-owner"
+
 out="$("$INFER" --bogus 2>&1)"; ec=$?
 is "unknown flag exits 2" "$ec" "2"
 

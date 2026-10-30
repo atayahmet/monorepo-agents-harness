@@ -29,16 +29,34 @@ usage() { sed -n '2,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//' >&2; ex
 die() { echo "team.sh: $1" >&2; exit "${2:-1}"; }
 normalize_path() { local p="$1"; p="${p#./}"; p="${p%/}"; [ -z "$p" ] && p="."; printf '%s\n' "$p"; }
 
+# jesc <text> - escape backslashes and double quotes for a JSON string.
+jesc() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
+
 # json_list - read lines on stdin, print a JSON string array.
 json_list() { awk 'BEGIN{printf "["} NF{gsub(/\\/,"\\\\"); gsub(/"/,"\\\""); printf "%s\"%s\"", (n++?",":""), $0} END{print "]"}'; }
 
 # Shared awk helpers: trim, unquote, glob match. '*' stays inside one path segment, '**' crosses them.
 AWK_LIB='
 function trim(s) { sub(/^[ \t\r]+/, "", s); sub(/[ \t\r]+$/, "", s); return s }
-function val(s,   q, i) {
-  s = trim(s)
-  q = substr(s, 1, 1)
-  if (q == "\"" || q == "\047") { s = substr(s, 2); i = index(s, q); return i ? substr(s, 1, i - 1) : s }
+function val(s,   q, i, c, n, out) {
+  s = trim(s); q = substr(s, 1, 1); n = length(s); out = ""
+  if (q == "\"") {
+    for (i = 2; i <= n; i++) {
+      c = substr(s, i, 1)
+      if (c == "\\" && i < n) { i++; c = substr(s, i, 1); if (c != "\"" && c != "\\") c = "\\" c }
+      else if (c == "\"") break
+      out = out c
+    }
+    return out
+  }
+  if (q == "\047") {
+    for (i = 2; i <= n; i++) {
+      c = substr(s, i, 1)
+      if (c == "\047") { if (substr(s, i + 1, 1) == "\047") { out = out c; i++ } else break }
+      else out = out c
+    }
+    return out
+  }
   sub(/[ \t]+#.*$/, "", s); return trim(s)
 }
 function segmatch(pat, seg,   re) {
@@ -76,6 +94,7 @@ parse_registry() {
       n = split(s, a, ",")
       for (i = 1; i <= n; i++) emit_id(p, a[i])
     }
+    function normws(w) { w = trim(w); while (w ~ /^\.\//) sub(/^\.\//, "", w); sub(/\/+$/, "", w); return w == "" ? "." : w }
     function asgn_add(w, s,   n, a, i, v) {
       if (!(w in aseen)) { aseen[w] = 1; aorder[++an] = w; alist[w] = "" }
       n = split(s, a, ",")
@@ -92,7 +111,7 @@ parse_registry() {
       if (k == "version") { printf "VERSION\t%s\n", v; sec = "version" }
       else if (k == "members" || k == "contacts") { sec = k; if (v != "" && v != "[]") err("unsupported value for " k) }
       else if (k == "assignee_by_workspace") { sec = "assignee"; if (v != "" && v != "{}") err("unsupported value for " k) }
-      else printf "TOP\t%s\n", k
+      else { printf "TOP\t%s\n", k; sec = "ignore" }
       next
     }
     sec == "members" || sec == "contacts" {
@@ -142,12 +161,13 @@ parse_registry() {
       if (line !~ /:/) { err("unsupported syntax: " line); next }
       w = line; if (w ~ /^["\047]/) { q = substr(w, 1, 1); w = substr(w, 2); w = substr(w, 1, index(w, q) - 1); rest = line; sub(/^["\047][^"\047]*["\047]:?[ \t]*/, "", rest) }
       else { w = line; sub(/:[ \t].*$|:$/, "", w); rest = line; sub(/^[^:]*:[ \t]*/, "", rest) }
-      w = trim(w); rest = trim(rest); cur_ws = w
+      w = normws(w); rest = trim(rest); cur_ws = w
       if (rest == "") { asgn_add(w, ""); next }
       if (rest ~ /^\[/) { sub(/^\[/, "", rest); sub(/\].*$/, "", rest); asgn_add(w, rest); next }
       if (rest ~ /^[A-Za-z0-9_.-]+([ \t]+#.*)?$/) { asgn_add(w, rest); next }
       err("assignee values must be [a, b], [] or a block list: " line); next
     }
+    sec == "ignore" { next }
     sec == "version" { err("unsupported syntax: " $0); next }
     sec == "" { err("unsupported syntax before a known section: " $0); next }
     END { for (i = 1; i <= an; i++) printf "ASGN\t%s\t%s\n", aorder[i], alist[aorder[i]] }
@@ -195,7 +215,7 @@ emit_match() {
   rn="$(awk -F'\t' -v k="$rk" '$1=="ITEM"{on=($4==k)} on && $1=="NAME"{print $3; exit}' <<< "$DATA")"
   rkind="$(awk -F'\t' -v k="$rk" '$1=="ITEM" && $4==k{print $3; exit}' <<< "$DATA")"
   if [ "$json" -eq 1 ]; then
-    printf '{"key":"%s","name":"%s","kind":"%s"}\n' "$rk" "$rn" "$rkind"
+    printf '{"key":"%s","name":"%s","kind":"%s"}\n' "$(jesc "$rk")" "$(jesc "$rn")" "$(jesc "$rkind")"
   else
     printf '%s\t%s\t%s\n' "$rk" "$rn" "$rkind"
   fi
@@ -242,12 +262,16 @@ cmd_get() {
 }
 
 # matching_assignees <workspace> - the raw comma list for the best entry, or nothing.
-# Exact path first, then the longest matching glob.
+# Exact path first, then the most specific matching glob (most literal characters, then fewer `**`).
 matching_assignees() {
   awk -F'\t' -v ws="$1" "$AWK_LIB"'
     $1=="ASGN" {
       if ($2 == ws) { exact = 1; ex = $3 }
-      else if ($2 ~ /[*]/ && globmatch($2, ws) && length($2) > bl) { bl = length($2); best = $3; has = 1 }
+      else if ($2 ~ /[*]/ && globmatch($2, ws)) {
+        t = $2; ds = gsub(/\*\*/, "", t); st = gsub(/\*/, "", t); lit = length(t)
+        # most specific wins: more literal characters, then fewer "**", then fewer "*"
+        if (!has || lit > bl || (lit == bl && (ds < bd || (ds == bd && st < bs)))) { bl = lit; bd = ds; bs = st; best = $3; has = 1 }
+      }
     }
     END { if (exact) print ex; else if (has) print best }
   ' <<< "$DATA"
@@ -298,6 +322,7 @@ cmd_lint() {
   ' <<< "$DATA" | sort)"
 
   warns="$(
+    awk -F'\t' '$1=="TOP"{printf "warning: unknown top-level key %s ignored\n", $2}' <<< "$DATA"
     dirs="$(workspace_dirs)"
     detected="$(cd "$ROOT" && bash "$SCRIPT_DIR/detect-monorepo-framework.sh" --workspaces 2>/dev/null | sed -e "s#^$ROOT/##" || true)"
     awk -F'\t' '$1=="ASGN"{print $2}' <<< "$DATA" | while IFS= read -r w; do

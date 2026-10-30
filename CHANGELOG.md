@@ -52,7 +52,10 @@ Release procedure (harness maintainers):
 
 - `team.sh` (shipped unreleased in the previous merge) is rewritten to match the issue: `resolve`, full
   `lint` (unknown or contact assignees, duplicate IDs, unmatched workspace warnings), segment-aware globs,
-  exit 5 for a registry it cannot read, and no gawk-only awk.
+  exit 5 for a registry it cannot read, and no gawk-only awk. After review: the most specific glob wins
+  (not the longest string), registry keys are normalized like lookups, quoted names keep their escapes
+  (and `--json` escapes them), unknown top-level keys are ignored with a lint warning, and `team-infer.sh`
+  reads CODEOWNERS in GitHub's order (`.github/` first, last matching line wins).
 - `tests/argument-hint.test.sh` classifies `monorepo-harness-security-review` (it was failing on `main`).
 
 ### Upgrade Notes
