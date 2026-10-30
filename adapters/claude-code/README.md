@@ -15,6 +15,7 @@ This adapter wires the harness into **Claude Code**. It gives you an automatic p
 - **Hard memory-gate** — once a task's build has started, the `Stop` hook refuses to end it until the task directory contains `3_memory.md`, and `4_verify.md` too whenever the spec's Test/verification plan is not `N/A` (Feedback Loop enforcement). The build start is recorded as `build_started` on `2_plan.md`, so a spec-only or plan-only task ends without a block, and the hook stands down (`stop_hook_active`) instead of looping when it has already blocked once.
 - **Gate arming on plan-mode exit** — a `PreToolUse` hook on file writes runs `hook-arm-build.sh`, which records `build_started` on the first write outside `.agents/` that belongs to a workspace that has a plan-stage task from today or yesterday (a task that already wrote `3_memory.md` is left alone). If there is already a build in flight in that workspace, the hook will not arm a second task. Implementation that starts right out of plan mode, without `/monorepo-harness-build`, is therefore still gated.
 - **`/monorepo-harness-kb-index <query|rebuild|links>`** — ranked search over the repo-root `knowledge/` base: BM25-ordered paths with snippets from a gitignored SQLite FTS5 cache that rebuilds itself whenever a page changed, plus the orphan / broken-`[[wiki-link]]` lint. Without `sqlite3`/FTS5 it says so once and falls back to `index.md` + grep — the answers just lose their ranking.
+- **`/monorepo-harness-team [init|add|remove <key>|lint|migrate]`** — set up the team registry `.agents/team.yml` (people, roles, platform IDs, workspace → assignee routing). `init` reads git authors and `CODEOWNERS` as suggestions only, asks you to mark each person member/contact/drop, fills IDs through your own tooling, and writes only on an explicit yes. `remove` lists every forward-looking file that still names the person and never edits intents, task artifacts, fixtures or history. Intent capture/review, dispatch and `tracker-issue.sh --assignee` read it through `team.sh`; with no registry they behave as before.
 - **`/monorepo-harness-update`** — check the installed harness version against upstream and, on your consent, upgrade the core and every installed adapter.
 - **`/monorepo-self-improve`** — harvest recurring patterns from lessons and task memories, then propose durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`). Requires explicit approval before writing anything.
 - **`/monorepo-harness-intent-dispatch <intent.md>`** — turn an **approved** intent into scoped work: confirm the workspace scope, split it into 3-5 phases, record your sign-off, ask before filing work the tracker already has open, ask whether 2+ phases should be grouped under one parent epic issue (a single phase gets none), open the epic and file every phase as its sub-issue via the `tracker` subagent, record the keys back on the intent, then ask whether to merge the intent's PR — writing no spec, plan or task directory. It stops after that answer — each phase is scoped and built separately, starting with `/monorepo-harness-spec <intent.md>`. No credential is ever installed or stored; without `gh` you get paste-ready issue text instead, and an unreachable PR yields an explicit "approval unknown" rather than a merge.
@@ -108,6 +109,18 @@ forces a fresh index (rarely needed), `links --missing|--orphans` runs the mecha
 KB lint. `--kind`, `--workspace` and `--limit` scope a question. Without `sqlite3`/FTS5 the command
 prints one warning and exits non-zero; the skill's `index.md` + grep path answers instead — same
 results, no ranking.
+
+### `/monorepo-harness-team [init|add|remove <key>|lint|migrate]` — Team registry
+
+Owns `<repo-root>/.agents/team.yml`. `init` (the default with no registry) runs `team-infer.sh`
+(workspaces, commit authors in the last 6 months with last-commit date, `CODEOWNERS` seeds — all
+suggestions), shows the draft, asks who is a member, a contact or neither, asks for contacts by role,
+and writes the file only after "Write `.agents/team.yml`?" is answered yes, then runs `team.sh lint`.
+`add` adds one person. `remove <key>` runs `team.sh refs <key>` first, deletes the entry on a yes, and
+lists the project skills, commands, rules and docs that still name the person; intents, task
+artifacts, fixtures and git history are never touched. `migrate` handles a `team.yml` in another shape
+by proposing `.agents/team.yml.proposed` with a diff — it never overwrites. Rules and exit codes:
+`core/team/AGENTS.md`.
 
 ### `/monorepo-self-improve` — Harvest patterns into project-owned rules and skills
 

@@ -17,6 +17,52 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.28] - 2026-10-30
+
+### Added
+
+- **Team registry (issue #55)**: `<repo-root>/.agents/team.yml` is one consumer-owned source for people,
+  roles, platform IDs and workspace → assignee routing. The harness owns the format and the tools; the
+  project owns the data, and the installer never creates the file (it holds personal data).
+  - `core/scripts/team.sh` (read-only): `whoami`, `get`, `find --role`, `resolve <platform|key|name> <id>`
+    (`match` is an alias), `assignee <workspace>`, `lint`, `refs <key>`. Workspace keys are paths from the
+    repo root; a lookup matches the exact path first, then the longest glob (`*` = one segment, `**` = any
+    depth). Exit 4 = no registry (carry on as before), 5 = unreadable registry, 3 = not found (ask, never guess).
+  - `core/scripts/team-infer.sh` (read-only draft for `init`): workspaces, commit authors in a window
+    (default 6 months; bots, stale people and one-email-two-names flagged) and `CODEOWNERS` seeds.
+    Inference is only ever a suggestion.
+  - `/monorepo-harness-team [init|add|remove <key>|lint|migrate]` in every adapter (Claude Code, opencode,
+    Codex). Detect, show, ask, then write — nothing is written without an explicit yes in the current turn;
+    `remove` lists forward-looking files that still name the person and never edits intents, task artifacts,
+    fixtures or history; an existing `team.yml` in another shape is never overwritten (`team.yml.proposed`).
+  - Integration points (all optional; no registry = today's behavior, with a one-line hint): intent
+    `author:` and `Reviewer:` are filled with the registry **name**; Dispatch reports self-approval when the
+    approver and the author resolve to the same key; Dispatch proposes assignees per phase workspace (one key:
+    propose, several: the developer picks, `ask`: the developer answers) and passes the chosen person's ID to
+    the new `tracker-issue.sh --assignee`. An assignee the tracker refuses never costs the issue: it is filed
+    unassigned with a note. `/monorepo-self-improve` flags hardcoded names and IDs in project-owned files.
+- **`core/root-AGENTS.md`** gains rule 8 (skills and commands never hardcode people or IDs; forward-only
+  departure procedure) and a Reference Map row.
+- **Files** — `core/scripts/{team.sh,team-infer.sh,tracker-issue.sh}`, `core/team/{AGENTS.md,team.example.yml}`,
+  `core/skills/{team-registry,intent-workflow,self-improvement-workflow}/SKILL.md`,
+  `core/governance/intents/AGENTS.md`, `core/root-AGENTS.md`, `adapters/{claude-code,opencode,codex}/` command
+  entry points and manifests, `README.md`, `INSTALL.md`, `PORTABILITY.md`, `tests/team*.test.sh`.
+
+### Changed
+
+- `team.sh` (shipped unreleased in the previous merge) is rewritten to match the issue: `resolve`, full
+  `lint` (unknown or contact assignees, duplicate IDs, unmatched workspace warnings), segment-aware globs,
+  exit 5 for a registry it cannot read, and no gawk-only awk.
+- `tests/argument-hint.test.sh` classifies `monorepo-harness-security-review` (it was failing on `main`).
+
+### Upgrade Notes
+
+- **Nothing to run.** New files ship through the bundle and adapter manifests: run
+  `core/scripts/install-harness.sh --sync-only` and `core/scripts/install-adapter.sh <agent> --refresh`.
+- `core/root-AGENTS.md` changed (new rule 8): the update flow's consent-gated `AGENTS.md` merge offers it.
+- To use the registry, run `/monorepo-harness-team`. Existing intents are not rewritten; a project that
+  already has a `team.yml` in another shape is offered a migration, never overwritten.
+
 ## [0.4.0-rc.27] - 2026-10-26
 
 ### Added

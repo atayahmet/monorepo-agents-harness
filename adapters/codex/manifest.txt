@@ -31,3 +31,4 @@ copy  .agents/skills/monorepo-self-improve/SKILL.md
 merge .codex/config.toml
 merge .codex/hooks.json
 copy  .agents/skills/monorepo-harness-security-review/SKILL.md
+copy  .agents/skills/monorepo-harness-team/SKILL.md
