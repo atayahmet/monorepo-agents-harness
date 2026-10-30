@@ -58,6 +58,13 @@ Look for themes that appear more than once. Cluster by:
 - **Repeated task slugs/modules** in the index — the same module touched many times suggests a
   missing local rule or skill.
 - **Repeated user corrections** — e.g. the user has corrected the agent on the same convention twice.
+- **Hardcoded names and IDs in project-owned skills, commands and rules** — personal names, emails,
+  tracker account IDs, chat IDs, or "assign to <person>" lines (grep `.agents/skills/`,
+  `.agents/rules/`, `.claude/commands/` and the like; skip `.agents/monorepo-agents-harness/`). Each
+  one is a candidate to move into `.agents/team.yml` and be read through `team.sh` (root rule 8).
+  Propose it as a normal proposal: name the files and lines, never edit them yourself, and never
+  touch intents, task artifacts or fixtures — where a name is history, it stays. No registry yet →
+  propose `/monorepo-harness-team` first.
 
 For each cluster, assign a **confidence**:
 

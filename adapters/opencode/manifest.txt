@@ -31,3 +31,4 @@ copy  .opencode/commands/monorepo-self-improve.md
 
 merge opencode.jsonc
 copy  .opencode/commands/monorepo-harness-security-review.md
+copy  .opencode/commands/monorepo-harness-team.md

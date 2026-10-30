@@ -1,5 +1,8 @@
 # .agents/team.yml template
-# Copy to <repo-root>/.agents/team.yml and fill in. Installer never creates this file.
+# Team registry template. The installer never creates .agents/team.yml - run /monorepo-harness-team
+# (or copy this file to <repo-root>/.agents/team.yml and edit it). Rules: core/team/AGENTS.md.
+# This file holds personal data: keep only the IDs your tools use, and never put a token or a
+# password here.
 version: 1
 
 members:
@@ -31,6 +34,8 @@ contacts:
     ids:
       slack: U1111111
 
+# Workspace paths from the repo root (`.` = the root). Globs allowed: `*` = one segment, `**` = any
+# depth. Values are member keys; `[]` means "ask the developer". Contacts cannot be assignees.
 assignee_by_workspace:
   .: [alice]
   apps/api: [alice, carol]

@@ -81,6 +81,7 @@ Rules while you do this:
 | `/monorepo-harness-update` | Upgrade harness | Updated bundle/adapters | [harness-update](core/skills/harness-update/SKILL.md) |
 | `/monorepo-harness-changeset <plan.md>` | Draft changeset | `.changeset/*.md` | [changeset-workflow](core/skills/changeset-workflow/SKILL.md) |
 | `/monorepo-harness-kb-index` | Query knowledge base | Ranked results | [knowledge-base](core/skills/knowledge-base/SKILL.md) |
+| `/monorepo-harness-team` | Set up the team registry (`.agents/team.yml`) | People, IDs, assignee routing | [team-registry](core/skills/team-registry/SKILL.md) |
 | `/monorepo-self-improve` | Harvest learnings | Rules/skills/proposals | [self-improvement-workflow](core/skills/self-improvement-workflow/SKILL.md) |
 
 ## Features
