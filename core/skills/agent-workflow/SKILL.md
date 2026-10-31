@@ -68,7 +68,7 @@ input (see `core/scripts/task-state.sh` for the checks):
 | Command | Validates | Writes |
 | ------- | --------- | ------ |
 | `/monorepo-harness-intent [review]` | — | `<workspace>/.agents/intents/intent_*.md` (`status: pending`, then `approved`) |
-| `/monorepo-harness-spec [<intent.md>] [<task-issue-url>]` | intent **approved** (only when a path is given); if the intent lists several tasks, pick one by link or answer | `1_spec.md` (+ `0_intent.md` = reference stub linking the approved intent; one task per invocation) |
+| `/monorepo-harness-spec [<intent.md>] [<phase-number> \| <task-issue-url>]` | intent **approved** (only when a path is given); if the intent lists several tasks, pick one by phase number, link or answer | `1_spec.md` (+ `0_intent.md` = reference stub linking the approved intent; one task per invocation) |
 | `/monorepo-harness-plan <spec.md>` | spec present (`phase: spec`) + plan-mode consent | `2_plan.md` |
 | `/monorepo-harness-build <plan.md>` | chain: plan + spec present; intent approved **if** the task is intent-seeded | `build_started` on the plan, then for a `red-first` task the failing tests and their recorded output **before** implementation, then implementation (**confined to the spec/plan scope**, see Build scope below) + `3_memory.md` + `4_verify.md` (including `## Red evidence`) + `check-red-evidence` advisory + `kb-ingest.sh <task_dir>` + `check-kb` + a review suggestion (`build-review-tier.sh`, see "After the build" below) |
 
@@ -149,9 +149,20 @@ Design precedes Build); `2_plan.md` (the "how") then builds against this spec in
    **cross-cutting** task, also grep the sibling workspace indexes. When the project has no `apps/` or
    `packages/` (the workspace is the repo root), the index is `.agents/artifacts/index.md`.
 3. **Approved intent (via `-spec`, else best-effort)** — `/monorepo-harness-spec` accepts
-   `[<intent.md>] [<task-issue-url>]`. An intent is a **seed reference**, not a task: one
+   `[<intent.md>] [<phase-number> | <task-issue-url>]`. An intent is a **seed reference**, not a task: one
    dispatched intent may be split into several phases/issues. A spec always covers **exactly one
    task** and, when seeded by an approved intent, must be linked back via `0_intent.md`.
+   - **If a phase number is given** (a positive integer): it is the **1-based position** of a phase in
+     the `Phases:` list of the intent's **newest `## Dispatch` block**. A number only means something
+     inside one intent, so an intent is required: use the path given, else the single approved intent
+     that has a `## Dispatch` block under `<workspace>/.agents/intents/` — if there are none or several,
+     ask which intent, never guess. Run `task-state.sh check-intent-approved <intent.md>` (refuse if not
+     approved). A number outside the list writes nothing and reports "Phase N not found — newest
+     Dispatch block lists M phases (1–M)". Take the phase's tracker key from its line and run
+     `bash <bundle>/core/scripts/tracker-issue.sh --show <key>` to read the issue. A line reading
+     `no issue yet (<reason>)`, or a failed read (exit 3), leaves no scope to read: ask the user what
+     the spec covers — never guess. Write the spec for that single task only, creating `0_intent.md`
+     via `write-intent-ref.sh`.
    - **If a task link is given:** run `bash <bundle>/core/scripts/tracker-issue.sh --show <task-issue-url>`
      (GitHub via `gh`, exit 3 handoff otherwise). Find which **approved intent** contains that issue
      in its **newest `## Dispatch` block** (`#<number>` or URL). If no intent path was provided,
@@ -161,10 +172,10 @@ Design precedes Build); `2_plan.md` (the "how") then builds against this spec in
      not approved). Match the issue to the phase/slug and write the spec for that single task only,
      creating `0_intent.md` via `write-intent-ref.sh`. If there is no match or the read fails (exit
      3), ask which task this spec covers and its scope — never guess.
-   - **If an intent path is given without a task link:** run `task-state.sh check-intent-approved`,
+   - **If an intent path is given without a phase number or task link:** run `task-state.sh check-intent-approved`,
      refuse to write if it is not approved, and **if the newest `## Dispatch` block lists more than one
      phase/task, stop and ask "This intent has several tasks — which task should this spec cover?"**
-     (show the slugs and issue links). Do **not** create multiple task directories or write multiple
+     (show each phase's number, slug and issue link; the user can answer with the number). Do **not** create multiple task directories or write multiple
      specs in one invocation. If exactly one phase exists or there is no `## Dispatch` block,
      proceed for that task and write a reference stub linking to the approved intent as `0_intent.md`
      (never a copy of its content, so the intent file stays the single source of truth).

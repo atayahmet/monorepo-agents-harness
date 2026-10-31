@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tests for the claude-code `argument-hint` frontmatter and the task-linked `/monorepo-harness-spec`
-# contract (issue #49).
+# contract (issue #49), including the phase-number selector.
 #
 # The suite is deliberately structural: it reads the first frontmatter block of every claude-code
 # command, compares the hint to the argument the command body already names, and fails on a command
@@ -65,7 +65,7 @@ has_hint() {
 # already names. Quoted in the file so the frontmatter stays valid YAML.
 expected_hint() {
   case "$1" in
-    monorepo-harness-spec)            printf '%s' '[<intent.md>] [<task-issue-url>]' ;;
+    monorepo-harness-spec)            printf '%s' '[<intent.md>] [<phase-number> | <task-issue-url>]' ;;
     monorepo-harness-plan)            printf '%s' '<1_spec.md>' ;;
     monorepo-harness-build)           printf '%s' '<2_plan.md>' ;;
     monorepo-harness-changeset)       printf '%s' '<2_plan.md>' ;;
@@ -126,13 +126,20 @@ printf '\ntask-linked spec guard\n'
 for file in "${SPEC_BODIES[@]}"; do
   rel="${file#"$REPO"/}"
   text="$(cat "$file")"
-  says "$rel documents the task link" "$text" '[<task-issue-url>]'
+  says "$rel documents the task link" "$text" '<task-issue-url>]'
+  says "$rel documents the phase number" "$text" '[<phase-number> | <task-issue-url>]'
+  says "$rel resolves a phase number against the newest Dispatch block" "$text" '1-based position'
+  says "$rel reports an out-of-range phase" "$text" 'Phase N not found'
+  says "$rel asks for scope when a phase has no issue" "$text" 'no issue yet'
   says "$rel documents the read path" "$text" 'tracker-issue.sh --show'
   says "$rel asks which task when no link is given" "$text" 'several tasks'
 done
 
 skill_text="$(cat "$SKILL")"
-says "agent-workflow SKILL documents the task link" "$skill_text" '[<task-issue-url>]'
+says "agent-workflow SKILL documents the task link" "$skill_text" '<task-issue-url>]'
+says "agent-workflow SKILL documents the phase number" "$skill_text" '[<phase-number> | <task-issue-url>]'
+says "agent-workflow SKILL resolves a phase number against the newest Dispatch block" "$skill_text" '1-based position'
+says "agent-workflow SKILL reports an out-of-range phase" "$skill_text" 'Phase N not found'
 says "agent-workflow SKILL documents the read path" "$skill_text" 'tracker-issue.sh --show'
 says "agent-workflow SKILL asks which task when no link is given" "$skill_text" 'which task this spec covers'
 
