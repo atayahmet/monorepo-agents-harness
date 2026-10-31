@@ -17,6 +17,31 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.33] - 2026-10-31
+
+### Changed
+
+- **`/monorepo-harness-spec` takes a phase number**: the second argument is now
+  `[<phase-number> | <task-issue-url>]`. A number is the 1-based position of a phase in the `Phases:` list of
+  the intent's newest `## Dispatch` block; the command reads that phase's issue with
+  `tracker-issue.sh --show` and writes one spec for it. A number is only meaningful inside one intent, so an
+  intent is required: the path given, else the single approved intent with a `## Dispatch` block (none or
+  several: it asks, never guesses). A number outside the list writes nothing and reports
+  `Phase N not found`. A phase recorded as `no issue yet (<reason>)` has no issue to read, so the command asks
+  what the spec covers instead of failing, which the issue-URL form could not do. The several-tasks question
+  now shows each phase's number so it can be answered with one. The task-issue-URL form is unchanged.
+- Updated in the three spec bodies (claude-code, opencode, codex, kept byte-identical), the claude-code
+  `argument-hint`, and `core/skills/agent-workflow/SKILL.md` (stage table and Phase 1 check 3).
+- Repo-local tests: `tests/argument-hint.test.sh` covers the new hint and phase-number text.
+
+### Upgrade Notes
+
+- Nothing to run. `/monorepo-harness-update` syncs the changed command/skill files; no manifest row was
+  added and no `changelogs/version-0.4.0-rc.33.md` is needed.
+- Existing intents need no edit: the number is the position in the `Phases:` list, so `## Dispatch` blocks
+  keep their format.
+- No change to `core/root-AGENTS.md`.
+
 ## [0.4.0-rc.32] - 2026-10-30
 
 ### Added

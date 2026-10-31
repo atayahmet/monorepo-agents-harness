@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tests for `tracker-issue.sh --show <ref>` (issue #49): the read-only task lookup that
-# `/monorepo-harness-spec <intent.md> <task-issue-url>` uses to learn which phase a task link names.
+# `/monorepo-harness-spec <intent.md> <task-issue-url>` (or a phase number resolved to a tracker key) uses to learn which phase a task link names.
 #
 # A stub `gh` makes the read deterministic: the suite proves the ref and repo reach the CLI, that the
 # printed block carries number/state/url/title/body, that the mode writes nothing, and that every

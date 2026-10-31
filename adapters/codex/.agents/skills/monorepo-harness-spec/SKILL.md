@@ -12,9 +12,24 @@ with `core/scripts/task-state.sh`:
    reminder it prints (target workspace, session log, lessons, prior-art index, knowledge base, todo,
    plan mode, English, and the root/workspace instructions).
 2. Resolve the target workspace (`apps/<name>` or `packages/<name>`).
-3. Resolve arguments: `/monorepo-harness-spec [<intent.md>] [<task-issue-url>]`. An intent is a **seed
-   reference**, not a task. A spec always covers **exactly one task** and, when seeded by an approved
-   intent, must be linked back via `0_intent.md`.
+3. Resolve arguments: `/monorepo-harness-spec [<intent.md>] [<phase-number> | <task-issue-url>]`. An
+   intent is a **seed reference**, not a task. A spec always covers **exactly one task** and, when
+   seeded by an approved intent, must be linked back via `0_intent.md`.
+   - **If a phase number is given** (a positive integer): it is the **1-based position** of a phase in
+     the `Phases:` list of the intent's **newest `## Dispatch` block**. A number is only meaningful
+     inside one intent, so an intent is required: use the path given; if none was provided, search
+     `<workspace>/.agents/intents/` for approved intents that have a `## Dispatch` block, and use the
+     one that is the only match — if there are none or several, ask the user which intent — never
+     guess. Run
+     `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved <intent.md>`
+     (refuse if not approved). If the number is outside the list, do **not** write anything; report
+     **"Phase N not found — newest Dispatch block lists M phases (1–M)"** and stop. Take the phase's
+     slug and tracker key (`#<number>` or URL) from that line. If it has a key, run
+     `bash .agents/monorepo-agents-harness/core/scripts/tracker-issue.sh --show <key>` to read the issue
+     title/body. If the line reads `no issue yet (<reason>)`, or the read fails (exit 3), there is no
+     scope to read: ask the user what this spec covers — never guess. Then write **one** spec for
+     that task only and create `0_intent.md` by running:
+     `bash .agents/monorepo-agents-harness/core/scripts/write-intent-ref.sh <task_dir> <intent.md>`
    - **If a task link is given:** run `bash .agents/monorepo-agents-harness/core/scripts/tracker-issue.sh --show <task-issue-url>`
      to read the issue title/body. Find which approved intent contains that issue in its **newest
      `## Dispatch` block** (`#<number>` or URL). If no intent path was provided, search
@@ -26,12 +41,13 @@ with `core/scripts/task-state.sh`:
      `bash .agents/monorepo-agents-harness/core/scripts/write-intent-ref.sh <task_dir> <intent.md>`
      If the read fails (exit 3), ask the user which task this spec covers and what its scope is —
      never guess.
-   - **If an intent path was given (and no task link):** run
+   - **If an intent path was given (and no phase number or task link):** run
      `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-intent-approved <intent.md>`.
      If it exits non-zero, do **not** write anything; report the reason and stop. If the intent's
      newest `## Dispatch` block lists **more than one phase/task**, stop and ask
-     **"This intent has several tasks — which task should this spec cover?"** (show the slugs and
-     issue links). Do not open multiple task directories or write multiple specs in one invocation.
+     **"This intent has several tasks — which task should this spec cover?"** (show each phase's
+     number, slug and issue link; the user can answer with the number). Do not open multiple task
+     directories or write multiple specs in one invocation.
      If it lists exactly one phase or there is no `## Dispatch` block, continue for that task. Then
      create `0_intent.md` by running:
      `bash .agents/monorepo-agents-harness/core/scripts/write-intent-ref.sh <task_dir> <intent.md>`
