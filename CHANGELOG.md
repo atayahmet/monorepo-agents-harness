@@ -17,6 +17,37 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.35] - 2026-11-09
+
+### Changed
+
+- **`/monorepo-harness-agents-init` is now `/monorepo-harness-init`** (issue #73), on claude-code,
+  opencode and codex (bodies still byte-identical; the codex skill's `name:` changed too). Its
+  description now says it builds a workspace's `AGENTS.md` tree, not the harness install. No alias: the
+  old name is gone. The shared skill stays at `core/skills/agents-init/SKILL.md`.
+- The `agents-tree.sh lint` message, the `scaffold-workspace-agents.sh` `next:` hint, `INSTALL.md`,
+  `README.md`, `PORTABILITY.md` and each adapter's `INSTALL.md` and `README.md` use the new name.
+
+### Added
+
+- **`retire` adapter-manifest verb**: `retire <path> <sha256> [<sha256> ...]`. `install-adapter.sh`
+  (install and `--refresh`) moves the file to `.agents/.harness-trash/` when its sha256 matches a listed
+  shipped version, removes the directory it leaves empty, and leaves an edited file in place with a
+  `Needs you:` line. `audit-install.sh` reports a retired file that is still present as a gap. Each
+  adapter manifest retires its rc.34 entry point. `harness-common.sh` gains `harness_sha256`.
+- Docs: root `AGENTS.md` gotcha 7, `adapters/AGENTS.md`, `PORTABILITY.md`, `changelogs/README.md` and
+  the `harness-update` skill (step 7.5) describe the verb.
+- Repo-local tests: `tests/retire-row.test.sh` (new); `tests/agents-init-parity.test.sh` and
+  `tests/argument-hint.test.sh` use the new name and check the `retire` rows.
+
+### Upgrade Notes
+
+- Nothing to run. Step 7.5 of `/monorepo-harness-update` installs `/monorepo-harness-init` and moves an
+  unedited `/monorepo-harness-agents-init` file to the harness trash. If you edited the old file, it
+  stays and the update lists it under `Needs you:`: copy what you need, then delete it.
+- `changelogs/version-0.4.0-rc.34.md` still names the old command; use `/monorepo-harness-init` instead.
+- No change to `core/root-AGENTS.md`.
+
 ## [0.4.0-rc.34] - 2026-11-09
 
 ### Added
