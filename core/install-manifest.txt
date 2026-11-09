@@ -65,3 +65,6 @@ core/scripts/team.sh
 core/skills/team-registry
 core/skills/team-registry/SKILL.md
 core/scripts/team-infer.sh
+core/scripts/agents-tree.sh
+core/skills/agents-init
+core/skills/agents-init/SKILL.md

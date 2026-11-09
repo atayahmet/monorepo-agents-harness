@@ -17,6 +17,39 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.34] - 2026-11-09
+
+### Added
+
+- **`/monorepo-harness-agents-init <workspace> [--audit]`** (issue #71): builds the nested `AGENTS.md` tree
+  for one workspace. The agent surveys the repo's instruction files, ranks candidate directories, shows a
+  directory map and writes nothing until the developer says yes. It then writes a short workspace-root
+  `AGENTS.md` (scope, commands, gotchas, routing table) and nested files near the code, adds the
+  `CLAUDE.md`/`GEMINI.md` symlinks, and lints the result. `--audit` reports drift and writes nothing. The
+  approved map is the plan: a run creates no task directory. Plain nested `CLAUDE.md` files are reported
+  as drift, never moved.
+- `core/scripts/agents-tree.sh`: `survey` (path, lines, headings, symlink state, drift), `candidates`
+  (source files, index file, tests, importers, name hint), `link` (creates missing symlinks, never
+  replaces a plain file), `lint` (80 / 150 line budgets, symlinks, broken path references, nested files
+  missing from the parent's routing table, blocks copied from the root `AGENTS.md` or `.agents/rules/*.md`).
+- `core/skills/agents-init/SKILL.md`, and the command on claude-code, opencode and codex (bodies kept
+  byte-identical).
+
+### Changed
+
+- `core/scripts/scaffold-workspace-agents.sh` ends with a one-line `next:` hint naming the workspaces
+  that have no `AGENTS.md` of their own.
+- `INSTALL.md`, `README.md`, `PORTABILITY.md` and each adapter's `INSTALL.md` and `README.md` list the
+  command.
+- Repo-local tests: `tests/agents-tree.test.sh`, `tests/agents-init-parity.test.sh` (new), and
+  `tests/argument-hint.test.sh` (new hint).
+
+### Upgrade Notes
+
+- Nothing to run. `/monorepo-harness-update` ships the new script, skill and command through their new
+  manifest rows; no `changelogs/version-0.4.0-rc.34.md` is needed.
+- No change to `core/root-AGENTS.md`.
+
 ## [0.4.0-rc.33] - 2026-10-31
 
 ### Changed

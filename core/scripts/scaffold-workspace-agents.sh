@@ -8,7 +8,8 @@
 #   .agents/intents/AGENTS.md               rules pointer, seeded from core/governance/intents/workspace-AGENTS.md
 #
 # Existing files are never overwritten. Run once at install time, and re-run after adding a new
-# workspace.
+# workspace. Workspaces without their own AGENTS.md are named in a closing `next:` hint that points
+# to /monorepo-harness-agents-init (core/skills/agents-init/SKILL.md).
 #
 #   bash .agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh   # from the target repo root
 #   SEED=path/to/workspace-agents-template INDEX_TEMPLATE=path/to/index-template.md \
@@ -52,6 +53,7 @@ if [ ! -d "$SEED" ]; then
 fi
 
 created=0
+undocumented=""
 
 # Discover workspace directories using the framework detector.
 workspace_parents=()
@@ -71,6 +73,7 @@ for parent in "${workspace_parents[@]}"; do
     [ -d "$ws" ] || continue
     dest="${ws%/}/.agents"
     mkdir -p "$dest"
+    [ -f "${ws%/}/AGENTS.md" ] || undocumented="$undocumented ${ws%/}"
   for f in session-log.md lessons.md todo.md; do
     if [ ! -e "$dest/$f" ]; then
       cp "$SEED/$f" "$dest/$f"
@@ -104,3 +107,7 @@ done
 done
 
 echo "scaffolded $created workspace-agents file(s)."
+# One-line hint (issue #71): workspaces with no AGENTS.md of their own.
+if [ -n "$undocumented" ]; then
+  echo "next: no AGENTS.md in:${undocumented//"$ROOT"\//} — run /monorepo-harness-agents-init <workspace> to build one"
+fi
