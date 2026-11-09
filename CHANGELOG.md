@@ -47,7 +47,8 @@ Release procedure (harness maintainers):
 ### Upgrade Notes
 
 - Nothing to run. `/monorepo-harness-update` ships the new script, skill and command through their new
-  manifest rows; no `changelogs/version-0.4.0-rc.34.md` is needed.
+  manifest rows. `changelogs/version-0.4.0-rc.34.md` lists optional follow-ups only: a read-only
+  `agents-tree.sh survey` to see existing drift, and the first `/monorepo-harness-agents-init` run.
 - No change to `core/root-AGENTS.md`.
 
 ## [0.4.0-rc.33] - 2026-10-31
