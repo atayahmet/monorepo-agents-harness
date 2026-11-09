@@ -84,8 +84,8 @@ Delete the dir after.
   `origin` (`tracker-issue.sh --infer`), asks you to confirm, and remembers it in
   `.agents/tracker.md`; the PR read goes through `core/scripts/forge.sh`, so an unreachable PR
   yields "approval unknown", never a merge. Full flow: `core/skills/intent-workflow/SKILL.md`.
-- **Team registry** — `/monorepo-harness-team` (init/add/remove) writes `.agents/team.yml`, the one source
-  for people, IDs and assignee routing, only on your yes; `core/team/AGENTS.md`. Never created by the installer.
+- **Team registry** — `/monorepo-harness-team` (init/add/remove) writes `.agents/team.yml` (people, IDs, assignee routing) only on your yes; `core/team/AGENTS.md`. Never created by the installer.
+- **Workspace AGENTS.md tree** — `/monorepo-harness-agents-init <ws> [--audit]` maps, then (on your yes) writes nested `AGENTS.md` + symlinks; `agents-tree.sh lint` checks them.
 - **Self-improvement** — `/monorepo-self-improve` proposes project-owned rules and skills.
 - **Changeset release entries** — `/monorepo-harness-changeset` drafts a changesets-compatible
   `.changeset/*.md` entry without adding `@changesets/cli`; bumps are user-confirmed policy.

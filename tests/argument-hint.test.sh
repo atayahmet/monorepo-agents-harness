@@ -74,6 +74,7 @@ expected_hint() {
     monorepo-harness-security-review) printf '%s' '[diff-range-or-branch]' ;;
     monorepo-harness-team)            printf '%s' '[init | add | remove <key> | lint | migrate]' ;;
     monorepo-harness-kb-index)        printf '%s' '[<question> | rebuild | links] [--kind <k>] [--workspace <w>] [--limit <n>]' ;;
+    monorepo-harness-agents-init)     printf '%s' '<workspace> [--audit]' ;;
     *) return 1 ;;
   esac
 }

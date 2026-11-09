@@ -15,6 +15,7 @@ This adapter wires the harness into **Codex CLI**. Codex toggles plan mode with 
 - **Gate arming without a file-write hook** — the same `update_plan` reminder that asks for `1_spec.md` + `2_plan.md` also asks for `task-state.sh mark-build <2_plan.md>` before the first implementation write, because Codex hook matchers on file writes cannot be relied on (see `PORTABILITY.md`). The capability matches the other adapters; only the trigger differs.
 - **`/monorepo-harness-kb-index <query|rebuild|links>`** — ranked search over the repo-root `knowledge/` base: BM25-ordered paths with snippets from a gitignored SQLite FTS5 cache that rebuilds itself whenever a page changed, plus the orphan / broken-`[[wiki-link]]` lint. Without `sqlite3`/FTS5 it says so once and falls back to `index.md` + grep — the answers just lose their ranking.
 - **`/monorepo-harness-team [init|add|remove <key>|lint|migrate]`** — set up the team registry `.agents/team.yml` (people, roles, platform IDs, workspace → assignee routing). `init` reads git authors and `CODEOWNERS` as suggestions only, asks you to mark each person member/contact/drop, fills IDs through your own tooling, and writes only on an explicit yes. `remove` lists every forward-looking file that still names the person and never edits intents, task artifacts, fixtures or history. Intent capture/review, dispatch and `tracker-issue.sh --assignee` read it through `team.sh`; with no registry they behave as before.
+- **`/monorepo-harness-agents-init <workspace> [--audit]`** — build the nested `AGENTS.md` tree for one workspace. It surveys the repo's instruction files (reporting plain `CLAUDE.md` files as drift), ranks candidate directories, shows a directory map and writes nothing until you say yes, then writes a short routing root plus nested files, adds `CLAUDE.md`/`GEMINI.md` symlinks and runs `agents-tree.sh lint`. `--audit` only reports.
 - **`/monorepo-harness-update`** — check the installed harness version against upstream and, on your consent, upgrade the core and every installed adapter.
 - **Automatic ADR capture** — the `adr-workflow` skill (symlinked into `.agents/skills/`, so it also appears in the slash list) fires automatically while `1_spec.md`/`2_plan.md` are written whenever the task makes an architecture-affecting decision, producing `adr/NNNN-<title>.md` records referenced from the spec's `## Architectural decisions` section.
 - **`/monorepo-self-improve`** — harvest recurring patterns from lessons and task memories, then propose durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`). Requires explicit approval before writing anything.
@@ -120,6 +121,20 @@ lists the project skills, commands, rules and docs that still name the person; i
 artifacts, fixtures and git history are never touched. `migrate` handles a `team.yml` in another shape
 by proposing `.agents/team.yml.proposed` with a diff — it never overwrites. Rules and exit codes:
 `core/team/AGENTS.md`.
+
+
+### `/monorepo-harness-agents-init <workspace> [--audit]` — Workspace AGENTS.md tree
+
+Builds the instruction files an agent reads before it edits a workspace. `agents-tree.sh survey` lists
+every `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` with size, headings and symlink state; `candidates` ranks
+directories by source files, index files, tests, importers and name hints. The agent shows a map
+(directory, what it covers, new or update) and **writes nothing until you approve it**. The
+workspace-root `AGENTS.md` stays short (budget 80 lines) and routes to nested files (budget 150) near
+the code; rules from the root `AGENTS.md` and `.agents/rules/*.md` are linked, never copied; an
+existing file changes only through a shown diff. `agents-tree.sh link` adds the `CLAUDE.md`/`GEMINI.md`
+symlinks and `lint` fails on budgets, missing symlinks, broken paths, unrouted nested files and copied
+blocks. `--audit` runs the survey and lint and writes nothing. Workflow:
+`core/skills/agents-init/SKILL.md`.
 
 ### `/monorepo-self-improve` — Harvest patterns into project-owned rules and skills
 
