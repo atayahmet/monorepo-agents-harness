@@ -292,7 +292,7 @@ cmd_lint() {
       done < <(copied_blocks "$f" "${refs[@]}")
     fi
   done < <(find_pruned "$ws" -name AGENTS.md -type f | LC_ALL=C sort)
-  [ "$nfiles" -gt 0 ] || fail "$(rel "$ws" "$ROOT"): no AGENTS.md (run /monorepo-harness-agents-init $(rel "$ws" "$ROOT"))"
+  [ "$nfiles" -gt 0 ] || fail "$(rel "$ws" "$ROOT"): no AGENTS.md (run /monorepo-harness-init $(rel "$ws" "$ROOT"))"
   echo "agents-tree: lint — $nfiles file(s), $fails failure(s)"
   [ "$fails" -eq 0 ] || return 1
 }

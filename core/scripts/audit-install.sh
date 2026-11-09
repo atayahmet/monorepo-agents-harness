@@ -84,9 +84,9 @@ check_bundle_sync() {
 }
 
 # --- Check 2: adapter entry points, driven by adapters/<agent>/manifest.txt ---
-# copy/link rows must exist and match; merge/tmpl rows are user-owned config — their *absence* is a
-# gap (the adapter is not wired), but their content is never compared, because a project is
-# supposed to customize them.
+# copy/link rows must exist and match; a retire row's file must be gone. merge/tmpl rows are
+# user-owned config — their *absence* is a gap (the adapter is not wired), but their content is
+# never compared, because a project is supposed to customize them.
 check_adapter_entrypoints() {
   local agent="$1" adapter_dir="$against/adapters/$1" manifest verb path target
   [ -d "$adapter_dir" ] || return 0
@@ -114,6 +114,11 @@ check_adapter_entrypoints() {
         ;;
       merge|tmpl)
         [ -e "$ROOT/$path" ] || add_gap "config missing ($agent): $path"
+        ;;
+      retire)
+        if [ -e "$ROOT/$path" ] || [ -L "$ROOT/$path" ]; then
+          add_gap "retired entrypoint still present ($agent): $path"
+        fi
         ;;
       *) add_gap "adapter ($agent): unknown manifest verb '$verb'" ;;
     esac

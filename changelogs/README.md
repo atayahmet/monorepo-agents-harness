@@ -35,6 +35,9 @@ Two more things the prompts must **not** carry, because the workflow already doe
   fresh template" as a manual follow-up.
 - **Adapter entry points** — step 7.5 re-applies every installed adapter's `copy`/`link` rows. Never
   write "copy the new slash command into place" as a manual follow-up.
+- **Removed or renamed entry points** — step 7.5 also runs the adapter's `retire` rows, which move an
+  unedited old file to the trash and report an edited one. Never write "delete the old command" as a
+  manual follow-up; add a `retire` row instead.
 
 ## File naming
 

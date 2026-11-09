@@ -26,8 +26,11 @@ in the same change.
    `adapters/<agent>/manifest.txt`, executed by `core/scripts/install-adapter.sh` and verified by
    `core/scripts/audit-install.sh`. Adding a file means adding a row — **never** a prose step in an
    `INSTALL.md`. Verbs: `copy` (overwrite, idempotent), `link` (symlink into the bundle), `merge`
-   (never clobber; propose `<file>.harness-proposed`), `tmpl` (same, with placeholders resolved).
-   Anything an update must not re-run belongs on `merge`/`tmpl`, never `copy`.
+   (never clobber; propose `<file>.harness-proposed`), `tmpl` (same, with placeholders resolved),
+   `retire` (a file an earlier version shipped: moved to the trash when its sha256 matches a listed
+   shipped version, reported when edited). Anything an update must not re-run belongs on
+   `merge`/`tmpl`, never `copy`. Renaming or dropping a `copy` row means adding a `retire` row for the
+   old path, with the sha256 of every version that shipped it.
 5. **One README (user guide) and one INSTALL.md (install guide) per adapter, INSTALL.md ≤100 lines.**
    The README explains what the adapter gives you, the available slash commands, a typical workflow,
    and agent-specific notes. The INSTALL.md follows the fixed structure — Prerequisites, Install

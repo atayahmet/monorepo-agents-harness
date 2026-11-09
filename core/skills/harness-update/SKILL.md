@@ -120,13 +120,15 @@ The upgrade also reconciles the project's root `AGENTS.md` against the new `core
     ```
     This is what actually gets newly-added entry-point files (a new command, skill or subagent) into
     an already-adapted project — do not skip it and do not demote it to a manual follow-up.
-    - `--refresh` re-applies only the manifest's `copy`/`link` rows, which are idempotent, and
+    - `--refresh` re-applies only the manifest's `copy`/`link`/`retire` rows, which are idempotent, and
       **skips every `merge`/`tmpl` config row** — re-running a config merge would duplicate hook
       entries. If a release actually changed an adapter's hook/config definitions, say so in the
       step 11 follow-ups and let the user apply it; never write their config file for them here.
     - A non-zero exit names the rows that could not be satisfied. Report them; do not claim success.
-    - If the project has a harness-plumbing file the current adapter no longer ships
-      (renamed/removed), report it as a follow-up — do not delete it silently.
+    - A `retire` row moves a file the adapter no longer ships (renamed/removed) to the trash only
+      when it is unedited. An edited one stays and appears under `Needs you:` — report it as a
+      follow-up; do not delete it yourself. Any other harness-plumbing file the adapter no longer
+      ships is reported the same way, never deleted silently.
     - **opencode specifically:** a release that adds a new `core/skills/*/SKILL.md` also needs a new
       `instructions` entry in the project's root `opencode.jsonc`, which is a `merge` row and so is
       skipped here. Do not guess — step 9.5's audit names each missing entry by exact path.

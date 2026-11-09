@@ -109,6 +109,14 @@ harness_semver_cmp() {
 
 harness_semver_is_older() { [ "$(harness_semver_cmp "$1" "$2")" = "-1" ]; }
 
+# SHA-256 of a file, hex only. sha256sum (GNU coreutils) first, shasum (macOS, perl) as the fallback;
+# prints nothing when neither exists, so a caller comparing hashes never matches by accident.
+harness_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
 # Per-run trash dir under the target repo. Nothing in the install/update flow ever deletes: it
 # moves aside instead, so the flow survives a permission policy that blocks destructive commands
 # (see core/scripts/cleanup-harness-trash.sh for the user-invoked purge).

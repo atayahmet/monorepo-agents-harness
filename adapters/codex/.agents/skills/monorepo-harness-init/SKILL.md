@@ -1,6 +1,6 @@
 ---
-name: monorepo-harness-agents-init
-description: Build or audit the nested AGENTS.md tree for one workspace - survey, candidate map, approval, write, symlink, lint. Use when the user types /monorepo-harness-agents-init, or asks to document a workspace for agents with nested AGENTS.md files, or to audit them.
+name: monorepo-harness-init
+description: Build or audit the nested AGENTS.md tree for one workspace (not the harness install) - survey, candidate map, approval, write, symlink, lint. Use when the user types /monorepo-harness-init, or asks to document a workspace for agents with nested AGENTS.md files, or to audit them.
 ---
 
 Follow the shared instructions in

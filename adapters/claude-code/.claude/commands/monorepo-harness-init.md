@@ -1,5 +1,5 @@
 ---
-description: Build or audit the nested AGENTS.md tree for one workspace - survey, candidate map, approval, write, symlink, lint
+description: Build or audit the nested AGENTS.md tree for one workspace (not the harness install) - survey, candidate map, approval, write, symlink, lint
 argument-hint: "<workspace> [--audit]"
 ---
 

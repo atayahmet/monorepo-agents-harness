@@ -1,6 +1,6 @@
 ---
 name: agents-init
-description: Build or audit the nested AGENTS.md tree for one workspace - survey the repo's existing instruction files, rank candidate directories, show a directory map and wait for approval, then write a short workspace-root AGENTS.md that routes to nested files near the code, add CLAUDE.md/GEMINI.md symlinks, and lint the result. Use when the user types /monorepo-harness-agents-init, asks to document a workspace for agents, to add AGENTS.md files across a workspace, or to check a workspace's AGENTS.md files for drift (--audit).
+description: Build or audit the nested AGENTS.md tree for one workspace (not the harness install) - survey the repo's existing instruction files, rank candidate directories, show a directory map and wait for approval, then write a short workspace-root AGENTS.md that routes to nested files near the code, add CLAUDE.md/GEMINI.md symlinks, and lint the result. Use when the user types /monorepo-harness-init, asks to document a workspace for agents, to add AGENTS.md files across a workspace, or to check a workspace's AGENTS.md files for drift (--audit).
 ---
 
 # Workspace AGENTS.md Tree

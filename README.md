@@ -82,7 +82,7 @@ Rules while you do this:
 | `/monorepo-harness-changeset <plan.md>` | Draft changeset | `.changeset/*.md` | [changeset-workflow](core/skills/changeset-workflow/SKILL.md) |
 | `/monorepo-harness-kb-index` | Query knowledge base | Ranked results | [knowledge-base](core/skills/knowledge-base/SKILL.md) |
 | `/monorepo-harness-team` | Set up the team registry (`.agents/team.yml`) | People, IDs, assignee routing | [team-registry](core/skills/team-registry/SKILL.md) |
-| `/monorepo-harness-agents-init` | Document one workspace for agents (`<ws> [--audit]`) | Nested `AGENTS.md` tree + `CLAUDE.md`/`GEMINI.md` symlinks, lint | [agents-init](core/skills/agents-init/SKILL.md) |
+| `/monorepo-harness-init` | Document one workspace for agents (`<ws> [--audit]`) | Nested `AGENTS.md` tree + `CLAUDE.md`/`GEMINI.md` symlinks, lint | [agents-init](core/skills/agents-init/SKILL.md) |
 | `/monorepo-self-improve` | Harvest learnings | Rules/skills/proposals | [self-improvement-workflow](core/skills/self-improvement-workflow/SKILL.md) |
 
 ## Features

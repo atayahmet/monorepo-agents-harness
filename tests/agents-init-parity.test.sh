@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Parity check for `/monorepo-harness-agents-init` (issue #71): the three adapter entry points carry
+# Parity check for `/monorepo-harness-init` (issues #71, #73): the three adapter entry points carry
 # the same body, every install row exists, the shared skill defines each step, the scaffold hint is
 # wired, and no install guide grew past the 100-line cap. Repo-local, never installed.
 set -uo pipefail
@@ -10,9 +10,9 @@ bad() { fail=$((fail+1)); printf '  FAIL %s\n     %s\n' "$1" "$2"; }
 says() { case "$2" in *"$3"*) ok "$1" ;; *) bad "$1" "expected '$3'" ;; esac; }
 same() { if [ "$2" = "$3" ]; then ok "$1"; else bad "$1" "bodies differ"; fi; }
 
-CLAUDE="$REPO/adapters/claude-code/.claude/commands/monorepo-harness-agents-init.md"
-OPENCODE="$REPO/adapters/opencode/.opencode/commands/monorepo-harness-agents-init.md"
-CODEX="$REPO/adapters/codex/.agents/skills/monorepo-harness-agents-init/SKILL.md"
+CLAUDE="$REPO/adapters/claude-code/.claude/commands/monorepo-harness-init.md"
+OPENCODE="$REPO/adapters/opencode/.opencode/commands/monorepo-harness-init.md"
+CODEX="$REPO/adapters/codex/.agents/skills/monorepo-harness-init/SKILL.md"
 SKILL="$REPO/core/skills/agents-init/SKILL.md"
 
 body() { awk 'NR==1 && /^---[[:space:]]*$/ {fm=1; next} fm && !d && /^---[[:space:]]*$/ {d=1; next} d || !fm {print}' "$1"; }
@@ -23,7 +23,21 @@ for f in "$CLAUDE" "$OPENCODE" "$CODEX" "$SKILL" "$REPO/core/scripts/agents-tree
 done
 same "claude and opencode bodies identical" "$(body "$CLAUDE")" "$(body "$OPENCODE")"
 same "claude and codex bodies identical" "$(body "$CLAUDE")" "$(body "$CODEX")"
-says "codex skill is named" "$(cat "$CODEX")" "name: monorepo-harness-agents-init"
+says "codex skill is named" "$(cat "$CODEX")" "name: monorepo-harness-init"
+for f in "$CLAUDE" "$OPENCODE" "$CODEX"; do
+  says "description says it is not the harness install: ${f#"$REPO"/}" "$(head -4 "$f")" "not the harness install"
+done
+
+# Issue #73: the old name is gone from the repo, and each manifest retires its old entry point.
+for old in adapters/claude-code/.claude/commands/monorepo-harness-agents-init.md \
+           adapters/opencode/.opencode/commands/monorepo-harness-agents-init.md \
+           adapters/codex/.agents/skills/monorepo-harness-agents-init/SKILL.md; do
+  [ -e "$REPO/$old" ] && bad "old entry point removed: $old" "still present" || ok "old entry point removed: $old"
+done
+retire_row() { grep -E "^retire[[:space:]]+$2[[:space:]]+[0-9a-f]{64}" "$REPO/adapters/$1/manifest.txt" >/dev/null; }
+retire_row claude-code '\.claude/commands/monorepo-harness-agents-init\.md' && ok "claude retires the old command" || bad "claude retires the old command" "no retire row with a sha256"
+retire_row opencode '\.opencode/commands/monorepo-harness-agents-init\.md' && ok "opencode retires the old command" || bad "opencode retires the old command" "no retire row with a sha256"
+retire_row codex '\.agents/skills/monorepo-harness-agents-init/SKILL\.md' && ok "codex retires the old skill" || bad "codex retires the old skill" "no retire row with a sha256"
 
 b="$(body "$CLAUDE")"
 for w in "core/skills/agents-init/SKILL.md" "agents-tree.sh survey" "agents-tree.sh candidates" \
@@ -37,23 +51,23 @@ for w in "### Step 0" "### Step 1" "### Step 2" "### Step 3" "### Step 4" "### S
   says "skill defines: $w" "$s" "$w"
 done
 
-says "claude manifest row" "$(cat "$REPO/adapters/claude-code/manifest.txt")" "copy  .claude/commands/monorepo-harness-agents-init.md"
-says "opencode manifest row" "$(cat "$REPO/adapters/opencode/manifest.txt")" "copy  .opencode/commands/monorepo-harness-agents-init.md"
-says "codex manifest row" "$(cat "$REPO/adapters/codex/manifest.txt")" "copy  .agents/skills/monorepo-harness-agents-init/SKILL.md"
+says "claude manifest row" "$(cat "$REPO/adapters/claude-code/manifest.txt")" "copy  .claude/commands/monorepo-harness-init.md"
+says "opencode manifest row" "$(cat "$REPO/adapters/opencode/manifest.txt")" "copy  .opencode/commands/monorepo-harness-init.md"
+says "codex manifest row" "$(cat "$REPO/adapters/codex/manifest.txt")" "copy  .agents/skills/monorepo-harness-init/SKILL.md"
 bundle="$(cat "$REPO/core/install-manifest.txt")"
 for r in core/scripts/agents-tree.sh core/skills/agents-init/SKILL.md; do says "bundle row: $r" "$bundle" "$r"; done
 [ -x "$REPO/core/scripts/agents-tree.sh" ] && ok "agents-tree.sh is executable" || bad "agents-tree.sh is executable" "mode lacks +x"
-says "scaffold prints the hint" "$(cat "$REPO/core/scripts/scaffold-workspace-agents.sh")" "/monorepo-harness-agents-init"
+says "scaffold prints the hint" "$(cat "$REPO/core/scripts/scaffold-workspace-agents.sh")" "/monorepo-harness-init"
 
 for f in INSTALL.md adapters/claude-code/INSTALL.md adapters/opencode/INSTALL.md adapters/codex/INSTALL.md; do
   n="$(wc -l < "$REPO/$f" | tr -d ' ')"
   [ "$n" -le 100 ] && ok "$f within the 100-line cap ($n)" || bad "$f within the 100-line cap" "$n lines"
-  says "$f lists the command" "$(cat "$REPO/$f")" "/monorepo-harness-agents-init"
+  says "$f lists the command" "$(cat "$REPO/$f")" "/monorepo-harness-init"
 done
-says "README cheat sheet lists the command" "$(cat "$REPO/README.md")" "/monorepo-harness-agents-init"
-says "PORTABILITY lists the command" "$(cat "$REPO/PORTABILITY.md")" "/monorepo-harness-agents-init"
+says "README cheat sheet lists the command" "$(cat "$REPO/README.md")" "/monorepo-harness-init"
+says "PORTABILITY lists the command" "$(cat "$REPO/PORTABILITY.md")" "/monorepo-harness-init"
 for a in claude-code opencode codex; do
-  says "$a README documents the command" "$(cat "$REPO/adapters/$a/README.md")" "/monorepo-harness-agents-init"
+  says "$a README documents the command" "$(cat "$REPO/adapters/$a/README.md")" "/monorepo-harness-init"
 done
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"

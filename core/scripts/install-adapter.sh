@@ -10,7 +10,7 @@
 #
 #   install-adapter.sh <claude-code|codex|opencode> [--refresh] [--project-name <name>]
 #
-#   --refresh           run only the copy/link rows; never touch config files (merge/tmpl rows).
+#   --refresh           run only the copy/link/retire rows; never touch config files (merge/tmpl rows).
 #                       This is the mode a harness UPDATE uses: re-running a config merge would
 #                       duplicate hook entries, re-running a copy/symlink cannot.
 #   --project-name <n>  value for {{PROJECT_NAME}} (default: package.json .name, else repo dir name)
@@ -20,6 +20,10 @@
 # template carries an `@<path>` import (e.g. CLAUDE.md importing AGENTS.md) and the existing file
 # lacks it, a `Needs you:` line names the exact one-line fix — that import is how the agent sees the
 # root AGENTS.md at all.
+#
+# A `retire` row removes a file an earlier version shipped (a renamed or dropped command). It is moved
+# to the trash dir only when its sha256 matches one of the row's hashes; a file with local edits is
+# left in place and reported under `Needs you:`.
 #
 # Exit codes: 0 = every copy/link row satisfied, 1 = at least one did not land, 2 = usage error.
 # Dependencies: git + coreutils.
@@ -106,6 +110,20 @@ while read -r verb path target; do
       ln -sfn "$link_to" "$ROOT/$path" || { fail "could not symlink: $path"; continue; }
       if [ -e "$ROOT/$path" ]; then echo "  + $path -> $link_to"; applied=$((applied + 1))
       else fail "symlink does not resolve: $path -> $link_to"; fi
+      ;;
+    retire)
+      # retire <project-path> <sha256> [<sha256> ...] — the hashes are the shipped versions.
+      if [ -z "${target:-}" ]; then fail "retire row without a sha256: $path"; continue; fi
+      if [ ! -e "$ROOT/$path" ] && [ ! -L "$ROOT/$path" ]; then echo "  = $path (retired, absent)"; continue; fi
+      sum="$(harness_sha256 "$ROOT/$path" 2>/dev/null)"
+      if [ -n "$sum" ] && [ ! -L "$ROOT/$path" ] && [ -f "$ROOT/$path" ] && case " $target " in *" $sum "*) true ;; *) false ;; esac; then
+        ensure_trash
+        mv "$ROOT/$path" "$TRASH/${path//\//_}" || { fail "could not move the retired file aside: $path"; continue; }
+        rmdir "$(dirname "$ROOT/$path")" 2>/dev/null || true
+        echo "  - $path (retired)"; applied=$((applied + 1))
+      else
+        note "$path is retired (no longer part of the harness), but it has local edits, so it was left in place — delete it yourself once you have kept what you need."
+      fi
       ;;
     merge|tmpl)
       [ "$REFRESH" -eq 1 ] && { echo "  . $path (config row, skipped in --refresh)"; continue; }

@@ -9,7 +9,7 @@
 #
 # Existing files are never overwritten. Run once at install time, and re-run after adding a new
 # workspace. Workspaces without their own AGENTS.md are named in a closing `next:` hint that points
-# to /monorepo-harness-agents-init (core/skills/agents-init/SKILL.md).
+# to /monorepo-harness-init (core/skills/agents-init/SKILL.md).
 #
 #   bash .agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh   # from the target repo root
 #   SEED=path/to/workspace-agents-template INDEX_TEMPLATE=path/to/index-template.md \
@@ -109,5 +109,5 @@ done
 echo "scaffolded $created workspace-agents file(s)."
 # One-line hint (issue #71): workspaces with no AGENTS.md of their own.
 if [ -n "$undocumented" ]; then
-  echo "next: no AGENTS.md in:${undocumented//"$ROOT"\//} — run /monorepo-harness-agents-init <workspace> to build one"
+  echo "next: no AGENTS.md in:${undocumented//"$ROOT"\//} — run /monorepo-harness-init <workspace> to build one"
 fi
