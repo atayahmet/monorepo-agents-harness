@@ -53,7 +53,7 @@ audit (below) reports each missing entry by exact path, so run it after every up
 | Intent dispatch (`/monorepo-harness-intent-dispatch`) | `core/skills/intent-workflow/SKILL.md` "Workflow — Dispatch" + `core/scripts/tracker-issue.sh` | `/monorepo-harness-intent-dispatch` (skill reached by path — no new `opencode.jsonc` entry) · the epic and its child issues created inline |
 | Knowledge base query/lint (`/monorepo-harness-kb-index`) | `core/scripts/kb-index.sh` (SQLite FTS5 cache) + `core/skills/knowledge-base/SKILL.md` | `/monorepo-harness-kb-index` → `.opencode/commands/monorepo-harness-kb-index.md` |
 | Team registry (`/monorepo-harness-team`) | `core/scripts/team.sh` + `team-infer.sh` + `core/skills/team-registry/SKILL.md` | `/monorepo-harness-team` → `.opencode/commands/monorepo-harness-team.md` |
-| Workspace AGENTS.md tree (`/monorepo-harness-agents-init`) | `core/scripts/agents-tree.sh` + `core/skills/agents-init/SKILL.md` | `/monorepo-harness-agents-init` → `.opencode/commands/monorepo-harness-agents-init.md` |
+| Workspace AGENTS.md tree (`/monorepo-harness-init`) | `core/scripts/agents-tree.sh` + `core/skills/agents-init/SKILL.md` | `/monorepo-harness-init` → `.opencode/commands/monorepo-harness-init.md` |
 | Self-improvement (`/monorepo-self-improve`) | `core/skills/self-improvement-workflow/SKILL.md` | `/monorepo-self-improve` command |
 
 ## Verify

@@ -52,7 +52,8 @@ change to a reusable template, not to a single application.
    that reaches a consumer project is a row in `core/install-manifest.txt` (the bundle) or
    `adapters/<agent>/manifest.txt` (per agent), executed by `core/scripts/install-harness.sh` /
    `core/scripts/install-adapter.sh` and verified by `core/scripts/audit-install.sh`. Adding a copy,
-   symlink or stamp step means adding a manifest row — never an instruction for an agent to follow.
+   symlink, stamp or retire step means adding a manifest row — never an instruction for an agent to
+   follow.
    Install guides only invoke a script and describe the decisions only a human can make, and
    **no install guide may exceed 100 lines** (`INSTALL.md` and each `adapters/*/INSTALL.md`).
    Rationale: every "a file never reached the consumer project" bug in this repo's history came from

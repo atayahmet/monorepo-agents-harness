@@ -8,6 +8,8 @@
 #   link  <p> <b>    <root>/<p> -> symlink into .agents/monorepo-agents-harness/<b> (audited)
 #   merge <p>        absent -> copy; present -> write <p>.harness-proposed, never touch the original
 #   tmpl  <p>        like merge, with {{PROJECT_NAME}}/{{MONOREPO_FRAMEWORK}} resolved first
+#   retire <p> <sha256>...  a file an earlier version shipped: moved to the trash only if its sha256
+#                    is listed (unedited); an edited copy stays and is reported (audited: must be gone)
 #
 # No skill symlinks here: opencode reads the shared SKILL.md files through the `instructions`
 # entries in opencode.jsonc instead (see adapters/opencode/README.md).
@@ -32,4 +34,7 @@ copy  .opencode/commands/monorepo-self-improve.md
 merge opencode.jsonc
 copy  .opencode/commands/monorepo-harness-security-review.md
 copy  .opencode/commands/monorepo-harness-team.md
-copy  .opencode/commands/monorepo-harness-agents-init.md
+copy  .opencode/commands/monorepo-harness-init.md
+
+# Retired entry points (issue #73: renamed to monorepo-harness-init in 0.4.0-rc.35; hash = 0.4.0-rc.34).
+retire .opencode/commands/monorepo-harness-agents-init.md b6d9900ecd0d22c55d8efb33e18a44bfa409d1dc53504c01e0b79ba4f7590061

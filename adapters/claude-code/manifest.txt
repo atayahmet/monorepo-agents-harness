@@ -8,6 +8,8 @@
 #   link  <p> <b>    <root>/<p> -> symlink into .agents/monorepo-agents-harness/<b> (audited)
 #   merge <p>        absent -> copy; present -> write <p>.harness-proposed, never touch the original
 #   tmpl  <p>        like merge, with {{PROJECT_NAME}}/{{MONOREPO_FRAMEWORK}} resolved first
+#   retire <p> <sha256>...  a file an earlier version shipped: moved to the trash only if its sha256
+#                    is listed (unedited); an edited copy stays and is reported (audited: must be gone)
 
 link  .claude/skills/agent-workflow          core/skills/agent-workflow
 link  .claude/skills/adr-workflow            core/skills/adr-workflow
@@ -34,4 +36,7 @@ merge .claude/settings.json
 tmpl  CLAUDE.md
 copy  .claude/commands/monorepo-harness-security-review.md
 copy  .claude/commands/monorepo-harness-team.md
-copy  .claude/commands/monorepo-harness-agents-init.md
+copy  .claude/commands/monorepo-harness-init.md
+
+# Retired entry points (issue #73: renamed to monorepo-harness-init in 0.4.0-rc.35; hash = 0.4.0-rc.34).
+retire .claude/commands/monorepo-harness-agents-init.md 941262e72b240498f1304799a6a9f6ed0f8f97445dc38e20e384d9c4c98551e6

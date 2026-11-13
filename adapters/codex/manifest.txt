@@ -8,6 +8,8 @@
 #   link  <p> <b>    <root>/<p> -> symlink into .agents/monorepo-agents-harness/<b> (audited)
 #   merge <p>        absent -> copy; present -> write <p>.harness-proposed, never touch the original
 #   tmpl  <p>        like merge, with {{PROJECT_NAME}}/{{MONOREPO_FRAMEWORK}} resolved first
+#   retire <p> <sha256>...  a file an earlier version shipped: moved to the trash only if its sha256
+#                    is listed (unedited); an edited copy stays and is reported (audited: must be gone)
 
 link  .agents/skills/agent-workflow            core/skills/agent-workflow
 link  .agents/skills/adr-workflow              core/skills/adr-workflow
@@ -32,4 +34,7 @@ merge .codex/config.toml
 merge .codex/hooks.json
 copy  .agents/skills/monorepo-harness-security-review/SKILL.md
 copy  .agents/skills/monorepo-harness-team/SKILL.md
-copy  .agents/skills/monorepo-harness-agents-init/SKILL.md
+copy  .agents/skills/monorepo-harness-init/SKILL.md
+
+# Retired entry points (issue #73: renamed to monorepo-harness-init in 0.4.0-rc.35; hash = 0.4.0-rc.34).
+retire .agents/skills/monorepo-harness-agents-init/SKILL.md ed70e84050b84cc119add43ba37540fb16dcb4706eb0ebfcea9625ef0a781e84
