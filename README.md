@@ -74,7 +74,7 @@ Rules while you do this:
 | `/monorepo-harness-intent` | Capture/review/approve/reject intents | `<ws>/.agents/intents/intent_*.md` | [docs/intents.md](docs/intents.md) |
 | `/monorepo-harness-intent-dispatch <intent.md>` | Dispatch approved intent | Epic/sub-issues, `## Dispatch` block | [docs/intents.md](docs/intents.md) |
 | `/monorepo-harness-spec` | Start a task | `1_spec.md` (+ optional `0_intent.md`) | [agent-workflow](core/skills/agent-workflow/SKILL.md) |
-| `/monorepo-harness-plan <spec.md>` | Plan after spec | `2_plan.md` (+ optional `adr/`) | [agent-workflow](core/skills/agent-workflow/SKILL.md) |
+| `/monorepo-harness-plan <spec.md> [--no-plan-mode]` | Plan after spec | `2_plan.md` (+ optional `adr/`) | [agent-workflow](core/skills/agent-workflow/SKILL.md) |
 | `/monorepo-harness-build <plan.md>` | Implement | `3_memory.md`, `4_verify.md` (if required) | [agent-workflow](core/skills/agent-workflow/SKILL.md) |
 | `/monorepo-harness-review` | Before merging PR | Review report vs spec/plan/policy | [pr-review](core/skills/pr-review/SKILL.md) |
 | `/monorepo-harness-ci` | Wire CI enforcement | CI workflow/snippet | [ci-integration](core/skills/ci-integration/SKILL.md) |

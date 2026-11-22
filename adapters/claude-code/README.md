@@ -9,7 +9,7 @@ This adapter wires the harness into **Claude Code**. It gives you an automatic p
 - **Automatic plan/spec reminder** — when you exit plan mode (`ExitPlanMode`), Claude Code is nudged to create the task directory and write `1_spec.md` + `2_plan.md` before any implementation, and is shown the root `AGENTS.md` "Before You Start" checklist (read live by `core/scripts/checklist-reminder.sh`, so the reminder never drifts from that file). The `/monorepo-harness-spec` command prints the same checklist at the start of a task.
 - **Automatic ADR capture** — the `adr-workflow` skill (symlinked into `.claude/skills/`) fires automatically while `1_spec.md`/`2_plan.md` are written whenever the task makes an architecture-affecting decision (new dependency, data-model or cross-workspace contract change, delivery-guarantee change, …), producing `adr/NNNN-<title>.md` records referenced from the spec's `## Architectural decisions` section.
 - **`/monorepo-harness-spec <intent.md?>`** — create the task directory and write `1_spec.md`, gated on an approved intent when a path is given.
-- **`/monorepo-harness-plan <spec.md>`** — write `2_plan.md`, gated on a valid spec, asking about plan mode first.
+- **`/monorepo-harness-plan <spec.md> [--no-plan-mode]`** — write `2_plan.md`, gated on a valid spec, asking about plan mode first (`--no-plan-mode` skips the question).
 - **`/monorepo-harness-build <2_plan.md>`** — run the implementation, gated on the full spec/plan/intent chain, then write `3_memory.md` + `4_verify.md`.
 - **`/monorepo-harness-changeset <2_plan.md>`** — draft a changesets-compatible release entry into `.changeset/` from the task's spec/plan/memory (deterministic filename, revision-based multi-changeset flow), gated on `check-plan` and user-confirmed bumps. No `@changesets/cli` dependency — it consumes your project's own `changeset` CLI later.
 - **Hard memory-gate** — once a task's build has started, the `Stop` hook refuses to end it until the task directory contains `3_memory.md`, and `4_verify.md` too whenever the spec's Test/verification plan is not `N/A` (Feedback Loop enforcement). The build start is recorded as `build_started` on `2_plan.md`, so a spec-only or plan-only task ends without a block, and the hook stands down (`stop_hook_active`) instead of looping when it has already blocked once.
@@ -41,13 +41,14 @@ Agent:  → creates apps/web/.agents/artifacts/task_2026_08_23_add_login_form/
 It **stops** after writing the spec — the agent must not write `2_plan.md` or start implementation
 until you run `/monorepo-harness-plan <1_spec.md>`.
 
-### `/monorepo-harness-plan <spec.md>` — Create the plan
+### `/monorepo-harness-plan <spec.md> [--no-plan-mode]` — Create the plan
 
 Run it after the spec, still **before the first Edit/Write**. It validates the spec via
 `task-state.sh check-spec`, then checks plan mode: if you are not in plan mode it asks "Enable plan
-mode?" — yes enters plan mode, no proceeds without it. Then it writes `2_plan.md`
-(`phase: plan`, `status: approved`) and updates the index. It **stops** there — the agent must not
-start implementation until you run `/monorepo-harness-build <2_plan.md>`.
+mode?" — yes enters plan mode, no proceeds without it. Pass `--no-plan-mode` (any position) to skip
+the question and never enter plan mode; it is a no-op if you are already in plan mode. Then it
+writes `2_plan.md` (`phase: plan`, `status: approved`) and updates the index. It **stops** there —
+the agent must not start implementation until you run `/monorepo-harness-build <2_plan.md>`.
 
 ### `/monorepo-harness-build <2_plan.md>` — Implement, then write memory/verify
 

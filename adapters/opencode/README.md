@@ -7,7 +7,7 @@ This adapter wires the harness into **opencode**. Because opencode has no `ExitP
 ## What you get
 
 - **`/monorepo-harness-spec <intent.md?>`** — create the task directory and write `1_spec.md`, gated on an approved intent when a path is given.
-- **`/monorepo-harness-plan <spec.md>`** — write `2_plan.md`, gated on a valid spec, asking about plan mode first.
+- **`/monorepo-harness-plan <spec.md> [--no-plan-mode]`** — write `2_plan.md`, gated on a valid spec, asking about plan mode first (`--no-plan-mode` skips the question).
 - **`/monorepo-harness-build <2_plan.md>`** — run the implementation, gated on the full spec/plan/intent chain, then write `3_memory.md` + `4_verify.md`.
 - **`/monorepo-harness-changeset <2_plan.md>`** — draft a changesets-compatible release entry into `.changeset/` from the task's spec/plan/memory (deterministic filename, revision-based multi-changeset flow), gated on `check-plan` and user-confirmed bumps. No `@changesets/cli` dependency — it consumes your project's own `changeset` CLI later.
 - **Universal hard gate** — the git pre-commit / CI version of `core/scripts/memory-gate.sh` blocks a commit until `3_memory.md` exists, and `4_verify.md` too whenever the spec's Test/verification plan is not `N/A` (Feedback Loop enforcement). A task only owes that once its build has started (`build_started` on `2_plan.md`, written by `/monorepo-harness-build`), so a spec-only or plan-only commit passes.
@@ -40,13 +40,14 @@ Agent:  → creates apps/web/.agents/artifacts/task_2026_08_23_add_login_form/
 It **stops** after writing the spec — the agent must not write `2_plan.md` or start implementation
 until you run `/monorepo-harness-plan <1_spec.md>`.
 
-### `/monorepo-harness-plan <spec.md>` — Create the plan
+### `/monorepo-harness-plan <spec.md> [--no-plan-mode]` — Create the plan
 
 Run it after the spec, still **before the first Edit/Write**. It validates the spec via
 `task-state.sh check-spec`, then checks plan mode: if you are not in plan mode it asks "Enable plan
-mode?" — yes enters plan mode, no proceeds without it. Then it writes `2_plan.md`
-(`phase: plan`, `status: approved`) and updates the index. It **stops** there — the agent must not
-start implementation until you run `/monorepo-harness-build <2_plan.md>`.
+mode?" — yes enters plan mode, no proceeds without it. Pass `--no-plan-mode` (any position) to skip
+the question and never enter plan mode; it is a no-op if you are already in plan mode. Then it
+writes `2_plan.md` (`phase: plan`, `status: approved`) and updates the index. It **stops** there —
+the agent must not start implementation until you run `/monorepo-harness-build <2_plan.md>`.
 
 ### `/monorepo-harness-build <2_plan.md>` — Implement, then write memory/verify
 

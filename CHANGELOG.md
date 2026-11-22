@@ -17,6 +17,22 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.37] - 2026-11-22
+
+### Added
+
+- **`/monorepo-harness-plan <spec.md> --no-plan-mode`** (issue #76): an opt-out flag that skips the
+  "Enable plan mode?" question and never enters plan mode. It is accepted in any position after the
+  command name. Already in plan mode, the flag is a no-op (one short note, then continue). Without
+  the flag nothing changes. `check-spec`, the knowledge-base query and the stop after `2_plan.md`
+  are unchanged — the flag never skips plan approval. Same text in all three adapters and in
+  `agent-workflow` Phase 2; the claude-code `argument-hint` is now `<1_spec.md> [--no-plan-mode]`.
+
+### Upgrade Notes
+
+- Nothing to run. A normal sync updates the three `/monorepo-harness-plan` entry points.
+  `changelogs/version-0.4.0-rc.37.md` describes the flag and lists one optional follow-up.
+
 ## [0.4.0-rc.36] - 2026-11-22
 
 ### Fixed

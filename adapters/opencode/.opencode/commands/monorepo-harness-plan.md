@@ -6,13 +6,18 @@ Follow the shared instructions in
 `.agents/monorepo-agents-harness/core/skills/agent-workflow/SKILL.md` exactly (Phase 2), and gate
 with `core/scripts/task-state.sh`:
 
-1. Resolve the spec path the user typed after the command: `/monorepo-harness-plan <spec.md>`.
+1. Resolve the spec path the user typed after the command:
+   `/monorepo-harness-plan <spec.md> [--no-plan-mode]`. Accept `--no-plan-mode` in any position after
+   the command name (before or after the spec path); the non-flag argument is the spec path.
 2. Run `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-spec <spec.md>`. If it
    exits non-zero, do **not** write the plan; report the reason and stop.
 3. Check whether you are currently in plan mode.
-   - If you are, skip to step 4.
-   - If not, ask the user: "Enable plan mode?" — on **yes** enter plan mode; on **no** proceed
-     without it.
+   - If you are, skip to step 4. If `--no-plan-mode` was passed, the command cannot leave plan mode:
+     print one short note ("already in plan mode; `--no-plan-mode` ignored") and continue.
+   - If not and `--no-plan-mode` was passed, do **not** ask and do **not** enter plan mode; go to
+     step 4.
+   - If not and the flag is absent, ask the user: "Enable plan mode?" — on **yes** enter plan mode;
+     on **no** proceed without it.
 4. Query the knowledge base first (Phase 1 check 1) — or reuse the hits kept when `1_spec.md` was
    written: run
    `bash .agents/monorepo-agents-harness/core/scripts/kb-index.sh query "<1–3 keywords>"` and cite
