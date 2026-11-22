@@ -31,6 +31,7 @@ Release procedure (harness maintainers):
 ### Upgrade Notes
 
 - Nothing to run. A normal sync updates the three `/monorepo-harness-plan` entry points.
+  `changelogs/version-0.4.0-rc.37.md` describes the flag and lists one optional follow-up.
 
 ## [0.4.0-rc.36] - 2026-11-22
 
