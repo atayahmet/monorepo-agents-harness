@@ -95,7 +95,8 @@ test enforces the boundary.
 - **Plan-mode detection is per-agent.** `/monorepo-harness-plan` must know whether the session is in
   plan mode. This is not scriptable — each stub relies on the model's own knowledge of its active
   mode, then asks for consent ("Enable plan mode?") when it is not in plan mode, proceeding without
-  it if the user declines. The yes/no semantics are identical across agents; only the model's
+  it if the user declines. The `--no-plan-mode` flag skips that question (a no-op when already in
+  plan mode). The yes/no semantics and the flag are identical across agents; only the model's
   self-reporting differs.
 - **No `ExitPlanMode` tool on Codex.** Codex toggles plan mode with the `/plan` slash command; the
   closest local function tool is `update_plan`, so the Codex adapter uses `PostToolUse[update_plan]`

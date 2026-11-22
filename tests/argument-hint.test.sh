@@ -66,7 +66,7 @@ has_hint() {
 expected_hint() {
   case "$1" in
     monorepo-harness-spec)            printf '%s' '[<intent.md>] [<phase-number> | <task-issue-url>]' ;;
-    monorepo-harness-plan)            printf '%s' '<1_spec.md>' ;;
+    monorepo-harness-plan)            printf '%s' '<1_spec.md> [--no-plan-mode]' ;;
     monorepo-harness-build)           printf '%s' '<2_plan.md>' ;;
     monorepo-harness-changeset)       printf '%s' '<2_plan.md>' ;;
     monorepo-harness-intent)          printf '%s' '[--pr [--draft] <description> | review | --approve <PR-url> ... | --reject <PR-url> ...]' ;;

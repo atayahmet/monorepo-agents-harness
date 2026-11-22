@@ -212,7 +212,11 @@ executes against, and it must be user-approved first.
 
 `/monorepo-harness-plan <spec.md>` first runs `task-state.sh check-spec` (refusing to write if the
 spec is missing/invalid) and checks plan mode: if the agent is not in plan mode it asks "Enable plan
-mode?" — on **yes** it enters plan mode, on **no** it proceeds without. Then, in the task directory
+mode?" — on **yes** it enters plan mode, on **no** it proceeds without. The opt-out flag
+`--no-plan-mode` (accepted in any position after the command name) skips that question and never
+enters plan mode; when the agent is already in plan mode the flag is a no-op (one short note, then
+continue). The flag only skips the plan-mode question — it never skips the plan approval gate: the
+command still stops after `2_plan.md`. Then, in the task directory
 created by Phase 1, write `2_plan.md` — the "how" built against the just-written spec; the spec
 defines "what", the plan the implementation sketch that an engineer who never saw the conversation
 could follow.
