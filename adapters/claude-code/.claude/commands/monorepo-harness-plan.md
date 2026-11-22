@@ -9,7 +9,7 @@ with `core/scripts/task-state.sh`:
 
 1. Resolve the spec path the user typed after the command:
    `/monorepo-harness-plan <spec.md> [--no-plan-mode]`. Accept `--no-plan-mode` in any position after
-   the command name (before or after the spec path); the remaining argument is the spec path.
+   the command name (before or after the spec path); the non-flag argument is the spec path.
 2. Run `bash .agents/monorepo-agents-harness/core/scripts/task-state.sh check-spec <spec.md>`. If it
    exits non-zero, do **not** write the plan; report the reason and stop.
 3. Check whether you are currently in plan mode.

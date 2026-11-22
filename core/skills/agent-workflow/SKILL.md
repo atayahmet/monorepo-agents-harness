@@ -69,7 +69,7 @@ input (see `core/scripts/task-state.sh` for the checks):
 | ------- | --------- | ------ |
 | `/monorepo-harness-intent [review]` | — | `<workspace>/.agents/intents/intent_*.md` (`status: pending`, then `approved`) |
 | `/monorepo-harness-spec [<intent.md>] [<phase-number> \| <task-issue-url>]` | intent **approved** (only when a path is given); if the intent lists several tasks, pick one by phase number, link or answer | `1_spec.md` (+ `0_intent.md` = reference stub linking the approved intent; one task per invocation) |
-| `/monorepo-harness-plan <spec.md>` | spec present (`phase: spec`) + plan-mode consent | `2_plan.md` |
+| `/monorepo-harness-plan <spec.md> [--no-plan-mode]` | spec present (`phase: spec`) + plan-mode consent (unless `--no-plan-mode`) | `2_plan.md` |
 | `/monorepo-harness-build <plan.md>` | chain: plan + spec present; intent approved **if** the task is intent-seeded | `build_started` on the plan, then for a `red-first` task the failing tests and their recorded output **before** implementation, then implementation (**confined to the spec/plan scope**, see Build scope below) + `3_memory.md` + `4_verify.md` (including `## Red evidence`) + `check-red-evidence` advisory + `kb-ingest.sh <task_dir>` + `check-kb` + a review suggestion (`build-review-tier.sh`, see "After the build" below) |
 
 **Intent-approval policy:** an approved intent is mandatory only when a task was seeded by one (i.e.
@@ -366,7 +366,8 @@ review without the developer's choice. The reviews are report-only — see
 ## Edge cases
 
 - **Implementation without plan mode**: Skill is inactive; hooks do not warn. If you are writing the
-  plan via `/monorepo-harness-plan`, it will have asked about plan mode first.
+  plan via `/monorepo-harness-plan`, it will have asked about plan mode first (unless
+  `--no-plan-mode` was passed).
 - **Ending the turn at a stage boundary**: stopping after Phase 1 or Phase 2 is normal and must not be
   blocked. The task has no `build_started`, so the gate has nothing to enforce. It blocks at most once
   per stop anyway — a hook that already blocked sees `stop_hook_active: true` and stands down.

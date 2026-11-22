@@ -46,8 +46,8 @@ Run it after the spec, still **before the first Edit/Write**. It validates the s
 `task-state.sh check-spec`, then checks plan mode: if you are not in plan mode it asks "Enable plan
 mode?" — yes enters plan mode, no proceeds without it. Pass `--no-plan-mode` (any position) to skip
 the question and never enter plan mode; it is a no-op if you are already in plan mode. Then it
-writes `2_plan.md` (`phase: plan`, `status: approved`) and updates the index. It **stops** there — the agent must not
-start implementation until you run `/monorepo-harness-build <2_plan.md>`.
+writes `2_plan.md` (`phase: plan`, `status: approved`) and updates the index. It **stops** there —
+the agent must not start implementation until you run `/monorepo-harness-build <2_plan.md>`.
 
 ### `/monorepo-harness-build <2_plan.md>` — Implement, then write memory/verify
 
