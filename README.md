@@ -76,7 +76,7 @@ Rules while you do this:
 | `/monorepo-harness-spec` | Start a task | `1_spec.md` (+ optional `0_intent.md`) | [agent-workflow](core/skills/agent-workflow/SKILL.md) |
 | `/monorepo-harness-plan <spec.md> [--no-plan-mode]` | Plan after spec | `2_plan.md` (+ optional `adr/`) | [agent-workflow](core/skills/agent-workflow/SKILL.md) |
 | `/monorepo-harness-build <plan.md>` | Implement | `3_memory.md`, `4_verify.md` (if required) | [agent-workflow](core/skills/agent-workflow/SKILL.md) |
-| `/monorepo-harness-review` | Before merging PR | Review report vs spec/plan/policy | [pr-review](core/skills/pr-review/SKILL.md) |
+| `/monorepo-harness-review [--auto-fix]` | Before merging PR | Review report vs spec/plan/policy; `--auto-fix`: bounded fix loop, local commits only | [pr-review](core/skills/pr-review/SKILL.md) |
 | `/monorepo-harness-ci` | Wire CI enforcement | CI workflow/snippet | [ci-integration](core/skills/ci-integration/SKILL.md) |
 | `/monorepo-harness-update` | Upgrade harness | Updated bundle/adapters | [harness-update](core/skills/harness-update/SKILL.md) |
 | `/monorepo-harness-changeset <plan.md>` | Draft changeset | `.changeset/*.md` | [changeset-workflow](core/skills/changeset-workflow/SKILL.md) |

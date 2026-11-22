@@ -349,13 +349,17 @@ bash <bundle>/core/scripts/build-review-tier.sh <task_dir>
   `/monorepo-harness-security-review` as an optional deeper security review if desired. Do **not** ask.
 - **`comprehensive`** (more files, or an architectural signal: an `adr/` file, or a non-`N/A`
   `## Architectural decisions` / `## API / contracts` / `## Data model` section) — ask the developer
-  whether to run reviews now. Offer both `/monorepo-harness-review` (`pr-review` skill) and
-  `/monorepo-harness-security-review` (`security-review` skill). On **yes**, run the chosen review(s)
-  inline and report their findings; on **no**, finish normally.
+  whether to run reviews now. Offer `/monorepo-harness-review` (`pr-review` skill),
+  `/monorepo-harness-security-review` (`security-review` skill), and the opt-in review-fix loop
+  `/monorepo-harness-review --auto-fix` (issue #77). The loop fixes the Important findings, verifies
+  each fix and commits locally in a bounded loop; it never pushes. The build has just committed, so
+  its clean-tree preflight passes. On **yes**, run the chosen review(s) inline and report their
+  findings; on **no**, finish normally.
 
 This step is **advisory**: it never blocks a task from closing, never writes a file, and never runs a
-review without the developer's choice. The reviews are report-only — see
-`core/skills/pr-review/SKILL.md` and `core/skills/security-review/SKILL.md`.
+review without the developer's choice. The reviews are report-only unless the developer picks
+`--auto-fix`, which makes local commits only — see `core/skills/pr-review/SKILL.md` (including its
+"Review-fix loop (--auto-fix)" section) and `core/skills/security-review/SKILL.md`.
 
 ## Slug & directory naming rules
 
