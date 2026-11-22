@@ -17,6 +17,38 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.38] - 2026-11-22
+
+### Added
+
+- **`/monorepo-harness-review --auto-fix`** (issue #77): an opt-in, bounded review-fix loop. It
+  reviews, fixes the Important findings, verifies each fix, commits locally, and reviews again. Rules:
+  - It refuses to start on a dirty working tree.
+  - It stops after `--max-rounds <n>` fix rounds (1–5, default 2).
+  - It reproduces every finding before fixing it. An unreproducible finding is reported as
+    **disputed** and is not fixed.
+  - It stops and asks on a scope change, a new non-test file, 2 failed fix attempts, or evidence
+    that conflicts with the reproduction.
+  - Nits stay report-only unless `--fix-nits` is passed, and a nit that contradicts a spec scope
+    decision is never fixed.
+  - The security pass runs only on the closing pass, or when a round touched security-sensitive
+    paths.
+  - `3_memory.md` / `4_verify.md` are written once, at the end, and only for a matching task.
+  - It never pushes, comments on a PR, merges or approves.
+  Without `--auto-fix` the command is report-only, as before. The loop is described once in
+  `core/skills/pr-review/SKILL.md`; the three review entry points carry the same text, and the
+  claude-code `argument-hint` is `[diff-range] [--auto-fix] [--fix-nits] [--max-rounds <n>]`. The
+  `/monorepo-harness-build` "After the build" question also offers the loop.
+- **`core/scripts/review-fix-loop.sh`**: the loop's deterministic checks — `preflight` (clean tree,
+  round limit), `check-fix` (new non-test file) and `security-due` (security-sensitive paths changed).
+  Listed in `core/install-manifest.txt`.
+
+### Upgrade Notes
+
+- Nothing to run. A normal sync installs `core/scripts/review-fix-loop.sh` and updates the three
+  `/monorepo-harness-review` entry points. `changelogs/version-0.4.0-rc.38.md` describes the flag and
+  lists one optional follow-up.
+
 ## [0.4.0-rc.37] - 2026-11-22
 
 ### Added

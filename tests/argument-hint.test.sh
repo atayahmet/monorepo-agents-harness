@@ -72,6 +72,7 @@ expected_hint() {
     monorepo-harness-intent)          printf '%s' '[--pr [--draft] <description> | review | --approve <PR-url> ... | --reject <PR-url> ...]' ;;
     monorepo-harness-intent-dispatch) printf '%s' '<intent.md>' ;;
     monorepo-harness-security-review) printf '%s' '[diff-range-or-branch]' ;;
+    monorepo-harness-review)          printf '%s' '[diff-range] [--auto-fix] [--fix-nits] [--max-rounds <n>]' ;;
     monorepo-harness-team)            printf '%s' '[init | add | remove <key> | lint | migrate]' ;;
     monorepo-harness-kb-index)        printf '%s' '[<question> | rebuild | links] [--kind <k>] [--workspace <w>] [--limit <n>]' ;;
     monorepo-harness-init)            printf '%s' '<workspace> [--audit]' ;;
@@ -79,11 +80,11 @@ expected_hint() {
   esac
 }
 
-# The four commands whose bodies take no argument. They stay without the key on purpose; the
+# The three commands whose bodies take no argument. They stay without the key on purpose; the
 # allowlist is what makes "every command is classified" the invariant, not "every command has a key".
 argument_less() {
   case "$1" in
-    monorepo-harness-review|monorepo-harness-ci|monorepo-harness-update|monorepo-self-improve) return 0 ;;
+    monorepo-harness-ci|monorepo-harness-update|monorepo-self-improve) return 0 ;;
     *) return 1 ;;
   esac
 }

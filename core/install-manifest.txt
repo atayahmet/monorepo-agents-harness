@@ -68,3 +68,6 @@ core/scripts/team-infer.sh
 core/scripts/agents-tree.sh
 core/skills/agents-init
 core/skills/agents-init/SKILL.md
+# The `/monorepo-harness-review --auto-fix` helper (issue #77): preflight, check-fix, security-due.
+# Shipped via the `core` row above; listed explicitly so it is a first-class, audited install row.
+core/scripts/review-fix-loop.sh

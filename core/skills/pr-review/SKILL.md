@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Review the current diff against this project's REVIEW.md policy (or built-in defaults) and, when the diff maps to a known task, against that task's 2_plan.md/1_spec.md/4_verify.md — including its recorded knowledge-base query. Reports findings tagged Important/Nit. For a deeper security audit, use /monorepo-harness-security-review with the security-review skill. Use when the user types /monorepo-harness-review or asks to review a PR, diff, or set of changes.
+description: Review the current diff against this project's REVIEW.md policy (or built-in defaults) and, when the diff maps to a known task, against that task's 2_plan.md/1_spec.md/4_verify.md — including its recorded knowledge-base query. Reports findings tagged Important/Nit. With --auto-fix it runs a bounded, local-commit-only review-fix loop instead of stopping at the report. For a deeper security audit, use /monorepo-harness-security-review with the security-review skill. Use when the user types /monorepo-harness-review or asks to review a PR, diff, or set of changes.
 ---
 
 # PR Review
@@ -11,7 +11,9 @@ that task's own `2_plan.md`/`1_spec.md`/`4_verify.md` and checks the diff agains
 committed to build**, not just generic code-quality heuristics.
 
 This skill produces a report. It does not run as a service, does not post to any PR platform, and
-does not merge or approve anything — see "Out of scope" below.
+does not merge or approve anything — see "Out of scope" below. The one opt-in exception is
+`--auto-fix` (issue #77): it fixes Important findings and commits them **locally** in a bounded loop
+— see "Review-fix loop (--auto-fix)" below. Without the flag, nothing is written.
 
 **Recommended at the end of a build.** `/monorepo-harness-build` finishes by pointing the developer
 here (issue #41): a `simple` change gets a one-line suggestion, a `comprehensive` one gets a direct
@@ -69,6 +71,75 @@ question. Either way the run is opt-in and this skill is unchanged — see
    - If nothing was found in a pass, say so ("Security: no issues found") rather than omitting it —
      an omitted pass reads as "not checked," not "checked and clean."
 
+## Review-fix loop (--auto-fix)
+
+Opt-in (issue #77). Invoked as
+`/monorepo-harness-review [diff-range] [--auto-fix] [--fix-nits] [--max-rounds <n>]`, with the flags
+in any position. Without `--auto-fix` the run is the report-only workflow above, and `--fix-nits` /
+`--max-rounds` are ignored with a one-line note. `<bundle>` is `.agents/monorepo-agents-harness`.
+
+The loop saves manual review → fix rounds, but a fixer can act on a wrong finding or widen the
+change. So every fix is reproduced first, every round is bounded, and the hard checks are scripted in
+`<bundle>/core/scripts/review-fix-loop.sh`.
+
+1. **Preflight.** Run `bash <bundle>/core/scripts/review-fix-loop.sh preflight [--max-rounds <n>]`.
+   - Exit 1 (dirty working tree) or 2 (bad `--max-rounds`): do **not** start. Report the reason and
+     stop. Nothing is reviewed or changed.
+   - Exit 0: keep the printed `base:` sha and `max-rounds:` value. The round limit is default 2 and
+     at most 5.
+2. **Pass 0.** Run the Workflow above (steps 1–5) and keep its findings. The **findings to fix** are
+   the Important findings, plus the nits when `--fix-nits` is given. If pass 0 has none, it is the
+   closing pass: run the security pass as step 4 describes, then go to step 5.
+3. **Fix round `k`** (only while `k` ≤ the round limit and the last pass has findings to fix).
+   Take the Important findings one at a time. With `--fix-nits`, take the nits too, after the
+   Important ones. Without it, nits stay report-only. For each finding:
+   - **Spec scope first.** A nit that contradicts a scope decision recorded in the task's `1_spec.md`
+     or `2_plan.md` is never fixed. Report it as "spec scope decision".
+   - **Reproduce before fixing.** Preferred: a test that fails before the fix. Otherwise: a named
+     check (a command, or a short manual step) that shows the problem.
+     - It does not reproduce → mark the finding **disputed**, do not fix it, and go on with the next
+       finding. The reviewer can be wrong.
+     - The reproduction shows something different from the reviewer's evidence → stop and ask the
+       user.
+   - **Fix, then verify.** Run the same test or check again; it must now pass. Keep a verification
+     record: test name and result, or the check and its result. If the check still fails after 2
+     attempts on this finding, stop and ask the user.
+   - **Stay in scope.** If the fix needs a change outside the spec/plan scope (the plan's
+     `## Affected files / modules`), stop and ask the user.
+   - Before the round's commit, run
+     `bash <bundle>/core/scripts/review-fix-loop.sh check-fix <base>`. Exit 1 means the fix adds a
+     new non-test file (a new file or module): stop and ask the user. New test files are fine.
+   - **Commit locally.** End the round with one commit: `fix(review): round <k> — <summary>`. Keep
+     the sha that the round started from. If the round fixed nothing (every finding was disputed or
+     a spec scope decision), make no commit and go to step 5 — another pass would review the same
+     diff.
+4. **Re-review.** Run the Workflow passes again on the same diff range, which now includes the fix
+   commits. Run the `security-review` skill (`core/skills/security-review/SKILL.md`) as well when
+   either holds:
+   - this is the **closing pass** — the pass that ends the loop, including pass 0: the pr-review
+     passes found no findings to fix, or round `k` was the last allowed round
+   - `bash <bundle>/core/scripts/review-fix-loop.sh security-due <round-start-sha>` prints `yes` on
+     its first line
+   A security Important finding with rounds left starts the next fix round, like any other finding.
+5. **Stop** when the last pass has no findings to fix, a round fixed nothing, or the round limit is
+   reached.
+6. **End report**, in chat:
+   - each round, with its fixed findings and their verification records
+   - the **disputed** findings
+   - what remains: Important findings left at the limit, nits not fixed, spec scope decisions
+   - the local commits made
+   On every "stop and ask" exit, give the same report up to that point, plus the question.
+7. **Artifacts, once, at the end.** Not per round. Only when step 3 of the Workflow found a task:
+   - append a `## Review-fix loop` section with the end report to that task's `4_verify.md`
+   - add a short note to its `3_memory.md`
+   - run `bash <bundle>/core/scripts/task-state.sh sync-commits <task_dir>/3_memory.md --write` once
+   - make one final local commit: `docs(review): record review-fix loop`
+   With no matching task, write no artifact. The end report in chat is the record.
+
+Hard limits, in every round: never push, never comment on a PR, never merge, never approve. The
+only writes are the fix commits and the final artifact commit, all local. The user reviews the
+commits and pushes.
+
 ## Out of scope
 
 Deliberately not built into this skill (agent-agnostic by design — these are platform- or
@@ -79,6 +150,8 @@ product-specific and the harness does not commit to any one of them):
 - Tagging or replying to individual PR comments (`@claude`-style) — this requires a specific
   platform's comment API.
 - Automatic merging, approving, or requesting changes on any PR.
+- Pushing anything. `--auto-fix` makes **local** commits only; there is no flag that pushes, comments
+  or merges.
 
 ## Edge cases
 
