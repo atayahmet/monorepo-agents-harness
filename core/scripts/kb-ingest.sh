@@ -164,37 +164,57 @@ else
   echo "kb-ingest:   (dry-run) would append log.md row for $slug"
 fi
 
-catalog_row () { # <section-header> <row text> — append row to the section if absent
-  local section="$1" row="$2"
-  if [ "$WRITE" -eq 1 ]; then
-    if grep -qF "$row" "$KB/index.md"; then
-      echo "kb-ingest:   index.md already has: $row"
-    else
-      # Insert right after the matching `### Section` header line plus its header row line.
-      awk -v sec="$section" -v row="$row" '
-        insert { print row; inserted=1; insert=0 }
-        $0 == "### " sec { print; print "| Page | Overview |"; print "| ---- | -------- |"; insert=1; next }
-        1
-        END { if (!inserted) exit 1 }
-      ' "$KB/index.md" > "$KB/index.md.tmp" && mv "$KB/index.md.tmp" "$KB/index.md" \
-        || { echo "kb-ingest: section '### $section' not found in $KB/index.md" >&2; exit 1; }
-      echo "kb-ingest:   index.md += $row"
-    fi
-  else
+catalog_row () { # <section-header> <page path> <row text> — add the row to the section unless present
+  # The row's key is its link target `(<page path>)`, looked up inside the section only: the
+  # overview cell is a placeholder the agent rewrites, so matching the whole row text would miss an
+  # edited row and insert it again. The table header is written once, when the section has no table
+  # yet; otherwise the row goes after the section's last table row.
+  local section="$1" key="($2)" row="$3" rc=0
+  if [ "$WRITE" -eq 0 ]; then
     echo "kb-ingest:   (dry-run) index.md += $row"
+    return 0
   fi
+  # Values go through ENVIRON, not -v: -v would expand the `\|` escapes in the row.
+  KB_SEC="### $section" KB_KEY="$key" KB_ROW="$row" awk '
+    BEGIN { sec=ENVIRON["KB_SEC"]; key=ENVIRON["KB_KEY"]; row=ENVIRON["KB_ROW"] }
+    NR == FNR {
+      if ($0 == sec) { found=1; insec=1; anchor=FNR; next }
+      if (insec && /^#/) insec=0
+      if (insec && /^\|/) { last=FNR; if (index($0, key)) dup=1 }
+      next
+    }
+    { print }
+    FNR == (last ? last : anchor) && found && !dup {
+      if (!last) { print "| Page | Overview |"; print "| ---- | -------- |" }
+      print row
+    }
+    END { if (!found) exit 1; if (dup) exit 3 }
+  ' "$KB/index.md" "$KB/index.md" > "$KB/index.md.tmp" || rc=$?
+  case "$rc" in
+    0) mv "$KB/index.md.tmp" "$KB/index.md"; echo "kb-ingest:   index.md += $row" ;;
+    3) rm -f "$KB/index.md.tmp"; echo "kb-ingest:   index.md already has $2 under '### $section' — left as is" ;;
+    *) rm -f "$KB/index.md.tmp"; echo "kb-ingest: section '### $section' not found in $KB/index.md" >&2; exit 1 ;;
+  esac
 }
 
-catalog_row "Sources (per-task synopses)" "| $slug | [$slug](sources/$slug.md) | $rel |"
+adr_title () { # <adr.md> — its first `# ` heading after the frontmatter, `|` escaped for the table
+  local t
+  t="$(awk 'NR == 1 && $0 == "---" { fm=1; next } fm { if ($0 == "---") fm=0; next }
+            /^# / { sub(/^# +/, ""); print; exit }' "$1")"
+  [ -n "$t" ] || t="$(basename "$1" .md)"
+  printf '%s' "${t//|/\\|}"
+}
+
+catalog_row "Sources (per-task synopses)" "sources/$slug.md" "| $slug | [$slug](sources/$slug.md) | $rel |"
 if [ "$adr_count" -gt 0 ]; then
   for adr in "$TASK_DIR"/adr/*.md; do
     [ -f "$adr" ] || continue
     base="$(basename "$adr")"
-    catalog_row "Decision records (compiled from adr/)" "| $base | $(head -1 "$adr" | tr -d '#') — [decision-records/$base](decision-records/$base) |"
+    catalog_row "Decision records (compiled from adr/)" "decision-records/$base" "| $base | $(adr_title "$adr") — [decision-records/$base](decision-records/$base) |"
   done
 fi
 if [ -n "$vf_page" ]; then
-  catalog_row "Verified facts (from 4_verify.md)" "| $slug | Claims from $rel/4_verify.md — [verified-facts/$slug.md](verified-facts/$slug.md) |"
+  catalog_row "Verified facts (from 4_verify.md)" "verified-facts/$slug.md" "| $slug | Claims from $rel/4_verify.md — [verified-facts/$slug.md](verified-facts/$slug.md) |"
 fi
 
 # --- 6. derived index: upsert every page this run wrote or left in place ------------------------------

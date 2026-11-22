@@ -634,6 +634,23 @@ case "$cmd" in
         gaps="$gaps verified-facts/$slug.md missing"
       fi
     fi
+    # Catalog lint (issue #75): within one `### ` section, a second table separator row means a
+    # repeated header pair, and a link target cited by two rows means a duplicated page key.
+    lint="$(awk '
+      /^### / { sec=$0; seps=0; delete seen; next }
+      /^#/ { sec=""; next }
+      sec == "" || !/^\|/ { next }
+      /^\| *-+ *\|/ { if (++seps == 2) printf " repeated table header under %s;", sec; next }
+      {
+        s=$0
+        while (match(s, /\]\([^)]*\)/)) {
+          t=substr(s, RSTART + 2, RLENGTH - 3)
+          if (seen[t]++ == 1) printf " duplicate row for %s under %s;", t, sec
+          s=substr(s, RSTART + RLENGTH)
+        }
+      }
+    ' "$kb/index.md")"
+    [ -z "$lint" ] || gaps="$gaps knowledge/index.md catalog damaged:${lint%;} (keep one header pair and one row per page)"
     if [ -n "$gaps" ]; then
       fail "knowledge-base coverage incomplete for '$dir':$gaps — run core/scripts/kb-ingest.sh $dir after the agent adds the pages"
     fi

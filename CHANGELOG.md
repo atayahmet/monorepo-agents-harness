@@ -17,6 +17,26 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.36] - 2026-11-22
+
+### Fixed
+
+- **`kb-ingest.sh` writes clean `knowledge/index.md` catalog rows** (issue #75):
+  - A section's `| Page | Overview |` header pair is written only when the section has no table yet.
+    A new row goes after the section's last table row; it no longer adds a header pair per row.
+  - A Decision records row's overview is the ADR's title (the first `# ` line after the frontmatter),
+    not its first line (`---`). A `|` in the title is escaped.
+  - The duplicate check matches the row's link target (for example `(decision-records/0001-x.md)`)
+    within its section, not the whole row text. A re-run leaves a row whose overview you edited alone.
+- **`task-state.sh check-kb` lints the catalog**: a second table header in one `### ` section, or two
+  rows linking the same page in one section, is reported and fails the check.
+- Repo-local test: `tests/kb-ingest-catalog.test.sh` (new).
+
+### Upgrade Notes
+
+- Nothing to run. An `index.md` that earlier versions already damaged now fails `check-kb`; see
+  `changelogs/version-0.4.0-rc.36.md` for the cleanup.
+
 ## [0.4.0-rc.35] - 2026-11-09
 
 ### Changed
