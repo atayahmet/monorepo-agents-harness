@@ -87,8 +87,10 @@ change. So every fix is reproduced first, every round is bounded, and the hard c
      stop. Nothing is reviewed or changed.
    - Exit 0: keep the printed `base:` sha and `max-rounds:` value. The round limit is default 2 and
      at most 5.
-2. **Pass 0.** Run the Workflow above (steps 1–5) and keep its findings.
-3. **Fix round `k`** (only while `k` ≤ the round limit and the last pass has Important findings).
+2. **Pass 0.** Run the Workflow above (steps 1–5) and keep its findings. The **findings to fix** are
+   the Important findings, plus the nits when `--fix-nits` is given. If pass 0 has none, it is the
+   closing pass: run the security pass as step 4 describes, then go to step 5.
+3. **Fix round `k`** (only while `k` ≤ the round limit and the last pass has findings to fix).
    Take the Important findings one at a time. With `--fix-nits`, take the nits too, after the
    Important ones. Without it, nits stay report-only. For each finding:
    - **Spec scope first.** A nit that contradicts a scope decision recorded in the task's `1_spec.md`
@@ -108,16 +110,19 @@ change. So every fix is reproduced first, every round is bounded, and the hard c
      `bash <bundle>/core/scripts/review-fix-loop.sh check-fix <base>`. Exit 1 means the fix adds a
      new non-test file (a new file or module): stop and ask the user. New test files are fine.
    - **Commit locally.** End the round with one commit: `fix(review): round <k> — <summary>`. Keep
-     the sha that the round started from.
+     the sha that the round started from. If the round fixed nothing (every finding was disputed or
+     a spec scope decision), make no commit and go to step 5 — another pass would review the same
+     diff.
 4. **Re-review.** Run the Workflow passes again on the same diff range, which now includes the fix
    commits. Run the `security-review` skill (`core/skills/security-review/SKILL.md`) as well when
    either holds:
-   - this is the **closing pass**: the pr-review passes found no Important finding, or round `k`
-     was the last allowed round
+   - this is the **closing pass** — the pass that ends the loop, including pass 0: the pr-review
+     passes found no findings to fix, or round `k` was the last allowed round
    - `bash <bundle>/core/scripts/review-fix-loop.sh security-due <round-start-sha>` prints `yes` on
      its first line
    A security Important finding with rounds left starts the next fix round, like any other finding.
-5. **Stop** when the last pass has no Important finding, or the round limit is reached.
+5. **Stop** when the last pass has no findings to fix, a round fixed nothing, or the round limit is
+   reached.
 6. **End report**, in chat:
    - each round, with its fixed findings and their verification records
    - the **disputed** findings

@@ -73,6 +73,10 @@ says "loop writes artifacts once at the end" "$loop" 'once, at the end'
 says "loop syncs commits once" "$loop" 'sync-commits'
 says "loop never pushes" "$loop" 'never push'
 says "loop round commit message" "$loop" 'fix(review): round'
+# Review-fix round 1 (dogfood of issue #77): three loop-logic gaps found by pass 0.
+says "fix rounds also run for nits with --fix-nits" "$loop" 'the last pass has findings to fix'
+says "closing pass includes pass 0" "$loop" 'including pass 0'
+says "a round that fixed nothing makes no commit" "$loop" 'make no commit'
 outscope="$(awk '/^## Out of scope/{on=1; next} /^## /{on=0} on' "$PR_SKILL")"
 says "out of scope notes local commits only with --auto-fix" "$outscope" '--auto-fix'
 
