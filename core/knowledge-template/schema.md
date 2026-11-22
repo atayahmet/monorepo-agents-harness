@@ -69,7 +69,9 @@ by `core/scripts/kb-ingest.sh <task_dir>` directly. For the task's artifacts:
 3. When the task has `4_verify.md`, create/update `verified-facts/<task_slug>.md` (what was proven,
    how).
 4. Write `sources/<task_slug>.md` (one-paragraph synopsis + pointer to the raw task dir).
-5. Append a `log.md` row and refresh the relevant `index.md` catalog sections.
+5. Append a `log.md` row and refresh the relevant `index.md` catalog sections. `kb-ingest.sh` adds
+   one row per page, keyed by its link target: a re-run leaves an existing row (and the overview
+   you wrote in it) alone. A section's table header is written once, never repeated.
 6. Every changed/created file lands in the **same commit** as the task's memory/verify.
 
 Research-only tasks (no `3_memory.md`) are skipped — nothing to ingest, no log entry.
