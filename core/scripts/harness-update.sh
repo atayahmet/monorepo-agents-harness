@@ -14,10 +14,15 @@
 #   harness-update.sh latest   [--json]          resolve the newest upstream tag (network)
 #   harness-update.sh check    [--json]          compare installed vs latest (exit 0/1/2)
 #   harness-update.sh verify-copy <src> <dst>     confirm every file under <src> exists under <dst>
+#   harness-update.sh changelog-range <from> <to> <changelog.md>
+#                                                print the CHANGELOG.md section of every version in
+#                                                from < V <= to, oldest first (read-only)
 #
 # Exit codes (check/latest): 0 = up-to-date/resolved, 1 = update available,
 # 2 = unknown/unreachable. verify-copy: 0 = every file present, 1 = at least one missing (paths
-# printed to stderr), 2 = usage error. Dependencies: git + coreutils only. Fails open.
+# printed to stderr), 2 = usage error. changelog-range: 0 = done (also when upstream or the
+# changelog is unreadable - it fails open), 2 = usage error. Dependencies: git + coreutils only.
+# Fails open.
 #
 # Knobs (env):
 #   HARNESS_UPSTREAM   upstream git URL      default below
@@ -131,10 +136,68 @@ cmd_verify_copy() {
   return 0
 }
 
+# changelog-range <from> <to> <changelog.md> - feeds the "What's new" summary at the end of
+# /monorepo-harness-update (issue #81). The version set is the union of the changelog's
+# `## [X.Y.Z]` headings and the upstream release tags, so a tag with no section is reported, not
+# silently skipped. Only versions in from < V <= to are printed, oldest first, by SemVer precedence.
+cmd_changelog_range() {
+  if [ "$#" -ne 3 ]; then
+    echo "harness-update: changelog-range needs <from> <to> <changelog.md>" >&2
+    return 2
+  fi
+  local from="$1" to="$2" cl="$3" v tags all="" sorted=() i j
+  local semver_re="${TAG_RE#^v}"; semver_re="^${semver_re}"
+  if ! printf '%s' "$from" | grep -Eq "$semver_re" || ! printf '%s' "$to" | grep -Eq "$semver_re"; then
+    echo "harness-update: changelog-range: <from> and <to> must be SemVer versions" >&2
+    return 2
+  fi
+  if [ ! -f "$cl" ]; then
+    echo "(CHANGELOG.md not found)"
+    return 0
+  fi
+  if tags="$(git ls-remote --tags --refs "$UPSTREAM" 2>/dev/null)"; then
+    tags="$(printf '%s\n' "$tags" | awk -F'/' '/refs\/tags\//{print $NF}' | grep -E "$TAG_RE" | sed 's/^v//')"
+  else
+    tags=""
+    echo "harness-update: changelog-range: tag list unavailable from $UPSTREAM - listing CHANGELOG.md sections only" >&2
+  fi
+  all="$( { sed -n 's/^## \[\([^]]*\)\].*/\1/p' "$cl"; printf '%s\n' "$tags"; } \
+    | grep -E "$semver_re" | sort -u || true)"
+  # Keep from < v <= to, then insertion-sort by SemVer precedence (never sort -V).
+  while IFS= read -r v; do
+    [ -n "$v" ] || continue
+    [ "$(harness_semver_cmp "$v" "$from")" = "1" ] || continue
+    [ "$(harness_semver_cmp "$v" "$to")" = "1" ] && continue
+    i=${#sorted[@]}
+    sorted+=("$v")
+    while [ "$i" -gt 0 ] && [ "$(harness_semver_cmp "${sorted[$((i-1))]}" "$v")" = "1" ]; do
+      sorted[$i]="${sorted[$((i-1))]}"; i=$((i-1))
+    done
+    sorted[$i]="$v"
+  done <<<"$all"
+  j=0
+  for v in ${sorted[@]+"${sorted[@]}"}; do
+    [ "$j" -gt 0 ] && echo
+    j=$((j+1))
+    if grep -Fq "## [$v]" "$cl"; then
+      # The section: its heading up to the line before the next `## ` heading, trailing blanks dropped.
+      awk -v h="## [$v]" '
+        index($0, h) == 1 { on = 1; print; next }
+        on && /^## / { exit }
+        on { buf = buf $0 "\n"; if ($0 != "") { printf "%s", buf; buf = "" } }
+      ' "$cl"
+    else
+      printf '## [%s]\n(no CHANGELOG.md section)\n' "$v"
+    fi
+  done
+  return 0
+}
+
 case "${1:-}" in
   current) shift; cmd_current "$@" ;;
   latest) shift; cmd_latest "$@" ;;
   check) shift; cmd_check "$@" ;;
   verify-copy) shift; cmd_verify_copy "$@" ;;
-  *) sed -n '3,13p' "$0"; exit 2 ;;
+  changelog-range) shift; cmd_changelog_range "$@" ;;
+  *) sed -n '3,19p' "$0"; exit 2 ;;
 esac

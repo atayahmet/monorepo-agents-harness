@@ -43,5 +43,6 @@ Rules while you do this:
   original and show me the diff.
 - If any script exits non-zero, stop and show me its output verbatim. Do not improvise a fix.
 - Report the manual follow-ups the prompts list, and the audit result, before anything else.
+  After a successful upgrade, end with the short "What's new" summary the skill describes.
   Do not commit without asking me.
 ```

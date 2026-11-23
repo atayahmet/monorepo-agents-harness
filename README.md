@@ -78,7 +78,7 @@ Rules while you do this:
 | `/monorepo-harness-build <plan.md>` | Implement | `3_memory.md`, `4_verify.md` (if required) | [agent-workflow](core/skills/agent-workflow/SKILL.md) |
 | `/monorepo-harness-review [--auto-fix]` | Before merging PR | Review report vs spec/plan/policy; `--auto-fix`: bounded fix loop, local commits only | [pr-review](core/skills/pr-review/SKILL.md) |
 | `/monorepo-harness-ci` | Wire CI enforcement | CI workflow/snippet | [ci-integration](core/skills/ci-integration/SKILL.md) |
-| `/monorepo-harness-update` | Upgrade harness | Updated bundle/adapters | [harness-update](core/skills/harness-update/SKILL.md) |
+| `/monorepo-harness-update` | Upgrade harness | Updated bundle/adapters + What's new summary | [harness-update](core/skills/harness-update/SKILL.md) |
 | `/monorepo-harness-changeset <plan.md>` | Draft changeset | `.changeset/*.md` | [changeset-workflow](core/skills/changeset-workflow/SKILL.md) |
 | `/monorepo-harness-kb-index` | Query knowledge base | Ranked results | [knowledge-base](core/skills/knowledge-base/SKILL.md) |
 | `/monorepo-harness-team` | Set up the team registry (`.agents/team.yml`) | People, IDs, assignee routing | [team-registry](core/skills/team-registry/SKILL.md) |

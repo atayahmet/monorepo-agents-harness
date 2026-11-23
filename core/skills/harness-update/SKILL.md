@@ -30,6 +30,10 @@ an installed bundle has no `changelogs/` directory.
 The upgrade also reconciles the project's root `AGENTS.md` against the new `core/root-AGENTS.md`
 (step 9). That step has its own consent gate, separate from the "Upgrade now?" consent in step 6.
 
+A successful upgrade ends with a short "What's new" summary (step 12). It covers every version in
+`installed < X ≤ latest` and is written from the clone's `CHANGELOG.md`, not from the changelog
+prompts. So a release with no prompt is still covered.
+
 > **Installed layout.** The bundle lives under `.agents/monorepo-agents-harness/` and is both the
 > source of truth for upgrades and the runtime-facing directory. The version file is at
 > `.agents/monorepo-agents-harness/VERSION`. Versions follow SemVer precedence including
@@ -62,6 +66,16 @@ The upgrade also reconciles the project's root `AGENTS.md` against the new `core
     - Read `.agents/.harness-update-v<latest>/VERSION` from the downloaded bundle to determine the target version (`latest`).
     - In the downloaded bundle, find every `changelogs/version-X.Y.Z.md` where `installed < X.Y.Z ≤ latest`.
    - Sort the selected prompts by version and read them in order.
+   - Collect the release notes for the "What's new" summary (step 12). Run the helper **from the
+     new clone** — the installed copy of the script may be too old to have it:
+     ```bash
+     bash .agents/.harness-update-v<latest>/core/scripts/harness-update.sh changelog-range \
+       <installed> <latest> .agents/.harness-update-v<latest>/CHANGELOG.md
+     ```
+     It prints the `CHANGELOG.md` section of every version in range, oldest first. A version with
+     a release tag but no section prints `(no CHANGELOG.md section)`. Keep the output: step 10
+     moves the clone aside, so it cannot be read later. The helper is read-only and always exits 0
+     unless you call it with the wrong arguments.
 
 4. **Build an upgrade plan** from the selected prompts.
    - The `core/` and `adapters/` sync itself is NOT built from these prompts — it's a fixed
@@ -77,6 +91,19 @@ The upgrade also reconciles the project's root `AGENTS.md` against the new `core
    - Determine which adapter(s) are already installed — an adapter counts as installed once any of
      its `adapters/<agent>/manifest.txt` `copy` rows exists in the project (the same test
      `audit-install.sh` applies). Needed for step 7.5.
+   - **Draft the "What's new" summary** from the `changelog-range` output. Keep it in memory; step
+     12 prints it. Rules:
+     - One block per version, oldest first, with 1–3 short bullets. With more than 5 versions in
+       range, one merged list is fine.
+     - Each bullet says what the developer can now do, or what works differently for them.
+     - Name only what the developer touches: commands, flags, renamed or removed commands, new
+       questions, new checks that can block them. Leave out internal scripts, tests, manifest rows
+       and refactors unless they change what the developer sees.
+     - Start a bullet with `Needs attention:` for a renamed or removed command, a new check that
+       can block a commit, or a config change they must apply by hand.
+     - A version printed as `(no CHANGELOG.md section)` gets one line:
+       "No changelog entry for this version." Do not guess what it changed.
+     - Follow `../../governance/rules/simple-english.md`.
    - Determine the root `AGENTS.md` reconciliation mode using
      `core/skills/agents-md-merge/SKILL.md` Step 0 (reads only — do not clone a base tag or build a
      proposal yet). Record it for the report below.
@@ -220,6 +247,24 @@ The upgrade also reconciles the project's root `AGENTS.md` against the new `core
     `bash .agents/monorepo-agents-harness/core/scripts/cleanup-harness-trash.sh` (add `--list` to
     inspect first). Trash accumulates across runs until the user runs this themselves.
 
+12. **What's new** — print the summary drafted in step 4. It is the last block of output, after
+    the follow-ups, the commit suggestion and the trash note, so it is the last thing the developer
+    reads. Shape:
+    ```
+    What's new (v0.4.0-rc.34 → v0.4.0-rc.37)
+
+    0.4.0-rc.35
+    - Needs attention: `/monorepo-harness-agents-init` is now `/monorepo-harness-init`. Use the new name.
+
+    0.4.0-rc.36
+    - The knowledge-base index no longer repeats headers or duplicate rows.
+
+    0.4.0-rc.37
+    - `/monorepo-harness-plan` can now skip the plan-mode question with `--no-plan-mode`.
+    ```
+    If the helper printed `(CHANGELOG.md not found)` or nothing for a non-empty range, print one
+    line instead: "What's new is not available for this range."
+
 ## Edge cases
 
 - **`install-harness.sh --sync-only` exits non-zero (step 7)**: the sync failed partway (disk full,
@@ -243,4 +288,5 @@ The upgrade also reconciles the project's root `AGENTS.md` against the new `core
 - **Ambiguous prompt**: if a section is missing or unclear, do not guess — report it to the user and ask how to proceed.
 - **`AGENTS.md` has no provenance marker**: always run `agents-md-merge` in adoption mode — never guess which harness version the file might have come from.
 - **`agents-md-merge`'s base tag is unreachable**: it falls back to adoption mode on its own and reports the downgrade; this is not an upgrade failure.
-- **`AGENTS.md` merge declined**: not an upgrade failure — proceed through steps 10-11 and surface it as a follow-up.
+- **`AGENTS.md` merge declined**: not an upgrade failure — proceed through steps 10-12, surface it as a follow-up, and still print the What's new summary in step 12.
+- **No "What's new" summary** when nothing was installed: status `current` or `unknown` (the workflow stops at step 1), the user declines "Upgrade now?", or the upgrade stops on a failure (step 7, 7.5 or 9.5). Print the summary only after a successful upgrade.

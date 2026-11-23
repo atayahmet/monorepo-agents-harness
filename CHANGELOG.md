@@ -17,6 +17,39 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.39] - 2026-11-23
+
+### Added
+
+- **"What's new" summary at the end of `/monorepo-harness-update`** (issue #81). After a successful
+  upgrade, the last block of output is a short, plain-language summary of every version in
+  `installed < X ≤ latest`:
+  - One block per version, oldest first, with 1–3 bullets on what the developer can now do or what
+    works differently.
+  - A renamed or removed command, a new blocking check, or a hand-applied config change starts
+    with `Needs attention:`.
+  - It is written from the new release's `CHANGELOG.md`, so a release with no changelog prompt is
+    still covered. A release tag with no `CHANGELOG.md` section gets one "no entry" line.
+  - No summary when the harness is current, upstream is unreachable, the upgrade is declined or it
+    fails. A declined `AGENTS.md` merge still shows it.
+  The workflow is in `core/skills/harness-update/SKILL.md` (step 3 collects, step 4 drafts, new
+  step 12 prints). `core/prompts/harness-update.md` now allows the closing summary.
+- **`harness-update.sh changelog-range <from> <to> <changelog.md>`**: a read-only subcommand that
+  prints the `CHANGELOG.md` section of every version in `from < V ≤ to`, oldest first, by SemVer
+  precedence. It merges in upstream release tags and marks a tag with no section. It fails open:
+  exit 0 when upstream or the changelog cannot be read, exit 2 only on bad arguments.
+
+### Fixed
+
+- `harness-update.sh` with no or an unknown subcommand now prints its whole usage list, not only
+  the first line.
+
+### Upgrade Notes
+
+- Nothing to run. A normal sync installs the new skill, prompt and script.
+- The summary first appears on your **next** upgrade. The upgrade to `0.4.0-rc.39` still runs the
+  skill you have installed now, which has no step 12.
+
 ## [0.4.0-rc.38] - 2026-11-22
 
 ### Added
