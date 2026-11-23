@@ -48,7 +48,8 @@ Release procedure (harness maintainers):
 
 - Nothing to run. A normal sync installs the new skill, prompt and script.
 - The summary first appears on your **next** upgrade. The upgrade to `0.4.0-rc.39` still runs the
-  skill you have installed now, which has no step 12.
+  skill you have installed now, which has no step 12. `changelogs/version-0.4.0-rc.39.md` describes
+  the summary and lists this as a follow-up, with a link to `CHANGELOG.md` for this one upgrade.
 
 ## [0.4.0-rc.38] - 2026-11-22
 
