@@ -6,8 +6,9 @@ this directory is legitimately empty apart from this file.
 
 These prompts are consumed by the active agent (Claude Code, opencode, Codex, Cursor, …). The agent
 reads the markdown, interprets the instructions, and performs the operations.
-`core/scripts/harness-update.sh` does **not** parse these files; it only resolves the installed and
-latest versions and verifies a copy (`verify-copy`).
+`core/scripts/harness-update.sh` does **not** parse these files. It resolves the installed and
+latest versions, verifies a copy (`verify-copy`), and prints `CHANGELOG.md` sections for a version
+range (`changelog-range`, the source of the update's "What's new" summary).
 
 ## Prompts never move files
 

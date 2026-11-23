@@ -156,7 +156,9 @@ applies the paste-in prompt in `core/prompts/harness-update.md` and then follows
 `core/skills/harness-update/SKILL.md` workflow end to end: check the installed version, report,
 ask **"Upgrade now?"**, then re-run the new release's own installers (`install-harness.sh
 --sync-only`, plus `install-adapter.sh claude-code --refresh`), reconcile the root `AGENTS.md` behind
-its own second approval, audit, and clean up. No file is ever copied by hand.
+its own second approval, audit, and clean up. No file is ever copied by hand. After a successful
+upgrade it ends with a short **What's new** summary: one plain-language block per version you
+skipped, with renamed commands and new blocking checks marked `Needs attention:`.
 
 With no adapter installed, paste that same prompt from `core/prompts/harness-update.md` into Claude
 Code instead. The version check alone is
