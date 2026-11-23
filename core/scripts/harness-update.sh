@@ -159,7 +159,9 @@ cmd_changelog_range() {
     tags="$(printf '%s\n' "$tags" | awk -F'/' '/refs\/tags\//{print $NF}' | grep -E "$TAG_RE" | sed 's/^v//')"
   else
     tags=""
-    echo "harness-update: changelog-range: tag list unavailable from $UPSTREAM - listing CHANGELOG.md sections only" >&2
+    # Strip any user:token@ from the URL so the note never prints credentials.
+    echo "harness-update: changelog-range: tag list unavailable from $(printf '%s' "$UPSTREAM" \
+      | sed 's#://[^/@]*@#://#') - listing CHANGELOG.md sections only" >&2
   fi
   all="$( { sed -n 's/^## \[\([^]]*\)\].*/\1/p' "$cl"; printf '%s\n' "$tags"; } \
     | grep -E "$semver_re" | sort -u || true)"
@@ -179,14 +181,15 @@ cmd_changelog_range() {
   for v in ${sorted[@]+"${sorted[@]}"}; do
     [ "$j" -gt 0 ] && echo
     j=$((j+1))
-    if grep -Fq "## [$v]" "$cl"; then
-      # The section: its heading up to the line before the next `## ` heading, trailing blanks dropped.
-      awk -v h="## [$v]" '
-        index($0, h) == 1 { on = 1; print; next }
+    # The section: its heading (at the start of a line) up to the line before the next `## `
+    # heading, trailing blanks dropped. awk exits 1 when the heading is not there, so finding and
+    # printing a section are one test - a mid-line mention of `## [X]` is never a section.
+    if ! awk -v h="## [$v]" '
+        !on && index($0, h) == 1 { on = 1; print; next }
         on && /^## / { exit }
         on { buf = buf $0 "\n"; if ($0 != "") { printf "%s", buf; buf = "" } }
-      ' "$cl"
-    else
+        END { exit !on }
+      ' "$cl"; then
       printf '## [%s]\n(no CHANGELOG.md section)\n' "$v"
     fi
   done
