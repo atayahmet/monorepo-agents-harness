@@ -33,6 +33,8 @@ discovery language-agnostic (issue #83).
   its `3_memory.md` (and `4_verify.md`, when it is named) that it was abandoned.
 - Task dirs that are test data belong under a `fixtures/` or `testdata/` directory, where the gate skips
   them.
+- A workspace that is a symlink to a directory outside the repo is no longer a workspace. The audit
+  names it. Move it into the repo if its tasks must be enforced.
 - A workspace listed by exact path (`tools/cli`) no longer scaffolds its siblings. If you relied on
   that, list them too.
 

@@ -53,6 +53,9 @@ Release procedure (harness maintainers):
 - `package.json` `{"workspaces": {"packages": []}}` is read.
 - An exact workspace path (`tools/cli`) no longer makes its sibling directories workspaces, and a `.`
   entry no longer makes every top-level directory one.
+- A workspace entry that leaves the repo (`../x`, an absolute path, a symlink to somewhere else) or points
+  into `.git` is skipped with a warning. Before, scaffolding could write `.agents/` files outside the repo.
+- `audit-install.sh --json` stays valid when a path contains a control character.
 - The symlinked pre-commit hook could not find `harness-common.sh`, so it ran without the shared task
   order. It now loads the library from the installed bundle.
 - A repo path with `[` or other glob characters no longer hides tasks from the gate and the hook.

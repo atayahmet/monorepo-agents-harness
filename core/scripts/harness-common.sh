@@ -156,6 +156,7 @@ harness_task_dirs_newest_first() {
 # known: a repo path that contains a glob character is not a pattern here. Duplicates are dropped.
 harness_sort_task_dirs() {
   local d base dt mt
+  local -x LC_ALL=C   # paths are bytes: in a UTF-8 locale the BSD tools stop at an invalid one
   while IFS= read -r d; do
     [ -n "$d" ] || continue
     base="$(basename "$d")"
@@ -180,7 +181,8 @@ harness_sort_task_dirs() {
 # workspace the project declared is not found through this scan, so it is never skipped by this list.
 harness_scan_task_dirs() {
   local root="$1"
-  ( cd "$root" 2>/dev/null || exit 0
+  ( export LC_ALL=C   # one path with an invalid byte must not end the listing for the rest
+    cd "$root" 2>/dev/null || exit 0
     { git ls-files -z -co --exclude-standard -- ':(glob)**/.agents/artifacts/task_*/**' 2>/dev/null || true
       git ls-files -z -o -i --exclude-standard --directory 2>/dev/null || true
     } | tr '\0' '\n' | awk '

@@ -362,6 +362,14 @@ is "#83 without the library apps/* is still enforced" "$(gate_code </dev/null)" 
 new_fixture; d="$(task_dir no_detector)"; building "$d"; rm "$FIXTURE/.agents/monorepo-agents-harness/core/scripts/detect-monorepo-framework.sh"
 is "#83 without the detector apps/* is still enforced" "$(gate_code </dev/null)" "1"
 
+# One tracked path with an invalid UTF-8 byte must not end the listing for the paths after it.
+new_fixture root-only; d="$(ws_task_dir crates/core badbyte)"; building "$d"
+( cd "$FIXTURE" && git add crates && b="$(echo x | git hash-object -w --stdin)" \
+  && printf "100644 $b\taaa/.agents/artifacts/task_\377\376/2_plan.md\0" | git update-index -z --index-info )
+for loc in C en_US.UTF-8; do
+  is "#83 an invalid byte in another path does not switch the scan off ($loc)" "$(export LC_ALL=$loc; gate_code </dev/null)" "1"
+done
+
 # The installer wires pre-commit as a symlink, so the gate runs under .git/hooks/ and must still find
 # its library — the scan lives there.
 new_fixture root-only; d="$(ws_task_dir crates/core precommit)"; building "$d"

@@ -319,12 +319,12 @@ check_workspace_scaffold
 check_project_rules
 check_knowledge_base
 
-# json_array <string>... — a JSON array of strings.
+# json_array <string>... — a JSON array of strings. Control characters, which JSON forbids raw, become "?".
 json_array() {
   local sep="" x
   printf '['
   for x in "$@"; do
-    printf '%s"%s"' "$sep" "$(printf '%s' "$x" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+    printf '%s"%s"' "$sep" "$(printf '%s' "$x" | LC_ALL=C tr '\000-\037\177' '[?*]' | LC_ALL=C sed 's/\\/\\\\/g; s/"/\\"/g')"
     sep=','
   done
   printf ']'

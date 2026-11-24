@@ -19,6 +19,9 @@
 #                              segment. A file with at least one usable line REPLACES detection.
 #   2. the framework           see below
 #   3. apps/* and packages/*
+# A workspace is always inside the repo. An entry that leaves it - an absolute path, "..", a glob that
+# expands to "..", a symlink to somewhere else - is skipped with a warning, whatever the source, because
+# callers write files into what this prints. .git and .agents are never workspaces.
 #
 # Framework detection order (most specific first):
 #   turbo.json              -> turborepo (list: pnpm-workspace.yaml, else package.json workspaces)
@@ -30,6 +33,9 @@
 # Depends on git + coreutils. jq is needed only to read workspaces out of package.json / lerna.json.
 
 set -euo pipefail
+
+# Paths are bytes here. In a UTF-8 locale the BSD tools stop at the first invalid byte.
+export LC_ALL=C
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 DECLARATION="$ROOT/.agents/workspaces.txt"
@@ -50,7 +56,12 @@ globs=()      # repo-relative paths or globs
 excludes=()   # the same, from "!" entries of a pnpm / package.json list
 declared=0
 
-warn() { [ "$print_dirs" -eq 0 ] || printf 'warning: .agents/workspaces.txt: %s\n' "$1" >&2; }
+# Entries come from files of the repo, so control characters never reach the terminal.
+warn() { [ "$print_dirs" -eq 0 ] || printf 'warning: %s\n' "${1//[[:cntrl:]]/?}" >&2; }
+warn_line() { warn ".agents/workspaces.txt: $1"; }
+
+# leaves_repo <entry> - is this an absolute path, or one with a ".." segment?
+leaves_repo() { case "/$1/" in //*|*/../*) return 0 ;; esac; return 1; }
 
 # add_globs — read one framework entry per line from stdin into globs / excludes. The repo root is a
 # workspace only when the project declares it, so a "." entry of a package manager is dropped.
@@ -61,6 +72,7 @@ add_globs() {
     while [ "${w#./}" != "$w" ]; do w="${w#./}"; done
     w="${w%/}"
     case "$w" in ''|.) continue ;; esac
+    if leaves_repo "$w"; then warn "skipped workspace entry '$w' (outside the repo)"; continue; fi
     globs+=("$w")
   done
 }
@@ -161,12 +173,9 @@ if [ -f "$DECLARATION" ]; then
     line="${line#"${line%%[![:space:]]*}"}"
     line="${line%"${line##*[![:space:]]}"}"
     case "$line" in ''|'#'*) continue ;; esac
+    if leaves_repo "$line"; then warn_line "skipped '$line' (outside the repo; paths are relative to its root)"; continue; fi
     case "$line" in
-      /*) warn "skipped '$line' (paths are relative to the repo root)"; continue ;;
-      ..|../*|*/..|*/../*) warn "skipped '$line' (a path may not leave the repo)"; continue ;;
-    esac
-    case "$line" in
-      '**'|*/'**') warn "'$line' is read as '${line%\*}' (one level)"; line="${line%\*}" ;;
+      '**'|*/'**') warn_line "'$line' is read as '${line%\*}' (one level)"; line="${line%\*}" ;;
     esac
     while [ "${line#./}" != "$line" ]; do line="${line#./}"; done
     line="${line%/}"
@@ -208,6 +217,25 @@ excluded() {
   return 1
 }
 
+# usable <dir> <glob> - may this expanded, existing directory be a workspace? Checked after expansion:
+# a glob such as ".*" yields "..", and a symlink can point anywhere.
+ROOT_REAL="$(cd "$ROOT" && pwd -P)"
+usable() {
+  local real
+  case "$1" in
+    .) [ "$2" = . ]; return ;;
+  esac
+  case "/$1/" in */node_modules/*|*/.git/*|*/.agents/*|*/./*) return 1 ;; esac
+  real="$(cd "./$1" 2>/dev/null && pwd -P)" || return 1
+  case "$real/" in
+    "$ROOT_REAL/.git/"*) warn "skipped workspace '$1' (inside .git)"; return 1 ;;
+    "$ROOT_REAL/"?*) ;;
+    *) warn "skipped workspace '$1' (outside the repo)"; return 1 ;;
+  esac
+  if leaves_repo "$1"; then warn "skipped workspace '$1' (outside the repo)"; return 1; fi
+  return 0
+}
+
 # The existing directories behind the globs. Expanded from inside the repo, so a repo path that itself
 # contains spaces or glob characters is never part of the pattern.
 if [ "$print_dirs" -eq 1 ]; then
@@ -217,12 +245,12 @@ if [ "$print_dirs" -eq 1 ]; then
     hits=0
     while IFS= read -r d; do
       [ -n "$d" ] && [ -d "$d" ] || continue
-      case "/$d/" in */node_modules/*) continue ;; esac
       excluded "$d" && continue
+      usable "$d" "$g" || continue
       hits=$((hits + 1))
       if [ "$d" = . ]; then printf '%s\n' "$ROOT"; else printf '%s\n' "$ROOT/$d"; fi
     done < <(compgen -G "$g" 2>/dev/null | LC_ALL=C sort || true)
-    if [ "$declared" -eq 1 ] && [ "$hits" -eq 0 ]; then warn "'$g' matches no directory"; fi
+    if [ "$declared" -eq 1 ] && [ "$hits" -eq 0 ]; then warn_line "'$g' matches no usable directory"; fi
   done | awk '!seen[$0]++'
   exit 0
 fi

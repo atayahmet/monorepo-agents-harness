@@ -120,6 +120,48 @@ is "a repo path with spaces and [" "$(dirs)" "crates/core"
 build_task crates/core; is "the gate blocks there too" "$(gate_code)" "1"
 rm "$F/.agents/workspaces.txt"; is "and without a declaration" "$(gate_code)" "1"
 
+echo "a workspace never leaves the repo"
+esc() { new_fixture "$TMP/esc/repo"; rm -rf "$TMP/esc/outside" "$TMP/esc/.agents"; mkdir -p "$TMP/esc/outside/victim" "$F/apps/web"; }
+leaked() { ( cd "$TMP/esc" && find . -path ./repo -prune -o -name .agents -print; find repo/.git -name .agents ) | tr '\n' ' '; }
+esc; declare_ws '.*'; out="$(scaffold)"
+is "declared .*: nothing outside the repo or in .git" "$(dirs)" ""
+is "declared .*: scaffold writes nothing there" "$(leaked)" ""
+says "declared .*: it warns" "$out" "outside the repo"
+esc; declare_ws '.*/outside' 'apps/*'; scaffold >/dev/null
+is "declared .*/outside is skipped, the rest stays" "$(dirs)" "apps/web"
+is "declared .*/outside: scaffold writes nothing there" "$(leaked)" ""
+esc; declare_ws '.git' '.agents' 'apps/*'; is "declared .git and .agents are never workspaces" "$(dirs)" "apps/web"
+esc; printf 'packages:\n  - "../outside/*"\n  - "apps/*"\n  - /etc\n  - "*/../../outside/*"\n' > "$F/pnpm-workspace.yaml"; scaffold >/dev/null
+is "pnpm: ../ and absolute entries are skipped" "$(dirs)" "apps/web"
+is "pnpm: scaffold writes nothing there" "$(leaked)" ""
+is "pnpm: no stray etc/ in the repo" "$([ -e "$F/etc" ] && echo yes)" ""
+says "pnpm: it warns" "$(warns)" "../outside/*"
+saysn "pnpm: --workspaces has no outside parent" "$(cd "$F" && bash $S/detect-monorepo-framework.sh --workspaces)" ".."
+if command -v jq >/dev/null 2>&1; then
+  esc; echo '{"workspaces":["../outside/*","apps/*"]}' > "$F/package.json"; scaffold >/dev/null
+  is "package.json: ../ is skipped" "$(dirs)" "apps/web"; is "package.json: scaffold writes nothing there" "$(leaked)" ""
+  esc; echo '{}' > "$F/lerna.json"; echo '{"packages":["../outside/*","apps/*"]}' > "$F/lerna.json"
+  is "lerna.json: ../ is skipped" "$(dirs)" "apps/web"
+fi
+esc; ln -s ../../outside/victim "$F/apps/link"; ln -s ../.git "$F/apps/git"; mkdir -p "$F/libs/x"; ln -s ../libs/x "$F/apps/inner"; out="$(scaffold)"
+is "a symlink out of the repo or into .git is skipped, one inside stays" "$(dirs)" "apps/inner apps/web"
+is "a symlinked workspace: scaffold writes nothing outside" "$(leaked)" ""
+says "a symlinked workspace: it warns" "$out" "apps/link"
+
+esc; mkdir -p "$F/-" "$F/-x"; declare_ws "-" "-x"; is "directory names that start with a dash" "$(dirs)" "- -x"
+
+echo "control characters and bytes"
+new_fixture; printf 'a\tb\033[31mz\n' > "$F/.agents/workspaces.txt"
+saysn "a warning prints no escape character" "$(warns)" "$(printf '\033')"
+says "a warning still names the line" "$(warns)" "[31mz"
+if command -v jq >/dev/null 2>&1; then
+  is "audit --json stays valid" "$(cd "$F" && bash $S/audit-install.sh --json 2>/dev/null | jq -r '.warnings | length > 0' 2>&1)" "true"
+  mkdir -p "$F/apps/$(printf 'w\tx')"; rm "$F/.agents/workspaces.txt"
+  is "audit --json stays valid for a directory name with a tab" "$(cd "$F" && bash $S/audit-install.sh --json 2>/dev/null | jq -r '.status' 2>&1)" "incomplete"
+fi
+new_fixture; printf 'caf\351\ncrates/*\n' > "$F/.agents/workspaces.txt"; mkdir -p "$F/crates/ü"
+is "a line with an invalid byte does not stop the others" "$(dirs)" "crates/ü"
+
 echo "no workspace found"
 new_fixture; echo 'module x' > "$F/go.mod"
 says "scaffold warns and names the file" "$(scaffold)" ".agents/workspaces.txt"
