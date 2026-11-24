@@ -9,7 +9,7 @@
 # NOT a task artifact — the same boundary the plan-reminder hook already describes in prose.
 #
 # It arms only what the gate would actually enforce, and the rules that make that true are one
-# list: candidates are the task dirs (the gate reads no other date), a dir that already
+# list: candidates are the task dirs above the written path, a dir that already
 # has 3_memory.md is skipped (nothing left to arm), a plan is armed only when the written path is
 # inside that plan's own workspace, and the hook will not arm a second task if there is already a
 # build in flight in that workspace. Arming is also bounded to today or yesterday to avoid arming
@@ -33,12 +33,10 @@ RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.agents/monorepo-agents-harness}"
 BUNDLE_DIR="${BUNDLE_DIR:-$RUNTIME_DIR}"
 TASK_STATE="${TASK_STATE:-$RUNTIME_DIR/core/scripts/task-state.sh}"
 [ -f "$TASK_STATE" ] || TASK_STATE="$BUNDLE_DIR/core/scripts/task-state.sh"
-DETECT_SCRIPT="${DETECT_SCRIPT:-$RUNTIME_DIR/core/scripts/detect-monorepo-framework.sh}"
-[ -x "$DETECT_SCRIPT" ] || DETECT_SCRIPT="$BUNDLE_DIR/core/scripts/detect-monorepo-framework.sh"
 
-# The task-dir order is shared with memory-gate.sh (see harness_task_dirs_newest_first), so the hook
+# The task-dir order is shared with memory-gate.sh (see harness_sort_task_dirs), so the hook
 # and the gate cannot disagree about which dir is the newest one. Optional: without it the
-# hook keeps the raw glob order below, which is the pre-0.4.0-rc.10 behaviour, not a failure.
+# hook keeps the order of the walk below, nearest workspace first.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f "$SCRIPT_DIR/harness-common.sh" ]; then
   . "$SCRIPT_DIR/harness-common.sh"
@@ -108,7 +106,7 @@ esac
 # The parent directory often does not exist — the first write of a build is usually a brand-new file
 # in a brand-new directory — and the reported spelling may differ from git's physical root. Walk up
 # to the deepest directory that DOES exist, resolve that one physically, and re-append the part below
-# it, so `canon_target` is comparable with `ws_abs` even for a file nobody has created yet. Resolving
+# it, so `canon_target` is comparable with `ROOT` even for a file nobody has created yet. Resolving
 # only the parent (the old rule) left such a write in its raw spelling, which matches neither the
 # physical root nor PWD, and a repo-root plan then never armed.
 tail=""
@@ -130,66 +128,50 @@ for root_prefix in "$ROOT" "$PWD"; do
   esac
 done
 
-# Does <path> name something inside <workspace>? A workspace matches exactly or as a prefix followed
-# by "/", so `apps/api-legacy` is never treated as `apps/api`.
-in_workspace() {
-  case "$1" in
-    "$2"|"$2"/*) return 0 ;;
-  esac
-  return 1
-}
-
 [ -f "$TASK_STATE" ] || exit 0
 
 # --- the plan to arm ----------------------------------------------------------------------------
-# The candidates are exactly the gate's candidates: task dirs, newest first by the date
-# in the dir name. "Any date counts" was wrong twice over — it marked finished tasks the gate then
-# never reads again, and it let an unrelated write arm a plan-only task into a Stop block for work
-# that was never built. If the gate does not enforce a dir, this hook has no business marking it.
-workspace_parents=()
-if [ -x "$DETECT_SCRIPT" ]; then
-  while IFS= read -r p; do
-    [ -n "$p" ] && workspace_parents+=("$p")
-  done < <("$DETECT_SCRIPT" --workspaces 2>/dev/null || true)
-fi
-[ "${#workspace_parents[@]}" -eq 0 ] && workspace_parents=("$ROOT/apps" "$ROOT/packages")
-
-patterns=()
-for parent in "${workspace_parents[@]}"; do
-  [ -d "$parent" ] || continue
-  patterns+=("$parent"/*/.agents/artifacts/task_*)
-done
-# Also scan repo root if present
-if [ -d "$ROOT/.agents/artifacts" ]; then
-  patterns+=("$ROOT/.agents/artifacts/task_*")
-fi
-[ "${#patterns[@]}" -gt 0 ] || exit 0   # no task dirs found — nothing to arm
+# A plan is armed only by a write inside its own workspace, and a task's workspace is the path in front
+# of its `.agents/artifacts/`. So the candidates are the task dirs of the written path's ancestors, up to
+# the repo root: a walk, not a scan. It needs no workspace detection, it is correct in any layout, and
+# it is cheap enough to run before every write. A change in apps/docs never reaches the apps/api plan.
+#
+# Both spellings are walked (see above). A path outside the repo has no ancestors here, so a hook that
+# cannot place the write arms nothing.
+ancestor_task_dirs() { # ancestor_task_dirs <absolute path>
+  local dir="$1" d
+  case "$dir" in "$ROOT"/*) ;; *) return 0 ;; esac
+  while :; do
+    for d in "$dir"/.agents/artifacts/task_*; do
+      if [ -d "$d" ]; then printf '%s\n' "$d"; fi
+    done
+    [ "$dir" != "$ROOT" ] || break
+    dir="${dir%/*}"
+  done
+}
+list_candidates() {
+  ancestor_task_dirs "$canon_target"
+  if [ -n "$rel_target" ]; then ancestor_task_dirs "$ROOT/$rel_target"; fi
+}
 
 candidates=()
 while IFS= read -r task_dir; do
   [ -n "$task_dir" ] && candidates+=("$task_dir")
-done < <(if declare -F harness_task_dirs_newest_first >/dev/null 2>&1; then
-           harness_task_dirs_newest_first "${patterns[@]}"
+done < <(if declare -F harness_sort_task_dirs >/dev/null 2>&1; then
+           list_candidates | harness_sort_task_dirs
          else
-           ls -td "${patterns[@]}" 2>/dev/null || true
+           list_candidates
          fi)
+[ "${#candidates[@]}" -gt 0 ] || exit 0   # no task dir above the write — nothing to arm
 
 for task_dir in "${candidates[@]}"; do
   # A task that already has its memory is recorded; there is nothing left to arm. Marking it would
   # dirty a finished, committed task dir on some later unrelated write.
   [ -f "$task_dir/3_memory.md" ] && continue
-  # Determine the workspace of this task dir.
-  ws_abs="${task_dir%%/.agents/artifacts/*}"
-  in_ws_target=0
-  if in_workspace "$canon_target" "$ws_abs"; then
-    in_ws_target=1
-  elif [ -n "$rel_target" ] && in_workspace "$rel_target" "${ws_abs#"$ROOT"/}"; then
-    in_ws_target=1
-  fi
   # If there is already a build in flight in the same workspace as the write, stop — do not arm
   # a second task. The write belongs to that build.
   stage="$(bash "$TASK_STATE" stage "$task_dir" 2>/dev/null || true)"
-  if [ "$in_ws_target" -eq 1 ] && [ "$stage" = "build" ]; then
+  if [ "$stage" = "build" ]; then
     break
   fi
   # "Is this a plan, and has its build not started?" is task-state.sh's answer, not a second parser
@@ -207,11 +189,6 @@ for task_dir in "${candidates[@]}"; do
   if [ "$dt" != "$TODAY" ] && [ "$dt" != "$YESTERDAY" ]; then
     continue
   fi
-  # Arm only a plan whose own workspace is being written to: a change in apps/docs says nothing about
-  # whether the apps/api task is being built. The workspace is the path in front of the task's own
-  # `.agents/artifacts/`, so this needs no lookup table and cannot disagree with where the dir lives.
-  # Failing to match arms nothing: a hook that cannot place the write must not guess a task.
-  [ "$in_ws_target" -eq 1 ] || continue
   plan="$task_dir/2_plan.md"
   [ -f "$plan" ] || plan="$task_dir/1_plan.md"   # legacy layout, same fallback the stage reader uses
   [ -f "$plan" ] || continue

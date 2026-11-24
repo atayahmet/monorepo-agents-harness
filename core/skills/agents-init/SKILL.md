@@ -27,8 +27,8 @@ starts it with `/monorepo-harness-spec`.
 
 ### Step 0 — Resolve the workspace and load the rules
 1. Resolve `<workspace>` to a directory with
-   `bash .agents/monorepo-agents-harness/core/scripts/detect-monorepo-framework.sh --workspaces`
-   (fall back to `apps/*` and `packages/*`; match a package name through its `package.json`). If it
+   `bash .agents/monorepo-agents-harness/core/scripts/detect-monorepo-framework.sh --workspace-dirs`
+   (it lists the workspaces themselves; match a package name through its manifest, e.g. `package.json`). If it
    is ambiguous, ask. Never guess.
 2. Read the root `AGENTS.md` and every `.agents/rules/*.md`. These rules are **linked** from the new
    files, never copied into them.

@@ -1,6 +1,6 @@
 # Agent Harness for Monorepos
 
-A portable **intent → spec → plan → build → memory → verify** workflow harness that makes AI coding agents **auditable and self-documenting**, and wires them into intent intake, CI, and PR review — in any JavaScript/TypeScript monorepo, with any agent (Claude Code, opencode, Cursor, Codex, and more).
+A portable **intent → spec → plan → build → memory → verify** workflow harness that makes AI coding agents **auditable and self-documenting**, and wires them into intent intake, CI, and PR review — in any monorepo, with any agent (Claude Code, opencode, Cursor, Codex, and more).
 
 ## Start here
 
@@ -144,5 +144,8 @@ New agents: see [PORTABILITY.md](PORTABILITY.md).
 
 ## Requirements
 
-- A **JavaScript/TypeScript monorepo** (Turborepo, Nx, Lerna, npm/yarn/pnpm workspaces)
+- A git repo in **any language**. JavaScript/TypeScript workspaces (Turborepo, Nx, Lerna, npm/yarn/pnpm)
+  are detected. For every other layout, list yours in `.agents/workspaces.txt`, one path or glob per
+  line: `crates/*`, `services/*`, `billing`, or `.` for a single-package repo. The file replaces
+  detection. The `monorepo` skill and changeset support are still JS/TS-only.
 - `git`; `jq` only if your adapter needs it (claude-code and codex do)

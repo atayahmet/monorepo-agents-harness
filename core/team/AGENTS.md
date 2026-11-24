@@ -58,8 +58,8 @@ Rules:
 
 `lint` errors (exit 1): duplicate keys, a missing `name`, a duplicated ID, an assignee that is not a
 member (or is a contact). Warnings (stderr, exit 0): an `assignee_by_workspace` key that matches no
-directory, or no workspace `detect-monorepo-framework.sh` finds — only a warning, because discovery
-does not cover every layout yet.
+directory, or no workspace `detect-monorepo-framework.sh` finds — only a warning, because automatic
+discovery does not cover every layout. Declare yours in `.agents/workspaces.txt`.
 
 ## Exit codes
 | Code | Meaning | Caller action |

@@ -162,6 +162,9 @@ fi
 
 # --- 4. Per-workspace state -----------------------------------------------------------------
 bash "$DEST/core/scripts/scaffold-workspace-agents.sh" || fail "workspace scaffolding failed"
+if [ -z "$(bash "$DEST/core/scripts/detect-monorepo-framework.sh" --workspace-dirs 2>/dev/null)" ]; then
+  note "No workspace found: list yours in .agents/workspaces.txt (one path or glob per line, e.g. crates/*, or . for a single-package repo), then run .agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh."
+fi
 
 # --- 4b. Project-root starter rules ---------------------------------------------------------
 bash "$DEST/core/scripts/scaffold-project-agents.sh" || fail "project rules seed failed"

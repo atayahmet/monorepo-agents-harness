@@ -37,21 +37,13 @@ while [ $# -gt 0 ]; do
 done
 case "$stale_days" in ''|*[!0-9]*) echo "team-infer: --stale-days needs a number" >&2; usage ;; esac
 
-# --- workspaces: the framework detector's parent dirs, one level down -------------------------------
+# --- workspaces: whatever the detector lists, repo-relative ("." is the repo root) ------------------
 workspaces() {
-  local parent p d
-  shopt -s nullglob
-  while IFS= read -r parent; do
-    [ -n "$parent" ] || continue
-    for p in $parent; do
-      [ -d "$p" ] || continue
-      for d in "$p"/*/; do
-        d="${d%/}"; d="${d#"$ROOT"/}"
-        case "$d" in */node_modules|node_modules|.*|*/.*) continue ;; esac
-        printf '%s\n' "$d"
-      done
-    done
-  done < <(cd "$ROOT" && bash "$SCRIPT_DIR/detect-monorepo-framework.sh" --workspaces 2>/dev/null || true)
+  local d
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    if [ "$d" = "$ROOT" ]; then printf '.\n'; else printf '%s\n' "${d#"$ROOT"/}"; fi
+  done < <(cd "$ROOT" && bash "$SCRIPT_DIR/detect-monorepo-framework.sh" --workspace-dirs 2>/dev/null || true)
 }
 ws_list="$(workspaces | sort -u)"
 [ -z "$ws_list" ] || printf '%s\n' "$ws_list" | sed 's/^/workspace\t/'

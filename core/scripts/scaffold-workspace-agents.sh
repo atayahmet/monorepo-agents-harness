@@ -27,7 +27,7 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.agents/monorepo-agents-harness}"
 BUNDLE_DIR="${BUNDLE_DIR:-$RUNTIME_DIR}"
 DETECT_SCRIPT="${DETECT_SCRIPT:-$RUNTIME_DIR/core/scripts/detect-monorepo-framework.sh}"
-[ ! -x "$DETECT_SCRIPT" ] && DETECT_SCRIPT="$BUNDLE_DIR/core/scripts/detect-monorepo-framework.sh"
+[ -f "$DETECT_SCRIPT" ] || DETECT_SCRIPT="$BUNDLE_DIR/core/scripts/detect-monorepo-framework.sh"
 
 # The bundle itself lives under .agents/monorepo-agents-harness/.
 SEED="${SEED:-$RUNTIME_DIR/core/workspace-agents-template}"
@@ -55,25 +55,17 @@ fi
 created=0
 undocumented=""
 
-# Discover workspace directories using the framework detector.
-workspace_parents=()
-if [ -x "$DETECT_SCRIPT" ]; then
-  while IFS= read -r p; do
-    [ -n "$p" ] && workspace_parents+=("$p")
-  done < <("$DETECT_SCRIPT" --workspaces 2>/dev/null || true)
-fi
-# Fallback for unknown frameworks or missing detector.
-if [ "${#workspace_parents[@]}" -eq 0 ]; then
-  workspace_parents=("$ROOT/apps" "$ROOT/packages")
-fi
+# The workspaces: the project's .agents/workspaces.txt, else the detected framework, else apps/* and
+# packages/*. Warnings about the declaration file reach the user on stderr.
+workspaces=()
+while IFS= read -r ws; do
+  [ -n "$ws" ] && workspaces+=("$ws")
+done < <(bash "$DETECT_SCRIPT" --workspace-dirs || true)
 
-for parent in "${workspace_parents[@]}"; do
-  [ -d "$parent" ] || continue
-  for ws in "$parent"/*/; do
-    [ -d "$ws" ] || continue
-    dest="${ws%/}/.agents"
-    mkdir -p "$dest"
-    [ -f "${ws%/}/AGENTS.md" ] || undocumented="$undocumented ${ws%/}"
+for ws in ${workspaces[@]+"${workspaces[@]}"}; do
+  dest="$ws/.agents"
+  mkdir -p "$dest"
+  [ -f "$ws/AGENTS.md" ] || undocumented="$undocumented $ws"
   for f in session-log.md lessons.md todo.md; do
     if [ ! -e "$dest/$f" ]; then
       cp "$SEED/$f" "$dest/$f"
@@ -82,11 +74,9 @@ for parent in "${workspace_parents[@]}"; do
     fi
   done
   # Task-artifact tree: seed the workspace's task index and rules pointer.
-  if [ ! -d "$dest/artifacts" ]; then
-    mkdir -p "$dest/artifacts"
-  fi
+  mkdir -p "$dest/artifacts"
   for pair in "$INDEX_TEMPLATE:index.md" "$RULES_TEMPLATE:AGENTS.md"; do
-    src="${pair%%:*}"
+    src="${pair%:*}"
     out="${pair##*:}"
     if [ -f "$src" ] && [ ! -e "$dest/artifacts/$out" ]; then
       cp "$src" "$dest/artifacts/$out"
@@ -95,18 +85,18 @@ for parent in "${workspace_parents[@]}"; do
     fi
   done
   # Intent inbox: seed the workspace's rules pointer (no index — see core/governance/intents/AGENTS.md).
-  if [ ! -d "$dest/intents" ]; then
-    mkdir -p "$dest/intents"
-  fi
+  mkdir -p "$dest/intents"
   if [ -f "$INTENTS_RULES_TEMPLATE" ] && [ ! -e "$dest/intents/AGENTS.md" ]; then
     cp "$INTENTS_RULES_TEMPLATE" "$dest/intents/AGENTS.md"
     created=$((created + 1))
     echo "  + ${dest#"$ROOT"/}/intents/AGENTS.md"
   fi
 done
-done
 
 echo "scaffolded $created workspace-agents file(s)."
+if [ "${#workspaces[@]}" -eq 0 ]; then
+  echo "warning: no workspace found — list yours in .agents/workspaces.txt (one path or glob per line, e.g. crates/*, or . for a single-package repo) and re-run this script" >&2
+fi
 # One-line hint (issue #71): workspaces with no AGENTS.md of their own.
 if [ -n "$undocumented" ]; then
   echo "next: no AGENTS.md in:${undocumented//"$ROOT"\//} — run /monorepo-harness-init <workspace> to build one"

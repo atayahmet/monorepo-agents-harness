@@ -62,13 +62,20 @@ echo "kb-ingest: task $slug → KB '$KB' (mode: $mode)"
 w() { if [ "$WRITE" -eq 1 ]; then printf '%s\n' "$2" > "$1"; else echo "kb-ingest:   (dry-run) $1"; fi; }
 act() { if [ "$WRITE" -eq 1 ]; then echo "kb-ingest:   $1"; else echo "kb-ingest:   (dry-run) $1"; fi; }
 
-# --- 1. module page — derive workspace from the task path under apps|packages|libs ---------------
+# --- 1. module page — the workspace in the task path: apps|packages|libs/<name>, else the directory
+#        that holds .agents/ (crates/core -> core). A repo-root task belongs to "project". ----------
 ws=""
 for root in apps packages libs; do
   case "$rel" in
     "$root"/*) ws="${rel#"$root"/}"; ws="${ws%%/*}"; break ;;
   esac
 done
+if [ -z "$ws" ]; then
+  case "${rel#./}" in
+    /*|.agents/*) ;;
+    */.agents/artifacts/*) ws="${rel%%/.agents/artifacts/*}"; ws="${ws##*/}" ;;
+  esac
+fi
 [ -n "$ws" ] || ws="project"
 module_page="$KB/modules/$ws.md"
 if [ -f "$module_page" ]; then

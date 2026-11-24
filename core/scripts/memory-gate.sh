@@ -2,7 +2,9 @@
 # Memory-gate — the HARD enforcement of the plan/spec/memory/verify workflow. Agent-agnostic.
 #
 # Task artifact convention: <workspace>/.agents/artifacts/task_<YYYY_MM_DD>_<slug>/ where
-# <workspace> is discovered by detect-monorepo-framework.sh (apps/*, packages/*, libs/*, etc.).
+# <workspace> is any directory of the repo: the ones detect-monorepo-framework.sh --workspace-dirs lists
+# (the project's .agents/workspaces.txt, else the detected framework), the repo root, and every other
+# place git can see a task dir in. A task is never skipped because of where it lives.
 #
 # Artifact order (per the AI-native SDLC): 1_spec.md (what) -> 2_plan.md (how) -> 3_memory.md ->
 # 4_verify.md. The title file is the SPEC, named 1_spec.md. Backcompat: a legacy task directory
@@ -45,54 +47,57 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.agents/monorepo-agents-harness}"
 BUNDLE_DIR="${BUNDLE_DIR:-$RUNTIME_DIR}"
 DETECT_SCRIPT="${DETECT_SCRIPT:-$RUNTIME_DIR/core/scripts/detect-monorepo-framework.sh}"
-[ ! -x "$DETECT_SCRIPT" ] && DETECT_SCRIPT="$BUNDLE_DIR/core/scripts/detect-monorepo-framework.sh"
+[ -f "$DETECT_SCRIPT" ] || DETECT_SCRIPT="$BUNDLE_DIR/core/scripts/detect-monorepo-framework.sh"
 
 # The task-dir order is shared with hook-arm-build.sh, so the two scripts cannot disagree about which
 # dir of the day is the newest one. Sourced when present and optional on purpose: without it the gate
-# keeps the raw glob order below, which changes the ORDER it reports in and nothing else — a library
-# that is missing must never be able to switch this gate off.
+# loses the report ORDER and the repo-wide scan, and still enforces every listed workspace and the repo
+# root — a library that is missing must never be able to switch this gate off.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$SCRIPT_DIR/harness-common.sh" ]; then
-  . "$SCRIPT_DIR/harness-common.sh"
-fi
-
-# Discover workspace directories using the framework detector.
-workspace_parents=()
-if [ -x "$DETECT_SCRIPT" ]; then
-  while IFS= read -r p; do
-    [ -n "$p" ] && workspace_parents+=("$p")
-  done < <("$DETECT_SCRIPT" --workspaces 2>/dev/null || true)
-fi
-# Fallback for unknown frameworks or missing detector.
-if [ "${#workspace_parents[@]}" -eq 0 ]; then
-  workspace_parents=("$ROOT/apps" "$ROOT/packages")
-fi
-
-# Build the list of workspace artifact glob patterns to scan.
-scan_patterns=()
-for parent in "${workspace_parents[@]}"; do
-  [ -d "$parent" ] || continue
-  scan_patterns+=("$parent"/*/.agents/artifacts/task_*)
+# The installer wires pre-commit as a SYMLINK to this file, so the script's own directory may be
+# .git/hooks: the installed bundle is the second place to look.
+for lib in "$SCRIPT_DIR" "$RUNTIME_DIR/core/scripts" "$BUNDLE_DIR/core/scripts"; do
+  if [ -f "$lib/harness-common.sh" ]; then
+    . "$lib/harness-common.sh"
+    break
+  fi
 done
-# Also scan repo root if present
-if [ -d "$ROOT/.agents/artifacts" ]; then
-  scan_patterns+=("$ROOT/.agents/artifacts/task_*")
+
+# The directories that may hold a task tree, literal paths. Without a detector the two conventional
+# parents stand in, so a partial install still enforces what it always did.
+workspace_dirs=("$ROOT")
+if [ -f "$DETECT_SCRIPT" ]; then
+  while IFS= read -r p; do
+    [ -n "$p" ] && workspace_dirs+=("$p")
+  done < <(bash "$DETECT_SCRIPT" --workspace-dirs 2>/dev/null || true)
+else
+  for p in "$ROOT"/apps/*/ "$ROOT"/packages/*/; do
+    [ -d "$p" ] && workspace_dirs+=("${p%/}")
+  done
 fi
 
-# All task dirs across discovered workspaces across all discovered workspaces, newest first BY THE DATE IN ITS
-# NAME (see harness_task_dirs_newest_first — not by file mtime, which a checkout or a rebase moves).
-# The hook arms plan-stage tasks (today or yesterday) in the workspace being written to and will not
-# arm a second task if there is already a build in flight in that workspace.
+# Every candidate task dir: the ones in those workspaces, plus the ones git can see anywhere else.
+list_task_dirs() {
+  local ws d
+  for ws in "${workspace_dirs[@]}"; do
+    for d in "$ws"/.agents/artifacts/task_*; do
+      if [ -d "$d" ]; then printf '%s\n' "$d"; fi
+    done
+  done
+  if declare -F harness_scan_task_dirs >/dev/null 2>&1; then harness_scan_task_dirs "$ROOT"; fi
+}
+
+# Newest first BY THE DATE IN ITS NAME (see harness_sort_task_dirs — not by file mtime, which a checkout
+# or a rebase moves). Without the library the order is the listing order, which changes what is
+# reported first and nothing else.
 CANDIDATE_DIRS=()
-if [ "${#scan_patterns[@]}" -gt 0 ]; then
-  while IFS= read -r d; do
-    [ -n "$d" ] && CANDIDATE_DIRS+=("$d")
-  done < <(if declare -F harness_task_dirs_newest_first >/dev/null 2>&1; then
-             harness_task_dirs_newest_first "${scan_patterns[@]}"
-           else
-             ls -td "${scan_patterns[@]}" 2>/dev/null || true
-           fi)
-fi
+while IFS= read -r d; do
+  [ -n "$d" ] && CANDIDATE_DIRS+=("$d")
+done < <(if declare -F harness_sort_task_dirs >/dev/null 2>&1; then
+           list_task_dirs | harness_sort_task_dirs
+         else
+           list_task_dirs
+         fi)
 [ "${#CANDIDATE_DIRS[@]}" -eq 0 ] && exit 0   # no task dirs → nothing to enforce
 
 # The stage reader is task-state.sh, and it is the only implementation of "which stage is this

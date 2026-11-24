@@ -47,6 +47,9 @@ fi
 
 gaps=()
 add_gap() { gaps+=("$1"); }
+# Worth saying, but not an incomplete install: never changes the exit code.
+warnings=()
+add_warning() { warnings+=("$1"); }
 
 # --- Check 1: bundle sync — every core/install-manifest.txt row, via harness-update.sh verify-copy ---
 check_bundle_sync() {
@@ -168,24 +171,21 @@ check_review_md() {
 
 # --- Check 5: per-workspace scaffold seeds ---
 check_workspace_scaffold() {
-  local parents=() parent ws dest f
-  if [ -x "$DETECT_SCRIPT" ]; then
-    while IFS= read -r p; do
-      [ -n "$p" ] && parents+=("$p")
-    done < <("$DETECT_SCRIPT" --workspaces 2>/dev/null || true)
-  fi
-  [ "${#parents[@]}" -eq 0 ] && parents=("$ROOT/apps" "$ROOT/packages")
-
-  for parent in "${parents[@]}"; do
-    [ -d "$parent" ] || continue
-    for ws in "$parent"/*/; do
-      [ -d "$ws" ] || continue
-      dest="${ws%/}/.agents"
-      for f in session-log.md lessons.md todo.md artifacts/AGENTS.md artifacts/index.md intents/AGENTS.md; do
-        [ -e "$dest/$f" ] || add_gap "workspace scaffold missing: ${dest#"$ROOT"/}/$f"
-      done
+  local ws dest f n=0 line
+  while IFS= read -r ws; do
+    [ -n "$ws" ] || continue
+    n=$((n + 1))
+    dest="$ws/.agents"
+    for f in session-log.md lessons.md todo.md artifacts/AGENTS.md artifacts/index.md intents/AGENTS.md; do
+      [ -e "$dest/$f" ] || add_gap "workspace scaffold missing: ${dest#"$ROOT"/}/$f"
     done
-  done
+  done < <(bash "$DETECT_SCRIPT" --workspace-dirs 2>/dev/null || true)
+  # What the detector says on stderr: a line of .agents/workspaces.txt it could not use.
+  while IFS= read -r line; do
+    [ -n "$line" ] && add_warning "${line#warning: }"
+  done < <(bash "$DETECT_SCRIPT" --workspace-dirs 2>&1 >/dev/null || true)
+  [ "$n" -gt 0 ] \
+    || add_warning "no workspace found — list yours in .agents/workspaces.txt (one path or glob per line, or . for a single-package repo), then run core/scripts/scaffold-workspace-agents.sh"
 }
 
 # --- Check 5b: project-root starter-rules seed ---
@@ -319,13 +319,23 @@ check_workspace_scaffold
 check_project_rules
 check_knowledge_base
 
-if [ "$json" -eq 1 ]; then
-  printf '{"status":"%s","gaps":[' "$([ "${#gaps[@]}" -eq 0 ] && echo clean || echo incomplete)"
-  for i in "${!gaps[@]}"; do
-    [ "$i" -gt 0 ] && printf ','
-    printf '"%s"' "$(printf '%s' "${gaps[$i]}" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+# json_array <string>... — a JSON array of strings.
+json_array() {
+  local sep="" x
+  printf '['
+  for x in "$@"; do
+    printf '%s"%s"' "$sep" "$(printf '%s' "$x" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+    sep=','
   done
-  printf ']}\n'
+  printf ']'
+}
+
+if [ "$json" -eq 1 ]; then
+  printf '{"status":"%s","gaps":' "$([ "${#gaps[@]}" -eq 0 ] && echo clean || echo incomplete)"
+  json_array ${gaps[@]+"${gaps[@]}"}
+  printf ',"warnings":'
+  json_array ${warnings[@]+"${warnings[@]}"}
+  printf '}\n'
 else
   if [ "${#gaps[@]}" -eq 0 ]; then
     echo "audit-install: clean — installed state matches $against"
@@ -335,6 +345,9 @@ else
       echo "  - $g" >&2
     done
   fi
+  for g in ${warnings[@]+"${warnings[@]}"}; do
+    echo "audit-install: warning: $g" >&2
+  done
 fi
 
 [ "${#gaps[@]}" -eq 0 ]
