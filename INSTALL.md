@@ -1,12 +1,12 @@
 # Agent Harness — Install Guide
 
-Two commands install the harness into any JavaScript/TypeScript monorepo. Every file-level step runs from a manifest-driven script
+Two commands install the harness into any monorepo. Every file-level step runs from a manifest-driven script
 (`core/install-manifest.txt`, `adapters/<agent>/manifest.txt`); nothing depends on prose. What the harness *is*: [`README.md`](README.md).
 
 ## 1. Prerequisites
 
-- A JS/TS monorepo (Turborepo, Nx, Lerna, npm/yarn/pnpm workspaces) with an `apps/*` layout (or
-  `packages/*` / `libs/*`); `git`, `bash`, coreutils, symlink support; `jq` if your hooks need it.
+- A git repo; `bash`, coreutils, symlink support; `jq` if your hooks need it. Only JS/TS workspaces are auto-detected: for any
+  other layout, list yours in `.agents/workspaces.txt` first (`crates/*`, `billing`, or `.` for a single package; it replaces detection).
 
 ## 2. Phase 1 — core (identical for every agent)
 
@@ -48,7 +48,7 @@ is written beside it as `<file>.harness-proposed` for you to merge.
 
 ## 4. What still needs a human
 
-Both scripts end with a `Needs you:` list. Only four things ever appear there:
+Both scripts end with a `Needs you:` list. Five things can appear there (the fifth: no workspace found, see Prerequisites):
 
 1. **`{{PROJECT_GOTCHAS}}` in `AGENTS.md`** — your own rules. Fill in or delete the example item.
 2. **`{{PROJECT_REVIEW_POLICY}}` in `REVIEW.md`** — your review thresholds. Fill in or delete.

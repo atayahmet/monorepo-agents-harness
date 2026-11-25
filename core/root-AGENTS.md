@@ -101,8 +101,9 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
 
 > **Working state is per-workspace.** `session-log.md`, `lessons.md`, and `todo.md` (plus the
 > `artifacts/` task tree with its mandatory searchable `index.md`) live under **each**
-> `apps/<name>/.agents/` and `packages/<name>/.agents/` — never at the repo root. Always read and
-> write the ones belonging to the workspace your task targets. Seed new workspaces from
+> `apps/<name>/.agents/` and `packages/<name>/.agents/` (or the equivalent workspace) — never at the
+> repo root, unless `.agents/workspaces.txt` lists `.`. Always read and write the ones belonging to
+> the workspace your task targets. Seed new workspaces from
 > `.agents/monorepo-agents-harness/core/workspace-agents-template/` (or run
 > `.agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh`).
 
@@ -117,6 +118,10 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
 ## Workspace Routing & Execution
 
 This is a {{MONOREPO_FRAMEWORK}} monorepo. Default context is the repository root.
+
+**Workspaces:** when `.agents/workspaces.txt` exists, its lines (paths or globs, any language) are the
+workspaces of this repo and replace `apps/` / `packages/` wherever this file names them. List them with
+`.agents/monorepo-agents-harness/core/scripts/detect-monorepo-framework.sh --workspace-dirs`.
 
 **Target styles:** `apps/<name>`, `packages/<name>`, workspace package name, or short aliases.
 

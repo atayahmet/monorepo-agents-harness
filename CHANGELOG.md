@@ -17,6 +17,58 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.40] - 2026-11-24
+
+### Added
+
+- **`.agents/workspaces.txt`: declare your workspaces, in any language and layout** (issue #83). One
+  repo-relative path or glob per line (`crates/*`, `services/*`, `billing`, `.` for a single-package
+  repo). When the file has at least one usable line it replaces detection. It is project-owned and
+  optional; the harness never writes it.
+- `detect-monorepo-framework.sh --workspace-dirs`: prints the existing workspace directories. All
+  harness scripts now use it. `--workspaces` (parent directories) stays for outside callers.
+- A warning when no workspace is found: in scaffold, in the installer's `Needs you:` list, and in
+  `audit-install.sh` (`warnings` in `--json`). It does not change the audit exit code.
+
+### Changed
+
+- **The memory-gate finds a task wherever it lives.** Besides the workspaces and the repo root it reads
+  every task dir git can see, also when `.agents/` is git-ignored. Skipped: the bundle, nested repos,
+  git-ignored parent directories, and paths under `node_modules`, `vendor`, `fixtures`,
+  `__fixtures__`, `testdata`, `test-fixtures` (unless that directory is a workspace).
+- `hook-arm-build.sh` finds the plan by walking up from the written file. It no longer needs detection.
+- `kb-ingest.sh` names the module page after the workspace directory in layouts other than
+  `apps|packages|libs`. Before, all of them went into `modules/project.md`.
+- `core/root-AGENTS.md`: says that `.agents/workspaces.txt` defines the workspaces, and that the repo
+  root holds working state only when the file lists `.`.
+- README and INSTALL no longer require a JS/TS monorepo. Auto-detection is still JS/TS-only.
+
+### Fixed
+
+- Outside `apps/`, `packages/` and `libs/` the memory-gate found no task and passed silently.
+- Turborepo: the workspace list in `pnpm-workspace.yaml` (or `package.json`) is read. Before,
+  `apps/*` and `packages/*` were assumed.
+- `pnpm-workspace.yaml` is read without PyYAML, and `!` exclusions are respected. Without PyYAML the
+  list was ignored without a message.
+- `package.json` `{"workspaces": {"packages": []}}` is read.
+- An exact workspace path (`tools/cli`) no longer makes its sibling directories workspaces, and a `.`
+  entry no longer makes every top-level directory one.
+- A workspace entry that leaves the repo (`../x`, an absolute path, a symlink to somewhere else) or points
+  into `.git` is skipped with a warning. Before, scaffolding could write `.agents/` files outside the repo.
+- `audit-install.sh --json` stays valid when a path contains a control character.
+- The symlinked pre-commit hook could not find `harness-common.sh`, so it ran without the shared task
+  order. It now loads the library from the installed bundle.
+- A repo path with `[` or other glob characters no longer hides tasks from the gate and the hook.
+
+### Upgrade Notes
+
+- **Needs attention: the memory-gate can block on old tasks it could not see before.** A task with
+  `build_started` and no `3_memory.md` (or no required `4_verify.md`) now blocks in any folder.
+  `changelogs/version-0.4.0-rc.40.md` says how to clear it.
+- Not a JS/TS repo, or workspaces outside the detected folders: create `.agents/workspaces.txt`, then
+  run `core/scripts/scaffold-workspace-agents.sh`.
+- `core/root-AGENTS.md` changed. The update's `AGENTS.md` merge step offers it.
+
 ## [0.4.0-rc.39] - 2026-11-23
 
 ### Added

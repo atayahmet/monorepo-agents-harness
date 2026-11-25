@@ -144,22 +144,62 @@ harness_trash_dir() {
 # A name with no parseable date sorts last. It is never the newest task, which is the safe direction:
 # a dir that cannot say when it was opened must not be armed ahead of one that can.
 harness_task_dirs_newest_first() {
-  local pattern d base dt mt
-  local -a hits=()
+  local pattern
   # compgen -G expands one glob as a single word, so a path containing a space survives; the usual
   # `for x in $pattern` would split it into two words and arm nothing.
   for pattern in "$@"; do
-    while IFS= read -r d; do
-      [ -n "$d" ] && hits+=("$d")
-    done < <(compgen -G "$pattern" 2>/dev/null || true)
-  done
-  [ "${#hits[@]}" -eq 0 ] && return 0
-  for d in "${hits[@]}"; do
+    compgen -G "$pattern" 2>/dev/null || true
+  done | harness_sort_task_dirs
+}
+
+# The same order for LITERAL paths, one per line on stdin. Use this one when the paths are already
+# known: a repo path that contains a glob character is not a pattern here. Duplicates are dropped.
+harness_sort_task_dirs() {
+  local d base dt mt
+  local -x LC_ALL=C   # paths are bytes: in a UTF-8 locale the BSD tools stop at an invalid one
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
     base="$(basename "$d")"
-    dt="$(printf '%s\n' "$base" | grep -oE '[0-9]{4}[_-][0-9]{2}[_-][0-9]{2}' | head -1 | sed 's/[-]/_/g')"
+    dt="$(printf '%s\n' "$base" | grep -oE '[0-9]{4}[_-][0-9]{2}[_-][0-9]{2}' | head -1 | sed 's/[-]/_/g' || true)"
     [ -n "$dt" ] || dt="0000_00_00"
     # `stat -c` is GNU, `stat -f %m` is BSD/macOS; a dir we cannot stat just sorts by its date.
     mt="$(stat -c %Y "$d" 2>/dev/null || stat -f %m "$d" 2>/dev/null || echo 0)"
     printf '%s\t%s\t%s\n' "$dt" "${mt:-0}" "$d"
-  done | LC_ALL=C sort -t$'\t' -k1,1r -k2,2nr | cut -f3-
+  done | LC_ALL=C sort -t$'\t' -k1,1r -k2,2nr | cut -f3- | awk '!seen[$0]++'
+}
+
+# harness_scan_task_dirs <root> — every task dir git can see under <root>, absolute, one per line, no
+# order. It does not need to know the workspaces, so a task is found wherever it lives.
+#
+#   - tracked and untracked files: a plain listing under .agents/artifacts/task_*/
+#   - ignored ones: many projects ignore `.agents/` itself. `--directory` makes git print an ignored
+#     directory instead of walking it, so node_modules and build output cost nothing. A task under an
+#     ignored PARENT directory stays invisible: that directory is vendored or generated.
+#   - git never enters a nested repo, a worktree or a submodule here
+#
+# Skipped: the bundle, the harness's own .agents/.harness-* dirs, and vendored or fixture trees. A
+# workspace the project declared is not found through this scan, so it is never skipped by this list.
+harness_scan_task_dirs() {
+  local root="$1"
+  ( export LC_ALL=C   # one path with an invalid byte must not end the listing for the rest
+    cd "$root" 2>/dev/null || exit 0
+    { git ls-files -z -co --exclude-standard -- ':(glob)**/.agents/artifacts/task_*/**' 2>/dev/null || true
+      git ls-files -z -o -i --exclude-standard --directory 2>/dev/null || true
+    } | tr '\0' '\n' | awk '
+      function found(p) { if (!(p in seen)) { seen[p] = 1; print p } }
+      { p = "/" $0 }
+      p ~ /\/(node_modules|vendor|fixtures|__fixtures__|testdata|test-fixtures)\// { next }
+      p ~ /\/\.agents\/(monorepo-agents-harness|\.harness-[^\/]*)\// { next }
+      match(p, /\/\.agents\/artifacts\/task_[^\/]+\//) { found("D " substr(p, 2, RSTART + RLENGTH - 3)); next }
+      p ~ /\/\.agents\/$/           { found("A " substr(p, 2) "artifacts") ; next }
+      p ~ /\/\.agents\/artifacts\/$/ { found("A " substr(p, 2, length(p) - 2)) }
+    ' | while IFS= read -r hit; do
+      case "$hit" in
+        D\ *) [ -d "${hit#D }" ] && printf '%s\n' "$root/${hit#D }" ;;
+        A\ *) for d in "${hit#A }"/task_*; do
+                [ -d "$d" ] && printf '%s\n' "$root/$d"
+              done ;;
+      esac
+    done
+    true )
 }

@@ -332,7 +332,10 @@ cmd_lint() {
       [ -n "$l" ] || continue
       if [ "$l" = "$ROOT" ]; then l="."; else l="${l#"$ROOT"/}"; fi
       detected="$detected$l"$'\n'
-    done < <(cd "$ROOT" && bash "$SCRIPT_DIR/detect-monorepo-framework.sh" --workspaces 2>/dev/null || true)
+    # Parents and workspaces both: an assignee may name the folder (apps) or one workspace (apps/api).
+    done < <(cd "$ROOT" && for o in --workspaces --workspace-dirs; do
+               bash "$SCRIPT_DIR/detect-monorepo-framework.sh" "$o" 2>/dev/null || true
+             done)
     awk -F'\t' '$1=="ASGN"{print $2}' <<< "$DATA" | while IFS= read -r w; do
       [ "$w" = "." ] && continue
       hits="$(printf '%s\n' "$dirs" | awk "$AWK_LIB"'{ if (globmatch(w, $0)) print }' w="$w")"

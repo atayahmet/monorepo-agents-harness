@@ -39,8 +39,8 @@ apps/api/
 `packages/<name>` workspaces use the identical layout under `packages/<name>/.agents/`.
 
 **`<workspace>`** — the target app or package name. Apps use their `apps/<name>` directory name; named
-packages under `packages/` use their package directory name. Any existing `apps/*` or `packages/*`
-directory in the project is a valid `<workspace>` — resolve it from the files the task actually
+packages under `packages/` use their package directory name. Any directory that
+`detect-monorepo-framework.sh --workspace-dirs` lists (`.agents/workspaces.txt`, else detection) is a valid `<workspace>` — resolve it from the files the task actually
 touches (see the selection rule below), never from a fixed list.
 
 **`<slug>`** — a `snake_case` (underscored) identifier of 3–5 words summarizing the task. Example directory name: `task_2026_06_03_huawei_webhook_handler/`.
@@ -55,7 +55,7 @@ Pick `<workspace>` from the file paths the task will touch:
 - Cross-workspace task → pick the **primary** workspace (where the bulk of work happens) and mention the secondary workspace in the plan's "Affected files / modules" section.
 - Other `packages/**` changes (shared utilities, root configs, `turbo.json`) → pick the workspace whose consumer is the actual driver; if truly orthogonal, default to `api`.
 
-The memory-gate scans `apps/*/.agents/artifacts/` and `packages/*/.agents/artifacts/` for today's task — placement matters for the gate to find it. It enforces only the tasks that reached the **build** stage; a spec-only or plan-only task can always end. See "Build stage" below.
+The memory-gate finds a task dir in any workspace, at the repo root, and anywhere else git can see one; only vendored, fixture and git-ignored parent directories are skipped. Placement still matters: the build hook arms a plan only on a write inside its own workspace. The gate enforces only the tasks that reached the **build** stage; a spec-only or plan-only task can always end. See "Build stage" below.
 
 **Important**: All files for one task live in the **same directory**. The numeric prefix (`1_`, `2_`, `3_`, `4_`) indicates phase order — and matches the AI-native SDLC artifact order `intent → spec → plan → memory → verify`, so the **spec (`1_spec.md`) is written before the plan (`2_plan.md`)**. `4_verify.md` is required whenever `1_spec.md`'s "Test / verification plan" section is not `N/A` — see Phase 4.
 

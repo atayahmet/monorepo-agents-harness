@@ -322,5 +322,75 @@ write_spec "$yesterday_plan"; write_plan "$yesterday_plan"
 hook_arm "{\"tool_input\":{\"file_path\":\"$FIXTURE/apps/api/src/feature.ts\"}}"
 is "#50 yesterdays plan is armed today without -build" "$(task_state stage "$yesterday_plan")" "build"
 
+# --- issue #83: a task is enforced wherever it lives ------------------------------------------------------
+ws_task_dir() { printf '%s/%s/.agents/artifacts/task_%s_%s' "$FIXTURE" "$1" "$TODAY" "$2"; }
+building() { write_spec "$1"; write_plan "$1"; arm_build "$1/2_plan.md"; }
+
+new_fixture root-only; d="$(ws_task_dir crates/core undeclared)"; building "$d"
+is "#83 an undeclared crates/core build blocks" "$(gate_code </dev/null)" "1"
+says "#83 and it is the one reported" "$(gate </dev/null)" "crates/core/.agents/artifacts/task_${TODAY}_undeclared"
+says "#83 --json blocks on it" "$(stop_hook '{"stop_hook_active":false}')" '"decision": "block"'
+( cd "$FIXTURE" && git add crates && git commit -qm t )
+is "#83 a tracked one blocks" "$(gate_code </dev/null)" "1"
+write_memory "$d"; write_verify "$d"; seed_kb "$d"
+is "#83 a complete one passes" "$(gate_code </dev/null)" "0"
+
+new_fixture root-only; d="$(ws_task_dir crates/core planned)"; write_spec "$d"; write_plan "$d"
+is "#83 a plan-only one never blocks" "$(gate_code </dev/null)" "0"
+
+for ig in '.agents/' '**/.agents/artifacts/' '/crates/core/.agents/artifacts/task_*' '/crates/core/.agents/artifacts/*/2_plan.md'; do
+  new_fixture root-only; d="$(ws_task_dir crates/core ignored)"; building "$d"; printf '%s\n' "$ig" > "$FIXTURE/.gitignore"
+  is "#83 ignored by '$ig' in an untracked parent: blocks" "$(gate_code </dev/null)" "1"
+  echo x > "$FIXTURE/crates/core/a.rs"; ( cd "$FIXTURE" && git add crates/core/a.rs && git commit -qm t )
+  is "#83 ignored by '$ig' in a tracked parent: blocks" "$(gate_code </dev/null)" "1"
+done
+new_fixture root-only; d="$(ws_task_dir 'my crates/ü core' spaced)"; building "$d"
+is "#83 spaces and non-ASCII in the path: blocks" "$(gate_code </dev/null)" "1"
+
+for skip in tests/fixtures/app pkg/__fixtures__/a pkg/testdata/a test-fixtures/a vendor/lib web/node_modules/p .agents/monorepo-agents-harness/x .agents/.harness-trash/x; do
+  new_fixture root-only; d="$(ws_task_dir "$skip" skipped)"; building "$d"
+  is "#83 a task under $skip never blocks" "$(gate_code </dev/null)" "0"
+done
+new_fixture root-only; d="$(ws_task_dir vendor/lib declared)"; building "$d"; echo 'vendor/*' > "$FIXTURE/.agents/workspaces.txt"
+is "#83 a declared workspace is never skipped" "$(gate_code </dev/null)" "1"
+new_fixture root-only; d="$(ws_task_dir nested/repo inner)"; building "$d"; ( cd "$FIXTURE/nested" && git init -q . )
+is "#83 a task in a nested repo never blocks" "$(gate_code </dev/null)" "0"
+new_fixture root-only; d="$(ws_task_dir third/lib ignoredparent)"; building "$d"; echo '/third/' > "$FIXTURE/.gitignore"
+is "#83 a git-ignored parent is not scanned" "$(gate_code </dev/null)" "0"
+new_fixture; d="$(task_dir no_lib)"; building "$d"; rm "$FIXTURE/.agents/monorepo-agents-harness/core/scripts/harness-common.sh"
+is "#83 without the library apps/* is still enforced" "$(gate_code </dev/null)" "1"
+new_fixture; d="$(task_dir no_detector)"; building "$d"; rm "$FIXTURE/.agents/monorepo-agents-harness/core/scripts/detect-monorepo-framework.sh"
+is "#83 without the detector apps/* is still enforced" "$(gate_code </dev/null)" "1"
+
+# One tracked path with an invalid UTF-8 byte must not end the listing for the paths after it.
+new_fixture root-only; d="$(ws_task_dir crates/core badbyte)"; building "$d"
+( cd "$FIXTURE" && git add crates && b="$(echo x | git hash-object -w --stdin)" \
+  && printf "100644 $b\taaa/.agents/artifacts/task_\377\376/2_plan.md\0" | git update-index -z --index-info )
+for loc in C en_US.UTF-8; do
+  is "#83 an invalid byte in another path does not switch the scan off ($loc)" "$(export LC_ALL=$loc; gate_code </dev/null)" "1"
+done
+
+# The installer wires pre-commit as a symlink, so the gate runs under .git/hooks/ and must still find
+# its library — the scan lives there.
+new_fixture root-only; d="$(ws_task_dir crates/core precommit)"; building "$d"
+ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh "$FIXTURE/.git/hooks/pre-commit"
+out="$( cd "$FIXTURE" && git add -A && git commit -qm t 2>&1; echo "exit=$?" )"
+says "#83 the symlinked pre-commit hook blocks an undeclared build" "$out" "exit=1"
+says "#83 and names it" "$out" "task_${TODAY}_precommit"
+
+# The hook places a write by walking up from it, so no layout has to be detected.
+new_fixture root-only; d="$(ws_task_dir crates/core arm_crate)"; write_spec "$d"; write_plan "$d"; mkdir -p "$FIXTURE/crates/other" "$FIXTURE/crates/core-legacy"
+hook_arm "{\"tool_input\":{\"file_path\":\"$FIXTURE/crates/other/a.rs\"}}"
+is "#83 a write in another crate does not arm it" "$(task_state stage "$d")" "plan"
+hook_arm "{\"tool_input\":{\"file_path\":\"$FIXTURE/crates/core-legacy/a.rs\"}}"
+is "#83 a sibling with the same prefix does not arm it" "$(task_state stage "$d")" "plan"
+hook_arm "{\"tool_input\":{\"file_path\":\"/etc/hosts\"}}"
+is "#83 a write outside the repo does not arm it" "$(task_state stage "$d")" "plan"
+hook_arm "{\"tool_input\":{\"file_path\":\"crates/core/src/new/lib.rs\"}}"
+is "#83 a relative write in the crate arms it" "$(task_state stage "$d")" "build"
+new_fixture root-only; d="$(ws_task_dir services/a/b arm_deep)"; write_spec "$d"; write_plan "$d"
+hook_arm "{\"tool_input\":{\"file_path\":\"$FIXTURE/services/a/b/main.go\"}}"
+is "#83 a deeper workspace is armed" "$(task_state stage "$d")" "build"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
