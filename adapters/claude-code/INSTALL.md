@@ -61,6 +61,7 @@ reminder stays in sync with that file and with any edit you make to it.
 | Knowledge base query/lint (`/monorepo-harness-kb-index`) | `core/scripts/kb-index.sh` (SQLite FTS5 cache) + `core/skills/knowledge-base/SKILL.md` | `/monorepo-harness-kb-index` → `.claude/commands/monorepo-harness-kb-index.md` |
 | Team registry (`/monorepo-harness-team`) | `core/scripts/team.sh` + `team-infer.sh` + `core/skills/team-registry/SKILL.md` | `/monorepo-harness-team` → `.claude/commands/monorepo-harness-team.md` |
 | Workspace AGENTS.md tree (`/monorepo-harness-init`) | `core/scripts/agents-tree.sh` + `core/skills/agents-init/SKILL.md` | `/monorepo-harness-init` → `.claude/commands/monorepo-harness-init.md` |
+| Worktrees (`/monorepo-harness-worktree`) | `core/scripts/worktree.sh` + `docs/worktrees.md` | `/monorepo-harness-worktree` → `.claude/commands/monorepo-harness-worktree.md` (main-session edits need `--add-dir ~/.harness-worktrees`) |
 | Self-improvement (`/monorepo-self-improve`) | `core/skills/self-improvement-workflow/SKILL.md` | `/monorepo-self-improve` command · skill symlinked into `.claude/skills/` |
 
 ## Verify

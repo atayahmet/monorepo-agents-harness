@@ -71,3 +71,7 @@ core/skills/agents-init/SKILL.md
 # The `/monorepo-harness-review --auto-fix` helper (issue #77): preflight, check-fix, security-due.
 # Shipped via the `core` row above; listed explicitly so it is a first-class, audited install row.
 core/scripts/review-fix-loop.sh
+# The `/monorepo-harness-worktree` helper (issue #85): one root outside the repository for the
+# worktrees the harness creates, plus path, create, list, remove and prune. Shipped via the `core` row
+# above; listed explicitly so it is a first-class, audited install row.
+core/scripts/worktree.sh

@@ -37,6 +37,7 @@ tmpl  CLAUDE.md
 copy  .claude/commands/monorepo-harness-security-review.md
 copy  .claude/commands/monorepo-harness-team.md
 copy  .claude/commands/monorepo-harness-init.md
+copy  .claude/commands/monorepo-harness-worktree.md
 
 # Retired entry points (issue #73: renamed to monorepo-harness-init in 0.4.0-rc.35; hash = 0.4.0-rc.34).
 retire .claude/commands/monorepo-harness-agents-init.md 941262e72b240498f1304799a6a9f6ed0f8f97445dc38e20e384d9c4c98551e6

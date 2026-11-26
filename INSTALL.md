@@ -86,9 +86,9 @@ Delete the dir after.
   yields "approval unknown", never a merge. Full flow: `core/skills/intent-workflow/SKILL.md`.
 - **Team registry** — `/monorepo-harness-team` (init/add/remove) writes `.agents/team.yml` (people, IDs, assignee routing) only on your yes; `core/team/AGENTS.md`. Never created by the installer.
 - **Workspace AGENTS.md tree** — `/monorepo-harness-init <ws> [--audit]` maps, then (on your yes) writes nested `AGENTS.md` + symlinks; `agents-tree.sh lint` checks them.
+- **Worktrees** — `/monorepo-harness-worktree` creates, lists, removes and prunes worktrees in one root outside the repo (`~/.harness-worktrees`, shared by every adapter); [`docs/worktrees.md`](docs/worktrees.md).
 - **Self-improvement** — `/monorepo-self-improve` proposes project-owned rules and skills.
-- **Changeset release entries** — `/monorepo-harness-changeset` drafts a changesets-compatible
-  `.changeset/*.md` entry without adding `@changesets/cli`; bumps are user-confirmed policy.
+- **Changeset release entries** — `/monorepo-harness-changeset` drafts a changesets-compatible `.changeset/*.md` entry without adding `@changesets/cli`; bumps are user-confirmed policy.
 - **Knowledge base** — tasks compile into `knowledge/`; the `-spec`/`-plan` stages query it first
   (`kb-index.sh query`), and `/monorepo-harness-kb-index` answers with BM25-ranked hits (SQLite FTS5 cache, grep fallback), never re-scanning artifact trees.
 

@@ -76,6 +76,7 @@ expected_hint() {
     monorepo-harness-team)            printf '%s' '[init | add | remove <key> | lint | migrate]' ;;
     monorepo-harness-kb-index)        printf '%s' '[<question> | rebuild | links] [--kind <k>] [--workspace <w>] [--limit <n>]' ;;
     monorepo-harness-init)            printf '%s' '<workspace> [--audit]' ;;
+    monorepo-harness-worktree)        printf '%s' '[list [--all] | path <slug> | create <slug> [--base <ref>] [--branch <name>] | remove <slug> [--delete-branch] [--force] | prune [--yes]]' ;;
     *) return 1 ;;
   esac
 }
