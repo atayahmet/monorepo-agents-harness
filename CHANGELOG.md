@@ -54,7 +54,8 @@ Release procedure (harness maintainers):
   it: no `.gitignore`, settings or `AGENTS.md` change.
 - To edit a worktree from a session in the main checkout, Claude Code and Codex need the root as an
   extra directory (`--add-dir ~/.harness-worktrees`). A new session started in the worktree needs no
-  setup. See `docs/worktrees.md`.
+  setup. See `docs/worktrees.md`; `changelogs/version-0.4.0-rc.41.md` lists these optional
+  follow-ups.
 
 ## [0.4.0-rc.40] - 2026-11-24
 
