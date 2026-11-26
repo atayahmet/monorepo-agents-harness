@@ -37,7 +37,8 @@ Release procedure (harness maintainers):
     worktree, one outside the root, or the one you are in. `--delete-branch` deletes only a merged
     branch (merge commit, rebase-merge or one-commit squash).
   - `prune [--yes]`: a dry run until `--yes`. It removes the clean and merged, and the missing,
-    harness worktrees one path at a time, and never deletes a branch.
+    harness worktrees one path at a time, and never deletes a branch. A worktree with no commit since
+    `create` is kept, since another session may still be using it.
   - `path <slug>`: prints the path and writes nothing.
 - `core/scripts/worktree.sh` does all of it; the three entry points only call it.
   `docs/worktrees.md` covers the layout, the safety rules, what to do after `create` (ignored files

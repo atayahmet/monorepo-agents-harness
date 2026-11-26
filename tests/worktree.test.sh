@@ -382,13 +382,17 @@ says  "stderr says the branch was kept" "$ERR" "kept branch d-unm (unmerged)"
 echo "AC11 — prune"
 PR="$TMP/p/proj"; new_repo "$PR"
 printf '.env\nnode_modules/\n' > "$PR/.gitignore"; git -C "$PR" add -A && git -C "$PR" commit -qm ignores
-P_clean="$(mkwt "$PR" p-clean)"
+# Candidates have a commit of their own that is merged: a worktree with no commit since create may
+# still be in use (PR #86 review, round 2).
+P_clean="$(mkwt "$PR" p-clean)"; commit "$P_clean" pc.txt "pc work"
+git -C "$PR" merge -q --ff-only p-clean
 P_merged="$(mkwt "$PR" p-merged)"; commit "$P_merged" pm.txt "pm work"
 git -C "$PR" merge -q --no-ff -m "merge p-merged" p-merged
 P_dirty="$(mkwt "$PR" p-dirty)"; put "$P_dirty" wip.txt
 P_unm="$(mkwt "$PR" p-unm)"; commit "$P_unm" pu.txt "pu work"
 P_env="$(mkwt "$PR" p-env)"; put "$P_env" .env "SECRET=1"
-P_junk="$(mkwt "$PR" p-junk)"; put "$P_junk" node_modules/x/index.js
+P_junk="$(mkwt "$PR" p-junk)"; commit "$P_junk" pj.txt "pj work"
+git -C "$PR" merge -q --no-ff -m "merge p-junk" p-junk; put "$P_junk" node_modules/x/index.js
 P_miss="$(mkwt "$PR" p-miss)"; rm -rf "$P_miss"
 git -C "$PR" worktree add -q -b p-extmiss "$TMP/p-extmiss"; rm -rf "$TMP/p-extmiss"
 before="$(git -C "$PR" worktree list --porcelain)"
@@ -498,6 +502,83 @@ saysn  "the hint does not point at worktree.sh prune" "$ERR" "worktree.sh prune"
 wt "$R1" create empty-b --branch ""
 is     "--branch with an empty value is a bad call" "$RC" 2
 checkn "and creates no branch" has_branch "$R1" empty-b
+
+echo "Review round 2 (PR #86)"
+# status.showUntrackedFiles=no must not hide untracked or ignored files from the safety checks.
+U="$TMP/u/proj"; new_repo "$U"
+printf '.env\n' > "$U/.gitignore"; git -C "$U" add -A && git -C "$U" commit -qm ignores
+git -C "$U" config status.showUntrackedFiles no
+P="$(mkwt "$U" u-hidden)"; commit "$P" u.txt "u work"; git -C "$U" merge -q --ff-only u-hidden
+put "$P" .env "SECRET=1"; put "$P" new.txt
+wt "$U" list
+is     "showUntrackedFiles=no: an untracked file still reads dirty" "$(field "$(row u-hidden)" 4)" dirty
+wt "$U" prune --yes
+check  "prune --yes keeps it" test -f "$P/.env"
+wt "$U" remove u-hidden
+is     "remove refuses it" "$RC" 1
+says   "the refusal names the untracked file" "$ERR" "new.txt"
+says   "the refusal names the ignored .env" "$ERR" ".env"
+check  "the files stay" test -f "$P/new.txt"
+P="$(mkwt "$U" u-broken)"; printf 'garbage' > "$(git -C "$P" rev-parse --git-dir)/index"
+wt "$U" remove u-broken
+is     "a worktree git status cannot read is refused" "$RC" 1
+says   "a failed ignored-file scan is a finding, never 'none'" "$ERR" "cannot list the ignored files"
+
+# A merge commit with a change of its own is not merged: git cherry skips merge commits.
+E="$TMP/e2/proj"; new_repo "$E"
+git -C "$E" checkout -q -b side && commit "$E" s.txt "side work" && git -C "$E" checkout -q main
+P="$(mkwt "$E" e-evil)"
+git -C "$E" merge -q --no-ff -m "merge side" side
+git -C "$P" merge -q --no-ff --no-commit side >/dev/null 2>&1; put "$P" README.md "edit inside the merge"
+git -C "$P" add -A && git -C "$P" commit -qm "merge side into e-evil"
+wt "$E" list
+is     "a merge commit with its own change reads unmerged" "$(field "$(row e-evil)" 5)" unmerged
+wt "$E" remove e-evil --delete-branch
+is     "remove refuses it" "$RC" 1
+says   "the refusal names the merge commit" "$ERR" "merge side into e-evil"
+check  "the branch stays" has_branch "$E" e-evil
+
+# A worktree with no commit since create may still be in use: prune keeps it, remove still works.
+P="$(mkwt "$PR" p-fresh)"; put "$P" node_modules/x/index.js
+is     "create records the start commit" "$(git -C "$PR" config --get branch.p-fresh.harnessStart)" "$(git -C "$PR" rev-parse main)"
+wt "$PR" prune
+is     "prune does not list a worktree with no commit since create" "$(row p-fresh)" ""
+says   "prune says why it is kept" "$ERR" "kept p-fresh:"
+wt "$PR" prune --yes
+check  "prune --yes keeps it" test -d "$P"
+wt "$PR" remove p-fresh
+is     "remove still removes it" "$RC" 0
+git -C "$PR" branch -q p-old
+wt "$PR" create p-old
+is     "an existing branch records its start commit too" "$(git -C "$PR" config --get branch.p-old.harnessStart)" "$(git -C "$PR" rev-parse p-old)"
+
+# Never run git status in an external worktree, and take no optional index.lock anywhere.
+mkdir -p "$TMP/bin"; REALGIT="$(command -v git)"
+cat > "$TMP/bin/git" <<EOF
+#!/bin/sh
+printf '%s|%s\n' "\${GIT_OPTIONAL_LOCKS:-unset}" "\$*" >> "$TMP/git.log"
+if [ -n "\${CHANGE_ON:-}" ] && [ ! -e "$TMP/.changed" ]; then
+  case "\$*" in
+    *"\$CHANGE_ON"*--ignored=matching*)
+      : > "$TMP/.changed"; echo late > "\$CHANGE_ON/late.txt"
+      "$REALGIT" -C "\$CHANGE_ON" add late.txt && "$REALGIT" -C "\$CHANGE_ON" commit -qm "late work" ;;
+  esac
+fi
+exec "$REALGIT" "\$@"
+EOF
+chmod +x "$TMP/bin/git"
+git -C "$PR" worktree add -q -b p-ext "$TMP/p-ext"
+: > "$TMP/git.log"; ENVX=(PATH="$TMP/bin:$PATH"); wt "$PR" prune; wt "$PR" list; ENVX=()
+is     "prune and list run git in no external worktree" "$(grep -E -- '-C [^ ]*/p-ext ' "$TMP/git.log")" ""
+check  "the wrapper saw the script's git status calls" grep -q ' status ' "$TMP/git.log"
+is     "every git status runs with GIT_OPTIONAL_LOCKS=0" "$(grep ' status ' "$TMP/git.log" | grep -v '^0|')" ""
+
+# prune --yes re-reads the worktree list: a commit made after the dry-run pass keeps the worktree.
+P="$(mkwt "$PR" p-late)"; commit "$P" pl.txt "pl work"; git -C "$PR" merge -q --ff-only p-late
+ENVX=(PATH="$TMP/bin:$PATH" CHANGE_ON="$P"); wt "$PR" prune --yes; ENVX=()
+check  "the change was made between the two passes" test -e "$TMP/.changed"
+check  "a worktree that got an unmerged commit is kept" test -d "$P"
+says   "prune says it was not removed" "$ERR" "not removed p-late"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

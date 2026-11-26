@@ -43,7 +43,7 @@ or `AGENTS.md` change for it.
 | `create <slug> [--base <ref>] [--branch <name>]` | Adds the worktree and prints its path. A new branch starts from `--base`, else the default branch (`origin/HEAD`, then `main`, then `master`), with no upstream. An existing branch (local, or one remote has it) is checked out; `--base` with it exits 2. A branch that several remotes have exits 2 unless `checkout.defaultRemote` names one of them, as in git. A branch already checked out somewhere prints that path and changes nothing, so a re-run is safe. |
 | `list [--all]` | A tab-separated table: `kind slug branch state merged last_commit path`. `--all` adds `external` worktrees. |
 | `remove <slug> [--delete-branch] [--force]` | Removes one harness worktree after the safety checks below. |
-| `prune [--yes]` | Dry run by default: lists the harness worktrees that are clean, merged and hold no ignored files outside the junk list, plus the missing ones. `--yes` removes them. Never deletes a branch. |
+| `prune [--yes]` | Dry run by default: lists the harness worktrees that are clean, merged, have at least one commit since `create` and hold no ignored files outside the junk list, plus the missing ones. `--yes` re-reads the worktree list, checks each one again and removes it. Never deletes a branch. |
 
 stdout carries only the result (a path or a table); notes and refusals go to stderr. The script
 never fetches or pushes.
@@ -83,7 +83,9 @@ branch HEAD is on, `--base origin/main` records `refs/remotes/origin/main`, and 
 records nothing. A recorded base that no longer exists (a stacked branch whose base was merged and
 deleted) falls back to the default branch. A branch is **merged** when its tip is an ancestor of `<base>` or
 `origin/<base>`, or when `git cherry` finds every commit there by patch-id. That covers merge
-commits, rebase-merges and one-commit squashes. A squash of several commits reads `unmerged`. When the
+commits, rebase-merges and one-commit squashes. A squash of several commits reads `unmerged`. A branch
+with a merge commit of its own is merged only when its tip is an ancestor: `git cherry` skips merge
+commits, so a change made inside a merge (a conflict resolution) would otherwise be missed. When the
 script is unsure, the answer is "not merged".
 
 The check uses local refs only. A branch merged on the host still reads `unmerged` until you run
@@ -105,8 +107,17 @@ The check uses local refs only. A branch merged on the host still reads `unmerge
 `--delete-branch` deletes the branch only when it is merged by the rule above. An unmerged branch is
 never deleted, with or without `--force`: stderr says `kept branch <name> (unmerged)`.
 
+The checks read untracked and ignored files even when `status.showUntrackedFiles=no` is set, and a
+`git status` that fails stops `remove` instead of reading as "nothing there".
+
+`prune` also keeps a worktree whose branch has no commit since `create` (its tip is still
+`branch.<branch>.harnessStart`, recorded by `create`): another agent session may still be working
+there. `remove <slug>` removes it when you mean it.
+
 A missing worktree (directory deleted by hand) is removed by its own path. `prune` never runs a global
-`git worktree prune`, because that would also drop the records of `external` worktrees.
+`git worktree prune`, because that would also drop the records of `external` worktrees. The script
+reads an `external` worktree only for `list --all`, and runs every `git status` with
+`GIT_OPTIONAL_LOCKS=0`, so it never takes another session's `index.lock`.
 
 ### Junk list
 

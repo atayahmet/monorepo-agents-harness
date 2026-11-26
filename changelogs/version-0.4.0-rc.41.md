@@ -23,7 +23,8 @@ worktree root for every adapter and the `/monorepo-harness-worktree` command (is
 - `remove <slug> [--delete-branch] [--force]` refuses uncommitted work, ignored files outside the junk
   list (an `.env`) and unmerged commits unless you pass `--force`. `--delete-branch` deletes only a
   merged branch.
-- `prune [--yes]` is a dry run until `--yes` and never deletes a branch.
+- `prune [--yes]` is a dry run until `--yes` and never deletes a branch. It keeps a worktree with no
+  commit since `create`, since another session may still be using it.
 - After `create`, open a new agent session in the printed path and run the project's own install
   there: ignored files such as `node_modules` and `.env` are not copied.
 - `HARNESS_WORKTREE_ROOT` moves the root only for CI and containers where `$HOME` does not work. It

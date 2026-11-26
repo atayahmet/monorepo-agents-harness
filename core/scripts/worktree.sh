@@ -24,7 +24,9 @@
 # Exit codes: 0 done, 1 refused (reason printed), 2 bad call, 3 environment (not inside a git work
 # tree, HOME unset, root not writable, root inside the repository).
 set -uo pipefail
-export LC_ALL=C
+# GIT_OPTIONAL_LOCKS=0: `git status` never takes index.lock, so a scan cannot make a concurrent
+# git command in that worktree fail.
+export LC_ALL=C GIT_OPTIONAL_LOCKS=0
 
 # Ignored files that can be rebuilt, so `remove` may lose them (docs/worktrees.md, "Junk list"). An
 # entry matches the name of the ignored file or directory itself (`*`, `?`, `[` are globs), never a
@@ -180,14 +182,17 @@ base_of() {
 # `git cherry` finds every commit there by patch-id. Unsure means not merged (docs/worktrees.md,
 # "Merged rule").
 merged_state() {
-  local tip="$1" base="$2" c out
+  local tip="$1" base="$2" c out m
   MERGED=unknown; MERGE_CAND=""
   [ -n "$base" ] && [ -n "$tip" ] || return 0
   for c in "$base" "refs/remotes/origin/$base"; do
     git -C "$TOP" rev-parse --verify -q "$c^{commit}" >/dev/null 2>&1 || continue
     MERGED=unmerged; [ -n "$MERGE_CAND" ] || MERGE_CAND="$c"
     if git -C "$TOP" merge-base --is-ancestor "$tip" "$c" 2>/dev/null; then MERGED=merged; return 0; fi
-    if out="$(git -C "$TOP" cherry "$c" "$tip" 2>/dev/null)" \
+    # git cherry skips merge commits, so a merge with a change of its own would read merged: the
+    # patch-id rule applies only to a branch with no merge commit of its own.
+    m="$(git -C "$TOP" rev-list --merges "$c..$tip" 2>/dev/null)" || m=unreadable
+    if [ -z "$m" ] && out="$(git -C "$TOP" cherry "$c" "$tip" 2>/dev/null)" \
        && ! printf '%s\n' "$out" | grep -q '^+'; then
       MERGED=merged; return 0
     fi
@@ -206,7 +211,7 @@ row_of() {
   R_STATUS=""
   if [ ! -d "$R_PATH" ]; then
     R_STATE=missing
-  elif s="$(git -C "$R_PATH" status --porcelain 2>&1)"; then
+  elif s="$(git -C "$R_PATH" status --porcelain --untracked-files=normal 2>&1)"; then
     R_STATUS="$s"
     if [ -n "$s" ]; then R_STATE=dirty; else R_STATE=clean; fi
   else
@@ -251,12 +256,17 @@ is_junk() {
 }
 
 # nonjunk_ignored <dir> - the ignored files and directories outside the junk list, one per line.
+# --untracked-files=normal overrides status.showUntrackedFiles=no, which hides them (and makes
+# --ignored=matching fail). A failed git status is reported as a finding, never read as "none".
 nonjunk_ignored() {
   local e
   while IFS= read -r -d '' e; do
-    case "$e" in '!! '*) e="${e#!! }" ;; *) continue ;; esac
-    is_junk "$e" || printf '%s\n' "$e"
-  done < <(git -C "$1" status --porcelain -z --ignored=matching 2>/dev/null)
+    case "$e" in
+      '!! '*) e="${e#!! }"; is_junk "$e" || printf '%s\n' "$e" ;;
+      'rc '*) [ "$e" = 'rc 0' ] || printf '%s\n' "(cannot list the ignored files: git status failed)" ;;
+    esac
+  done < <(git -C "$1" status --porcelain -z --ignored=matching --untracked-files=normal 2>/dev/null
+           printf 'rc %s\0' "$?")
 }
 
 # assess <i> - row_of plus the removal findings:
@@ -279,6 +289,8 @@ assess() {
       A_UNM="cannot tell whether its commits are merged: no base resolves (branch.<b>.harnessBase, origin/HEAD, main, master)"
     else
       A_UNM="$(git -C "$TOP" cherry -v "$MERGE_CAND" "${WT_HEAD[i]}" 2>/dev/null | grep '^+')"
+      [ -n "$A_UNM" ] \
+        || A_UNM="$(git -C "$TOP" log --merges --format='+ %h %s' "$MERGE_CAND..${WT_HEAD[i]}" 2>/dev/null)"
       [ -n "$A_UNM" ] || A_UNM="commits not in ${MERGE_CAND#refs/remotes/}"
     fi
   fi
@@ -436,6 +448,10 @@ cmd_create() {
     fi
   fi
 
+  # The start commit: until the branch moves past it, prune keeps the worktree (it may be in use).
+  git -C "$TOP" config "branch.$branch.harnessStart" "$(git -C "$p" rev-parse HEAD 2>/dev/null)" \
+    || note "warning: could not record branch.$branch.harnessStart; prune may list this worktree before its first commit"
+
   # 6. The bundle travels with git only.
   [ -d "$p/.agents/monorepo-agents-harness" ] \
     || note "warning: $p has no .agents/monorepo-agents-harness/ (the bundle is not tracked in git), so hooks and /monorepo-harness-* commands cannot run in this worktree until the bundle is committed or installed there"
@@ -454,8 +470,8 @@ cmd_list() {
   load_repo; resolve_root
   print_header
   while [ "$i" -lt "$WT_N" ]; do
-    row_of "$i"
-    if [ "$R_KIND" = harness ] || [ "$all" = 1 ]; then print_row; fi
+    # An external worktree is read only with --all.
+    if [ "$all" = 1 ] || [ "${WT_PHYS[i]%/*}" = "$BASE_DIR" ]; then row_of "$i"; print_row; fi
     i=$((i+1))
   done
 }
@@ -508,8 +524,29 @@ cmd_remove() {
   fi
 }
 
+# prune_why <i> - assess, then WHY: the reason prune keeps worktree i, or empty for a candidate.
+# Beyond remove's checks, prune keeps a worktree whose branch has no commit since create: it may
+# still be in use by another session (an explicit remove still removes it).
+prune_why() {
+  local i="$1" start
+  assess "$i"
+  WHY="$A_HARD"
+  [ -n "$WHY" ] || [ -z "$A_DIRTY" ] || WHY="uncommitted changes"
+  [ -n "$WHY" ] || [ -z "$A_IGN" ]   || WHY="ignored files outside the junk list: $(printf '%s' "$A_IGN" | tr '\n' ' ')"
+  if [ -z "$WHY" ] && [ -n "$A_UNM" ]; then
+    if [ "$R_MERGED" = unknown ]; then WHY="cannot tell whether it is merged (no base resolves)"
+    else WHY="commits not merged into the base"; fi
+  fi
+  if [ -z "$WHY" ] && [ "$R_STATE" != missing ] && [ -n "${WT_BRANCH[i]}" ]; then
+    start="$(git -C "$TOP" config --get "branch.${WT_BRANCH[i]}.harnessStart" 2>/dev/null)"
+    [ -n "$start" ] && [ "$start" = "${WT_HEAD[i]}" ] \
+      && WHY="no commit since create, so it may still be in use ('worktree.sh remove $R_SLUG' removes it)"
+  fi
+  return 0
+}
+
 cmd_prune() {
-  local yes=0 i=1 n=0 failed=0 why
+  local yes=0 i=1 n=0 failed=0 slug j
   local -a cand
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -520,33 +557,31 @@ cmd_prune() {
   load_repo; resolve_root; load_junk
   print_header
   while [ "$i" -lt "$WT_N" ]; do
-    assess "$i"
-    if [ "$R_KIND" = harness ]; then
-      why="$A_HARD"
-      [ -n "$why" ] || [ -z "$A_DIRTY" ] || why="uncommitted changes"
-      [ -n "$why" ] || [ -z "$A_IGN" ]   || why="ignored files outside the junk list: $(printf '%s' "$A_IGN" | tr '\n' ' ')"
-      if [ -z "$why" ] && [ -n "$A_UNM" ]; then
-        if [ "$R_MERGED" = unknown ]; then why="cannot tell whether it is merged (no base resolves)"
-        else why="commits not merged into the base"; fi
-      fi
-      if [ -n "$why" ]; then note "kept $R_SLUG: $why"
-      else print_row; cand[n]="$i"; n=$((n+1)); fi
+    # Only harness worktrees: an external one is never read.
+    if [ "${WT_PHYS[i]%/*}" = "$BASE_DIR" ]; then
+      prune_why "$i"
+      if [ -n "$WHY" ]; then note "kept $R_SLUG: $WHY"
+      else print_row; cand[n]="${WT_PHYS[i]##*/}"; n=$((n+1)); fi
     fi
     i=$((i+1))
   done
   [ "$yes" = 1 ] || return 0
+  # Re-read the worktree list and re-check each candidate right before removing it: a lock, a
+  # commit or a new file since the first pass keeps it. Nothing skips here (no --force, no branch
+  # delete).
+  load_worktrees
   i=0
   while [ "$i" -lt "$n" ]; do
-    # Re-check right before removing: nothing skips here (no --force, no branch delete).
-    assess "${cand[i]}"
-    if [ -n "$A_HARD$A_DIRTY$A_IGN$A_UNM" ]; then
-      note "not removed $R_SLUG: it changed since the check"; failed=1
+    slug="${cand[i]}"; i=$((i+1))
+    j="$(harness_index "$slug")" || { note "$slug is already gone"; continue; }
+    prune_why "$j"
+    if [ -n "$WHY" ]; then
+      note "not removed $slug: $WHY"; failed=1
     elif drop "$R_PATH"; then
       note "removed $R_PATH"
     else
       failed=1
     fi
-    i=$((i+1))
   done
   [ "$failed" = 0 ] || exit 1
 }

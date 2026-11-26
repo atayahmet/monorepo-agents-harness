@@ -54,7 +54,8 @@ mode="$(git -C "$REPO" ls-files -s -- core/scripts/worktree.sh | cut -d' ' -f1)"
 d="$(cat "$DOC" 2>/dev/null)"
 for w in "~/.harness-worktrees" "HARNESS_WORKTREE_ROOT" "<repo-id>" "worktree-junk.txt" "harnessBase" \
          "## After \`create\`" "not copied" "pnpm install" ".env" "--add-dir" "Why not inside the repository" \
-         "/monorepo-harness-worktree" "checkout.defaultRemote"; do
+         "/monorepo-harness-worktree" "checkout.defaultRemote" "harnessStart" "showUntrackedFiles" \
+         "GIT_OPTIONAL_LOCKS" "merge commit of its own"; do
   says "docs/worktrees.md mentions: $w" "$d" "$w"
 done
 
