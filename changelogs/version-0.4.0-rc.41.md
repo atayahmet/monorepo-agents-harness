@@ -17,7 +17,7 @@ worktree root for every adapter and the `/monorepo-harness-worktree` command (is
   shared git directory, so every worktree of a repo gets the same id.
 - `create <slug> [--base <ref>] [--branch <name>]` makes a new branch from the default branch (or
   `--base`) with no upstream, or checks out an existing branch. A re-run prints the existing path and
-  changes nothing.
+  changes nothing. A branch that several remotes have needs `checkout.defaultRemote`, as in git.
 - `list [--all]` shows kind, slug, branch, state (`clean`/`dirty`/`missing`), merged, last commit and
   path. `--all` adds worktrees an agent tool made itself (`external`); the harness never touches those.
 - `remove <slug> [--delete-branch] [--force]` refuses uncommitted work, ignored files outside the junk
@@ -47,7 +47,8 @@ Nothing changes until you run the command: no `.gitignore`, settings or `AGENTS.
   `codex --add-dir "$(git rev-parse --git-common-dir)"` or an approved escalation. Review the harness
   hooks once in the main checkout ("Trust all"); after that they run in every worktree.
 - Optional: list project-specific rebuildable output (for example `.terraform`) in
-  `.agents/worktree-junk.txt`, so `remove` does not stop on it.
+  `.agents/worktree-junk.txt`, so `remove` does not stop on it. An entry matches the ignored file or
+  folder's own name, never a folder above it.
 
 Details for all three: `.agents/monorepo-agents-harness/docs/worktrees.md`.
 

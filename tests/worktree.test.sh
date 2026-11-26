@@ -280,14 +280,18 @@ git -C "$M" merge -q --squash m-squash1 >/dev/null && git -C "$M" commit -qm "sq
 P="$(mkwt "$M" m-squash2)"; commit "$P" sq2a.txt "squash two a"; commit "$P" sq2b.txt "squash two b"
 git -C "$M" merge -q --squash m-squash2 >/dev/null && git -C "$M" commit -qm "squash m-squash2"
 P="$(mkwt "$M" m-open)"; commit "$P" open.txt "open work"
-mkwt "$M" m-gone >/dev/null; git -C "$M" config branch.m-gone.harnessBase gone-branch
+P="$(mkwt "$M" m-gone)"; commit "$P" gone.txt "gone work"
+git -C "$M" merge -q --no-ff -m "merge m-gone" m-gone; git -C "$M" config branch.m-gone.harnessBase gone-branch
 wt "$M" list
 is "a merge commit reads merged" "$(field "$(row m-merge)" 5)" merged
 is "a rebase-merge reads merged" "$(field "$(row m-rebase)" 5)" merged
 is "a one-commit squash reads merged" "$(field "$(row m-squash1)" 5)" merged
 is "a squash of several commits reads unmerged" "$(field "$(row m-squash2)" 5)" unmerged
 is "an open branch reads unmerged" "$(field "$(row m-open)" 5)" unmerged
-is "a base that does not resolve reads unknown" "$(field "$(row m-gone)" 5)" unknown
+is "a recorded base that no longer resolves falls back to the default branch" "$(field "$(row m-gone)" 5)" merged
+mkwt "$R5" u-gone --base trunk >/dev/null; git -C "$R5" config branch.u-gone.harnessBase gone-branch
+wt "$R5" list
+is "no base resolves at all: unknown" "$(field "$(row u-gone)" 5)" unknown
 P="$(mkwt "$R3" feat-o)"; commit "$P" o.txt "merged upstream"
 git -C "$R3" push -q origin feat-o:main 2>/dev/null
 wt "$R3" list
@@ -415,6 +419,85 @@ done
 check "prune leaves the record of a missing external worktree" listed "$PR" "$TMPP/p-extmiss"
 wt "$PR" prune
 is   "after prune --yes the dry run has no candidates" "$OUT" "$HEADER"
+
+echo "Review round 1 (PR #86)"
+# A junk entry matches the ignored entry's own name, never a folder above it.
+J="$TMP/j/proj"; new_repo "$J"
+printf '*.p12\nnode_modules/\ndist/\n' > "$J/.gitignore"; commit "$J" build/README "tracked build dir"
+P="$(mkwt "$J" j-cert)"; put "$P" build/signing.p12
+wt "$J" remove j-cert
+is     "an ignored key in a tracked junk-named folder is refused" "$RC" 1
+says   "the refusal names the key" "$ERR" "build/signing.p12"
+check  "the worktree with the key stays" test -f "$P/build/signing.p12"
+wt "$J" prune
+is     "prune does not list it" "$(row j-cert)" ""
+says   "prune says why it is kept" "$ERR" "kept j-cert:"
+P="$(mkwt "$J" j-nested)"; put "$P" packages/a/node_modules/x/index.js; put "$P" packages/a/dist/out.js
+wt "$J" remove j-nested
+is     "nested junk folders are still junk" "$RC" 0
+
+# A branch that several remotes have is ambiguous, as in git's own DWIM.
+UP="$TMP/upstream.git"; git init -q --bare -b main "$UP"
+git -C "$SEED" push -q "$UP" main 2>/dev/null
+git -C "$SEED" checkout -q -b up-work remote-only && commit "$SEED" u.txt "upstream work"
+git -C "$SEED" push -q "$UP" up-work:remote-only 2>/dev/null
+R6="$TMP/g/proj"; git clone -q "$ORIGIN" "$R6" 2>/dev/null
+git -C "$R6" remote add upstream "$UP"; git -C "$R6" fetch -q upstream 2>/dev/null
+wt "$R6" create remote-only
+is     "a branch on two remotes is a bad call" "$RC" 2
+says   "the error names the remotes" "$ERR" "upstream"
+checkn "a branch on two remotes creates no local branch" has_branch "$R6" remote-only
+check  "a branch on two remotes creates no directory" test ! -e "$ROOTP/$(repo_id "$R6")/remote-only"
+wt "$R6" create remote-only --base main
+is     "--base with a branch on two remotes is a bad call" "$RC" 2
+checkn "and creates no local branch" has_branch "$R6" remote-only
+git -C "$R6" config checkout.defaultRemote upstream
+wt "$R6" create remote-only
+is     "checkout.defaultRemote picks the remote: exits 0" "$RC" 0
+is     "it checks out that remote's tip" "$(git -C "$OUT" rev-parse HEAD)" "$(git -C "$R6" rev-parse upstream/remote-only)"
+
+# A target path git still has registered, with its directory gone.
+P="$(mkwt "$R1" q-gone)"; rm -rf "$P"
+wt "$R1" create q-gone --branch q-other
+is     "a target path registered to a missing worktree is refused" "$RC" 1
+says   "the refusal points at remove or prune" "$ERR" "prune"
+checkn "it creates no branch" has_branch "$R1" q-other
+
+# A failed checkout leaves no branch behind.
+F="$TMP/h/proj"; new_repo "$F"
+printf '* filter=boom\n' > "$F/.gitattributes"; git -C "$F" add -A && git -C "$F" commit -qm attrs
+git -C "$F" config filter.boom.smudge false; git -C "$F" config filter.boom.required true
+wt "$F" create f-fail
+is     "a failed checkout is refused" "$RC" 1
+says   "the failure names the base" "$ERR" "from main"
+checkn "a failed checkout leaves no branch behind" has_branch "$F" f-fail
+check  "a failed checkout leaves no directory" test ! -e "$ROOTP/$(repo_id "$F")/f-fail"
+
+# --base is recorded as a branch name, never as text relative to the caller's HEAD.
+wt "$R1" create rel-head --base HEAD
+is     "--base HEAD records the branch HEAD is on" "$(git -C "$R1" config --get branch.rel-head.harnessBase)" main
+wt "$R1" create rel-sha --base "$(git -C "$R1" rev-parse main)"
+is     "--base <commit>: exits 0" "$RC" 0
+checkn "--base <commit> records no harnessBase" git -C "$R1" config --get branch.rel-sha.harnessBase
+says   "it says the default branch is used" "$ERR" "default branch"
+wt "$R3" create rel-remote --base origin/main
+is     "--base <remote>/<branch> records the full remote ref" "$(git -C "$R3" config --get branch.rel-remote.harnessBase)" refs/remotes/origin/main
+P="$(mkwt "$R1" rel-cwd --base HEAD)"; commit "$P" rc.txt "rel work"
+wt "$P" list; a="$(field "$(row rel-cwd)" 5)"
+wt "$R1" list; b="$(field "$(row rel-cwd)" 5)"
+is     "the merged column is the same from the worktree and the main checkout" "$a" "$b"
+is     "and it reads unmerged" "$b" unmerged
+
+# A branch checked out in a missing external worktree: prune cannot help.
+git -C "$R1" worktree add -q -b ext-gone "$TMP/ext-gone"; rm -rf "$TMP/ext-gone"
+wt "$R1" create eg --branch ext-gone
+is     "a branch in a missing external worktree is refused" "$RC" 1
+says   "the hint names git worktree remove" "$ERR" "git worktree remove"
+saysn  "the hint does not point at worktree.sh prune" "$ERR" "worktree.sh prune"
+
+wt "$R1" create empty-b --branch ""
+is     "--branch with an empty value is a bad call" "$RC" 2
+checkn "and creates no branch" has_branch "$R1" empty-b
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

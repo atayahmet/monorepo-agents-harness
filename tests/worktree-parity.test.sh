@@ -45,13 +45,16 @@ says "opencode manifest row" "$(cat "$REPO/adapters/opencode/manifest.txt")" "co
 says "codex manifest row" "$(cat "$REPO/adapters/codex/manifest.txt")" "copy  .agents/skills/monorepo-harness-worktree/SKILL.md"
 says "bundle row: core/scripts/worktree.sh" "$(cat "$REPO/core/install-manifest.txt")" "core/scripts/worktree.sh"
 [ -x "$SCRIPT" ] && ok "worktree.sh is executable" || bad "worktree.sh is executable" "mode lacks +x"
+# The task ADRs live under the git-ignored .agents/artifacts/: they never ship, so the installed
+# script points at docs/worktrees.md instead (PR #86 review).
+saysn "worktree.sh cites no ADR (ADRs do not ship)" "$(cat "$SCRIPT")" "ADR 0"
 mode="$(git -C "$REPO" ls-files -s -- core/scripts/worktree.sh | cut -d' ' -f1)"
 [ "$mode" = "100755" ] && ok "worktree.sh is executable in git" || bad "worktree.sh is executable in git" "index mode is '$mode'"
 
 d="$(cat "$DOC" 2>/dev/null)"
 for w in "~/.harness-worktrees" "HARNESS_WORKTREE_ROOT" "<repo-id>" "worktree-junk.txt" "harnessBase" \
          "## After \`create\`" "not copied" "pnpm install" ".env" "--add-dir" "Why not inside the repository" \
-         "/monorepo-harness-worktree"; do
+         "/monorepo-harness-worktree" "checkout.defaultRemote"; do
   says "docs/worktrees.md mentions: $w" "$d" "$w"
 done
 

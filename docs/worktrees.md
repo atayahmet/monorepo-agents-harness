@@ -40,7 +40,7 @@ or `AGENTS.md` change for it.
 | Subcommand | What it does |
 | --- | --- |
 | `path <slug>` | Prints the path. Writes nothing. |
-| `create <slug> [--base <ref>] [--branch <name>]` | Adds the worktree and prints its path. A new branch starts from `--base`, else the default branch (`origin/HEAD`, then `main`, then `master`), with no upstream. An existing branch (local, or one remote has it) is checked out; `--base` with it exits 2. A branch already checked out somewhere prints that path and changes nothing, so a re-run is safe. |
+| `create <slug> [--base <ref>] [--branch <name>]` | Adds the worktree and prints its path. A new branch starts from `--base`, else the default branch (`origin/HEAD`, then `main`, then `master`), with no upstream. An existing branch (local, or one remote has it) is checked out; `--base` with it exits 2. A branch that several remotes have exits 2 unless `checkout.defaultRemote` names one of them, as in git. A branch already checked out somewhere prints that path and changes nothing, so a re-run is safe. |
 | `list [--all]` | A tab-separated table: `kind slug branch state merged last_commit path`. `--all` adds `external` worktrees. |
 | `remove <slug> [--delete-branch] [--force]` | Removes one harness worktree after the safety checks below. |
 | `prune [--yes]` | Dry run by default: lists the harness worktrees that are clean, merged and hold no ignored files outside the junk list, plus the missing ones. `--yes` removes them. Never deletes a branch. |
@@ -52,7 +52,7 @@ never fetches or pushes.
 | --- | --- |
 | 0 | Done (or nothing to do). |
 | 1 | Refused: the script read the state and said no. The reason is printed. |
-| 2 | Bad call: unknown subcommand or option, invalid slug or branch, `--base` with an existing branch. |
+| 2 | Bad call: unknown subcommand or option, invalid slug or branch, `--base` with an existing branch, a branch that several remotes have. |
 | 3 | Environment: not inside a git work tree, `HOME` unset, root not writable, root inside the repository. Fix the setup; `--force` never helps here. |
 
 `list` columns:
@@ -78,7 +78,10 @@ dependency and build output count as junk and go with it, but an `.env` stops `r
 ## Merged rule
 
 The base is `branch.<branch>.harnessBase` (recorded by `create`; git deletes it with the branch),
-else the default branch. A branch is **merged** when its tip is an ancestor of `<base>` or
+else the default branch. `create` records the branch the base names: `--base HEAD` records the
+branch HEAD is on, `--base origin/main` records `refs/remotes/origin/main`, and a tag or a commit
+records nothing. A recorded base that no longer exists (a stacked branch whose base was merged and
+deleted) falls back to the default branch. A branch is **merged** when its tip is an ancestor of `<base>` or
 `origin/<base>`, or when `git cherry` finds every commit there by patch-id. That covers merge
 commits, rebase-merges and one-commit squashes. A squash of several commits reads `unmerged`. When the
 script is unsure, the answer is "not merged".
@@ -113,10 +116,13 @@ Ignored files that can be rebuilt, so `remove` may lose them:
 coverage .nyc_output target __pycache__ .pytest_cache .mypy_cache .ruff_cache .venv .gradle
 .eslintcache .DS_Store *.tsbuildinfo *.pyc *.log .index.sqlite*`
 
-A plain name matches any path component; an entry with `*`, `?` or `[` matches the file name.
-`.index.sqlite*` is the harness's own knowledge-base cache. A project adds entries in
-`.agents/worktree-junk.txt` (one per line, `#` comments, read from the checkout you run the script
-in). The file can only add entries, and the harness never writes it.
+An entry matches the name of the ignored file or folder itself; `*`, `?` and `[` work as globs. A
+folder above it never counts: an ignored `build/signing.p12` inside a tracked `build/` folder stops
+`remove`. When `.gitignore` ignores only the files inside a folder (`dist/*`), git reports each file,
+so ignore the folder itself (`dist/`) to make it junk. `.index.sqlite*` is the harness's own
+knowledge-base cache. A project adds entries in `.agents/worktree-junk.txt` (one name or glob per
+line, `#` comments, read from the checkout you run the script in). The file can only add entries,
+and the harness never writes it.
 
 ```
 # .agents/worktree-junk.txt

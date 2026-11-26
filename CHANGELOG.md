@@ -28,7 +28,7 @@ Release procedure (harness maintainers):
   collide.
   - `create <slug> [--base <ref>] [--branch <name>]`: a new branch from the default branch (or
     `--base`) with no upstream, or an existing branch. A re-run prints the existing path and changes
-    nothing.
+    nothing. A branch that several remotes have needs `checkout.defaultRemote`, as in git.
   - `list [--all]`: kind, slug, branch, state (`clean`/`dirty`/`missing`), merged, last commit,
     path. `--all` adds the worktrees an agent tool made itself (`external`); the harness never
     touches those.
@@ -46,7 +46,8 @@ Release procedure (harness maintainers):
 - `HARNESS_WORKTREE_ROOT` moves the root for CI and containers where `$HOME` does not work. It must be
   an absolute path outside the repository.
 - `.agents/worktree-junk.txt` (optional, project-owned) adds names to the list of ignored files
-  `remove` may delete.
+  `remove` may delete. An entry matches the ignored file or folder's own name, never a folder above
+  it, so an ignored key inside a tracked `build/` folder still stops `remove`.
 
 ### Upgrade Notes
 
