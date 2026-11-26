@@ -17,12 +17,13 @@ worktree root for every adapter and the `/monorepo-harness-worktree` command (is
   shared git directory, so every worktree of a repo gets the same id.
 - `create <slug> [--base <ref>] [--branch <name>]` makes a new branch from the default branch (or
   `--base`) with no upstream, or checks out an existing branch. A re-run prints the existing path and
-  changes nothing. A branch that several remotes have needs `checkout.defaultRemote`, as in git.
+  changes nothing; a branch checked out in the main checkout or another tool's worktree exits 1. A
+  branch that several remotes have needs `checkout.defaultRemote`, as in git.
 - `list [--all]` shows kind, slug, branch, state (`clean`/`dirty`/`missing`), merged, last commit and
   path. `--all` adds worktrees an agent tool made itself (`external`); the harness never touches those.
 - `remove <slug> [--delete-branch] [--force]` refuses uncommitted work, ignored files outside the junk
-  list (an `.env`) and unmerged commits unless you pass `--force`. `--delete-branch` deletes only a
-  merged branch.
+  list (an `.env`), unmerged commits and a rebase, merge or bisect in progress unless you pass
+  `--force`. `--delete-branch` deletes only a merged branch, and never the default branch.
 - `prune [--yes]` is a dry run until `--yes` and never deletes a branch. It keeps a worktree with no
   commit since `create`, since another session may still be using it.
 - After `create`, open a new agent session in the printed path and run the project's own install

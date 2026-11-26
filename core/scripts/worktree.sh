@@ -164,28 +164,47 @@ default_branch() {
   return 1
 }
 
-# base_of <branch> - branch.<b>.harnessBase while it (or origin/<it>) resolves, else the default
-# branch. A stacked branch whose base was merged and deleted falls back to the default branch.
-base_of() {
-  local v=""
-  [ -n "$1" ] && v="$(git -C "$TOP" config --get "branch.$1.harnessBase" 2>/dev/null)"
-  if [ -n "$v" ] && { git -C "$TOP" rev-parse --verify -q "$v^{commit}" >/dev/null 2>&1 \
-       || git -C "$TOP" rev-parse --verify -q "refs/remotes/origin/$v^{commit}" >/dev/null 2>&1; }; then
-    printf '%s' "$v"
-  else
-    default_branch
-  fi
+# base_refs <base> - BASE_REFS: the refs a base stands for, best first. A full ref is itself; a bare
+# branch name is the local branch, then origin's. Never the short name itself: git resolves a
+# same-name tag before the branch.
+base_refs() {
+  case "$1" in
+    refs/*) BASE_REFS=("$1") ;;
+    *)      BASE_REFS=("refs/heads/$1" "refs/remotes/origin/$1") ;;
+  esac
 }
 
-# merged_state <tip> <base> - sets MERGED (merged | unmerged | unknown) and MERGE_CAND (the first
-# base candidate that exists). Merged = the tip is an ancestor of <base> or origin/<base>, or
-# `git cherry` finds every commit there by patch-id. Unsure means not merged (docs/worktrees.md,
-# "Merged rule").
+# base_of <branch> - branch.<b>.harnessBase while one of its refs resolves, else the default branch.
+# A stacked branch whose base was merged and deleted falls back to the default branch.
+base_of() {
+  local v="" c
+  [ -n "$1" ] && v="$(git -C "$TOP" config --get "branch.$1.harnessBase" 2>/dev/null)"
+  if [ -n "$v" ]; then
+    base_refs "$v"
+    for c in "${BASE_REFS[@]}"; do
+      git -C "$TOP" rev-parse --verify -q "$c^{commit}" >/dev/null 2>&1 && { printf '%s' "$v"; return 0; }
+    done
+  fi
+  default_branch
+}
+
+# short_ref <ref> - a ref for messages: refs/heads/ and refs/remotes/ dropped.
+short_ref() { local r="${1#refs/heads/}"; printf '%s' "${r#refs/remotes/}"; }
+
+# merged_state <tip> <base> [<branch>] - sets MERGED (merged | unmerged | unknown), MERGE_CAND (the
+# first base ref that exists) and MERGE_NOTE (why it is unknown). Merged = the tip is an ancestor of
+# the base's local or origin branch, or `git cherry` finds every commit there by patch-id. A branch
+# is never measured against itself (`create --branch main`: the base is main too). Unsure means not
+# merged (docs/worktrees.md, "Merged rule").
 merged_state() {
-  local tip="$1" base="$2" c out m
-  MERGED=unknown; MERGE_CAND=""
+  local tip="$1" base="$2" branch="${3:-}" c out m
+  MERGED=unknown; MERGE_CAND=""; MERGE_NOTE=""
   [ -n "$base" ] && [ -n "$tip" ] || return 0
-  for c in "$base" "refs/remotes/origin/$base"; do
+  base_refs "$base"
+  for c in "${BASE_REFS[@]}"; do
+    if [ -n "$branch" ] && [ "$c" = "refs/heads/$branch" ]; then
+      MERGE_NOTE="the branch is its own base (branch.<b>.harnessBase or the default branch)"; return 0
+    fi
     git -C "$TOP" rev-parse --verify -q "$c^{commit}" >/dev/null 2>&1 || continue
     MERGED=unmerged; [ -n "$MERGE_CAND" ] || MERGE_CAND="$c"
     if git -C "$TOP" merge-base --is-ancestor "$tip" "$c" 2>/dev/null; then MERGED=merged; return 0; fi
@@ -217,7 +236,7 @@ row_of() {
   else
     R_STATUS="cannot read git status: $s"; R_STATE=dirty
   fi
-  merged_state "${WT_HEAD[i]}" "$(base_of "${WT_BRANCH[i]}")"
+  merged_state "${WT_HEAD[i]}" "$(base_of "${WT_BRANCH[i]}")" "${WT_BRANCH[i]}"
   R_MERGED="$MERGED"
   R_DATE="$(git -C "$TOP" log -1 --format=%cd --date=short "${WT_HEAD[i]}" 2>/dev/null)"
   R_DATE="${R_DATE:--}"
@@ -276,24 +295,51 @@ nonjunk_ignored() {
 #   A_UNM   the commits not in the base (or why that is unknown); empty when merged. A missing
 #           worktree on a branch loses no commit (the branch stays), so it is only checked when
 #           detached.
+#   A_OP    a git operation stopped in it (rebase, merge, cherry-pick, revert, bisect), or empty
 assess() {
   local i="$1" cwd
   row_of "$i"
-  A_HARD=""; A_DIRTY="$R_STATUS"; A_IGN=""; A_UNM=""
+  A_HARD=""; A_DIRTY="$R_STATUS"; A_IGN=""; A_UNM=""; A_OP=""
   cwd="$(pwd -P)"
   case "$cwd/" in "$R_PATH"/*) A_HARD="the current directory is inside it: run this from another checkout" ;; esac
   [ "${WT_LOCKED[i]}" = 1 ] && A_HARD="it is locked (unlocking it with 'git worktree unlock' is your call)"
-  [ "$R_STATE" = missing ] || A_IGN="$(nonjunk_ignored "$R_PATH")"
+  if [ "$R_STATE" != missing ]; then
+    A_IGN="$(nonjunk_ignored "$R_PATH")"
+    A_OP="$(op_in_progress "$R_PATH")"
+  fi
   if [ "$R_MERGED" != merged ] && { [ "$R_STATE" != missing ] || [ -z "${WT_BRANCH[i]}" ]; }; then
     if [ "$R_MERGED" = unknown ]; then
-      A_UNM="cannot tell whether its commits are merged: no base resolves (branch.<b>.harnessBase, origin/HEAD, main, master)"
+      A_UNM="cannot tell whether its commits are merged: ${MERGE_NOTE:-no base resolves (branch.<b>.harnessBase, origin/HEAD, main, master)}"
     else
       A_UNM="$(git -C "$TOP" cherry -v "$MERGE_CAND" "${WT_HEAD[i]}" 2>/dev/null | grep '^+')"
       [ -n "$A_UNM" ] \
         || A_UNM="$(git -C "$TOP" log --merges --format='+ %h %s' "$MERGE_CAND..${WT_HEAD[i]}" 2>/dev/null)"
-      [ -n "$A_UNM" ] || A_UNM="commits not in ${MERGE_CAND#refs/remotes/}"
+      [ -n "$A_UNM" ] || A_UNM="commits not in $(short_ref "$MERGE_CAND")"
     fi
   fi
+}
+
+# op_in_progress <dir> - the git operation stopped in a worktree ("a rebase", "a merge", ...), or
+# nothing. A rebase stopped at `break` or a bisect leaves the tree clean (the rebase also detached),
+# so only the state files in the worktree's git dir show that someone is in the middle of it.
+op_in_progress() {
+  local out f
+  out="$(git -C "$1" rev-parse --git-path rebase-merge --git-path rebase-apply --git-path MERGE_HEAD \
+         --git-path CHERRY_PICK_HEAD --git-path REVERT_HEAD --git-path BISECT_LOG 2>/dev/null)" || return 0
+  while IFS= read -r f; do
+    case "$f" in /*) ;; *) f="$1/$f" ;; esac
+    [ -e "$f" ] || continue
+    case "${f##*/}" in
+      rebase-merge|rebase-apply) printf 'a rebase' ;;
+      MERGE_HEAD)       printf 'a merge' ;;
+      CHERRY_PICK_HEAD) printf 'a cherry-pick' ;;
+      REVERT_HEAD)      printf 'a revert' ;;
+      BISECT_LOG)       printf 'a bisect' ;;
+    esac
+    return 0
+  done <<EOF
+$out
+EOF
 }
 
 # checked_out <branch> - the index of the worktree that has <branch> checked out, or nothing.
@@ -340,8 +386,21 @@ cmd_path() {
   printf '%s\n' "$BASE_DIR/$1"
 }
 
+# add_new_branch <git worktree add args> - a `git worktree add` that creates $branch (the caller's).
+# git creates the branch before the checkout, so a failed add can leave it behind; it did not exist
+# before this call, so it is deleted again unless a worktree has it checked out.
+add_new_branch() {
+  git -C "$TOP" worktree add "$@" >&2 && return 0
+  load_worktrees
+  if git -C "$TOP" rev-parse --verify -q "refs/heads/$branch" >/dev/null 2>&1 \
+     && ! checked_out "$branch" >/dev/null; then
+    git -C "$TOP" branch -D "$branch" >/dev/null 2>&1 && note "deleted the new branch $branch again"
+  fi
+  return 1
+}
+
 cmd_create() {
-  local slug="" have=0 base="" branch="" p i r remotes="" existing=0 base_ref="" base_name="" full dr
+  local slug="" have=0 base="" branch="" p i r remotes="" remote="" mode=new base_ref="" base_name="" full dr
   while [ $# -gt 0 ]; do
     case "$1" in
       --base)   [ $# -ge 2 ] && [ -n "$2" ] || die 2 "--base needs a <ref>"; base="$2"; shift 2 ;;
@@ -358,17 +417,22 @@ cmd_create() {
   load_repo; resolve_root
   p="$BASE_DIR/$slug"
 
-  # 1. The branch is checked out already: print that path and change nothing.
+  # 1. The branch is checked out already. In a harness worktree, a re-run: print that path and change
+  #    nothing. Anywhere else (the main checkout, an external worktree) refuse: git checks a branch
+  #    out in one place only, and printing that path would send the developer where they already are.
   if i="$(checked_out "$branch")"; then
-    if [ ! -d "${WT_PHYS[i]}" ]; then
-      if [ "${WT_PHYS[i]%/*}" = "$BASE_DIR" ]; then
-        die 1 "branch $branch is checked out at ${WT_PHYS[i]}, which no longer exists: run 'worktree.sh remove ${WT_PHYS[i]##*/}' or 'worktree.sh prune' first"
-      fi
-      die 1 "branch $branch is checked out at ${WT_PHYS[i]}, which no longer exists and is not a harness worktree: drop its record with 'git worktree remove ${WT_PHYS[i]}' first"
+    if [ "${WT_PHYS[i]%/*}" = "$BASE_DIR" ]; then
+      [ -d "${WT_PHYS[i]}" ] \
+        || die 1 "branch $branch is checked out at ${WT_PHYS[i]}, which no longer exists: run 'worktree.sh remove ${WT_PHYS[i]##*/}' or 'worktree.sh prune' first"
+      note "branch $branch is already checked out at ${WT_PHYS[i]}; nothing created${base:+ (--base $base not used)}"
+      printf '%s\n' "${WT_PHYS[i]}"
+      return 0
     fi
-    note "branch $branch is already checked out at ${WT_PHYS[i]}; nothing created${base:+ (--base $base not used)}"
-    printf '%s\n' "${WT_PHYS[i]}"
-    return 0
+    [ -d "${WT_PHYS[i]}" ] \
+      || die 1 "branch $branch is checked out at ${WT_PHYS[i]}, which no longer exists and is not a harness worktree: drop its record with 'git worktree remove ${WT_PHYS[i]}' first"
+    if [ "$i" = 0 ]; then r="the main checkout at ${WT_PHYS[i]}"
+    else r="the worktree at ${WT_PHYS[i]}, which the harness did not create"; fi
+    die 1 "branch $branch is checked out in $r, and git checks a branch out in one place only: work there, switch that checkout to another branch, or pass --branch <new-name>"
   fi
   # 2. Something else is at the target path, or git still has a record for it.
   i=0
@@ -378,13 +442,15 @@ cmd_create() {
   fi
   if [ -e "$p" ] || [ -L "$p" ]; then die 1 "$p exists and is not the worktree of branch $branch"; fi
 
-  # An existing branch: local, or one remote has it (git's own DWIM: exactly one remote, or the one
-  # checkout.defaultRemote names). Several remotes without that setting is ambiguous, as in git.
-  if git -C "$TOP" rev-parse --verify -q "refs/heads/$branch" >/dev/null 2>&1; then
-    existing=1
+  # An existing branch: local, or one remote has it (as git decides: exactly one remote, or the one
+  # checkout.defaultRemote names). Several remotes without that setting is ambiguous, as in git. The
+  # remote branch is then checked out by its full ref, never by the short name, which a same-name
+  # tag or an abbreviated sha would win.
+  if git -C "$TOP" show-ref --verify -q "refs/heads/$branch"; then
+    mode=local
   else
     for r in $(git -C "$TOP" remote 2>/dev/null); do
-      git -C "$TOP" rev-parse --verify -q "refs/remotes/$r/$branch" >/dev/null 2>&1 && remotes="$remotes $r"
+      git -C "$TOP" show-ref --verify -q "refs/remotes/$r/$branch" && remotes="$remotes $r"
     done
     remotes="${remotes# }"
     case "$remotes" in
@@ -392,25 +458,33 @@ cmd_create() {
       *" "*)
         dr="$(git -C "$TOP" config --get checkout.defaultRemote 2>/dev/null)"
         case " $remotes " in
-          *" $dr "*) [ -n "$dr" ] && existing=1 ;;
+          *" $dr "*) [ -n "$dr" ] && remote="$dr" ;;
         esac
-        [ "$existing" = 1 ] \
+        [ -n "$remote" ] \
           || die 2 "branch $branch exists on several remotes ($remotes): create it from one first, e.g. 'git branch --track $branch ${remotes%% *}/$branch', or set checkout.defaultRemote, then run create again" ;;
-      *) existing=1 ;;
+      *) remote="$remotes" ;;
     esac
+    [ -z "$remote" ] || mode=remote
   fi
-  if [ "$existing" = 1 ]; then
+  if [ "$mode" != new ]; then
     [ -z "$base" ] || die 2 "--base cannot be used with the existing branch $branch: drop --base, or pick a new --branch name"
   elif [ -n "$base" ]; then
-    git -C "$TOP" rev-parse --verify -q "$base^{commit}" >/dev/null 2>&1 || die 2 "--base is not a commit: $base"
-    base_ref="$base"
-    # Record the branch the base names, never text relative to this checkout's HEAD (HEAD, @{-1}).
-    # A tag or a commit names no branch: the merged check then uses the default branch.
-    full="$(git -C "$TOP" rev-parse --symbolic-full-name "$base" 2>/dev/null)"
-    case "$full" in
-      refs/heads/*)   base_name="${full#refs/heads/}" ;;
-      refs/remotes/*) base_name="$full" ;;
-    esac
+    # A branch name means the branch, even when a tag has the same name (git would pick the tag).
+    # Otherwise record the branch the base names, never text relative to this checkout's HEAD
+    # (HEAD, @{-1}). A tag or a commit names no branch: the merged check then uses the default branch.
+    if git -C "$TOP" show-ref --verify -q "refs/heads/$base"; then
+      base_ref="refs/heads/$base"; base_name="$base"
+    elif git -C "$TOP" show-ref --verify -q "refs/remotes/$base"; then
+      base_ref="refs/remotes/$base"; base_name="refs/remotes/$base"
+    else
+      git -C "$TOP" rev-parse --verify -q "$base^{commit}" >/dev/null 2>&1 || die 2 "--base is not a commit: $base"
+      base_ref="$base"
+      full="$(git -C "$TOP" rev-parse --symbolic-full-name "$base" 2>/dev/null)"
+      case "$full" in
+        refs/heads/*)   base_name="${full#refs/heads/}" ;;
+        refs/remotes/*) base_name="$full" ;;
+      esac
+    fi
   else
     base_name="$(default_branch)" || die 2 "no default branch found (origin/HEAD, main, master): pass --base <ref>"
     if git -C "$TOP" rev-parse --verify -q "refs/heads/$base_name" >/dev/null 2>&1; then
@@ -426,20 +500,19 @@ cmd_create() {
   { mkdir -p "$BASE_DIR" 2>/dev/null && [ -w "$BASE_DIR" ]; } \
     || die 3 "cannot create the worktree root $ROOT: set HARNESS_WORKTREE_ROOT to a writable, persistent directory"
 
-  # 4./5. Check out the existing branch, or create the new one with no upstream.
-  if [ "$existing" = 1 ]; then
-    git -C "$TOP" worktree add "$p" "$branch" >&2 || die 1 "git worktree add failed for $branch (see above)"
-  else
-    if ! git -C "$TOP" worktree add --no-track -b "$branch" "$p" "$base_ref" >&2; then
-      # git creates the branch before the checkout, so a failed add can leave it behind. It did not
-      # exist before this call: delete it again unless a worktree has it checked out.
-      load_worktrees
-      if git -C "$TOP" rev-parse --verify -q "refs/heads/$branch" >/dev/null 2>&1 \
-         && ! checked_out "$branch" >/dev/null; then
-        git -C "$TOP" branch -D "$branch" >/dev/null 2>&1 && note "deleted the new branch $branch again"
-      fi
-      die 1 "git worktree add failed for $branch from ${base:-$base_name} (see above)"
-    fi
+  # 4./5. Check out the existing branch (a remote one as a local branch tracking it), or create the
+  #      new one with no upstream.
+  case "$mode" in
+    local)
+      git -C "$TOP" worktree add "$p" "$branch" >&2 || die 1 "git worktree add failed for $branch (see above)" ;;
+    remote)
+      add_new_branch --track -b "$branch" "$p" "refs/remotes/$remote/$branch" \
+        || die 1 "git worktree add failed for $branch from $remote/$branch (see above)" ;;
+    new)
+      add_new_branch --no-track -b "$branch" "$p" "$base_ref" \
+        || die 1 "git worktree add failed for $branch from ${base:-$base_name} (see above)" ;;
+  esac
+  if [ "$mode" = new ]; then
     if [ -z "$base_name" ]; then
       note "--base $base names no branch: the merged check uses the default branch"
     else
@@ -497,8 +570,9 @@ cmd_remove() {
   assess "$i"
   [ -z "$A_HARD" ] || die 1 "refused to remove $p: $A_HARD"
 
-  for what in dirty ign unm; do
+  for what in op dirty ign unm; do
     case "$what" in
+      op)    [ -n "$A_OP" ]    || continue; set -- "$A_OP in progress" "finish or abort it there first (git status shows how)" "" ;;
       dirty) [ -n "$A_DIRTY" ] || continue; set -- "uncommitted changes" "$A_DIRTY" "" ;;
       ign)   [ -n "$A_IGN" ]   || continue; set -- "ignored files outside the junk list" "$A_IGN" "" ;;
       unm)   [ -n "$A_UNM" ]   || continue
@@ -516,6 +590,8 @@ cmd_remove() {
   if [ "$delete_branch" = 1 ]; then
     if [ -z "$branch" ]; then
       note "$p was detached: no branch to delete"
+    elif [ "$branch" = "$(default_branch)" ]; then
+      note "kept branch $branch (the default branch is never deleted)"
     elif [ "$R_MERGED" = merged ]; then
       git -C "$TOP" branch -D "$branch" >&2 || note "could not delete branch $branch"
     else
@@ -531,10 +607,11 @@ prune_why() {
   local i="$1" start
   assess "$i"
   WHY="$A_HARD"
+  [ -n "$WHY" ] || [ -z "$A_OP" ]    || WHY="$A_OP in progress"
   [ -n "$WHY" ] || [ -z "$A_DIRTY" ] || WHY="uncommitted changes"
   [ -n "$WHY" ] || [ -z "$A_IGN" ]   || WHY="ignored files outside the junk list: $(printf '%s' "$A_IGN" | tr '\n' ' ')"
   if [ -z "$WHY" ] && [ -n "$A_UNM" ]; then
-    if [ "$R_MERGED" = unknown ]; then WHY="cannot tell whether it is merged (no base resolves)"
+    if [ "$R_MERGED" = unknown ]; then WHY="cannot tell whether it is merged (${MERGE_NOTE:-no base resolves})"
     else WHY="commits not merged into the base"; fi
   fi
   if [ -z "$WHY" ] && [ "$R_STATE" != missing ] && [ -n "${WT_BRANCH[i]}" ]; then

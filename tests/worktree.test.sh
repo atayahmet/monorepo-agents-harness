@@ -225,9 +225,15 @@ is   "a re-run exits 0" "$RC" 0
 is   "a re-run prints the existing path" "$OUT" "$ROOTP/$ID1/feat-a"
 says "a re-run says nothing was created" "$ERR" "already checked out"
 is   "a re-run changes no worktree record" "$(git -C "$R1" worktree list --porcelain)" "$before"
+# Only a harness worktree is a re-run; a branch in the main checkout or an external worktree is
+# refused, so the agent never sends the developer to the checkout they are in (review round 3).
 wt "$R1" create mainline --branch main
-is   "a branch checked out in the main worktree: exits 0" "$RC" 0
-is   "a branch checked out in the main worktree prints that path" "$OUT" "$R1P"
+is   "a branch checked out in the main checkout is refused" "$RC" 1
+is   "and prints no path" "$OUT" ""
+says "the refusal says where it is checked out" "$ERR" "$R1P"
+wt "$R1" create ext-x --branch ext1
+is   "a branch checked out in an external worktree is refused" "$RC" 1
+says "the refusal names the external worktree" "$ERR" "$TMPP/ext1"
 is   "a branch checked out elsewhere changes no worktree record" "$(git -C "$R1" worktree list --porcelain)" "$before"
 check "nothing is created for a branch checked out elsewhere" test ! -e "$ROOTP/$ID1/mainline"
 mkdir -p "$ROOTP/$ID1/occupied"
@@ -579,6 +585,64 @@ ENVX=(PATH="$TMP/bin:$PATH" CHANGE_ON="$P"); wt "$PR" prune --yes; ENVX=()
 check  "the change was made between the two passes" test -e "$TMP/.changed"
 check  "a worktree that got an unmerged commit is kept" test -d "$P"
 says   "prune says it was not removed" "$ERR" "not removed p-late"
+
+echo "Review round 3 (PR #86)"
+# A branch that is its own base is never "merged", and the default branch is never deleted.
+X="$TMP/x/proj"; new_repo "$X"; commit "$X" mo.txt "main-only work"; git -C "$X" checkout -q -b feature HEAD~1
+mkwt "$X" x-main --branch main >/dev/null
+wt "$X" list
+is     "a branch that is its own base reads unknown" "$(field "$(row x-main)" 5)" unknown
+wt "$X" remove x-main --delete-branch
+is     "remove refuses it" "$RC" 1
+says   "the refusal says the branch is its own base" "$ERR" "its own base"
+wt "$X" remove x-main --delete-branch --force
+is     "--force removes the worktree" "$RC" 0
+check  "the default branch is kept" has_branch "$X" main
+is     "its commit is still there" "$(git -C "$X" log -1 --format=%s main)" "main-only work"
+Y="$TMP/y/proj"; new_repo "$Y"; git -C "$Y" checkout -q -b feature; commit "$Y" f.txt "feature work"
+mkwt "$Y" y-main --branch main >/dev/null; git -C "$Y" config branch.main.harnessBase feature
+wt "$Y" remove y-main --delete-branch
+is     "a merged default branch: the worktree is removed" "$RC" 0
+check  "the default branch is never deleted, even when merged" has_branch "$Y" main
+says   "stderr says it is the default branch" "$ERR" "default branch"
+
+# A remote branch whose name a tag shadows: check out the remote branch, never the tag.
+git -C "$SEED" push -q "$ORIGIN" remote-only:refs/heads/rel 2>/dev/null; git -C "$R3" fetch -q origin 2>/dev/null
+git -C "$R3" tag rel main
+wt "$R3" create rel
+is     "a remote branch shadowed by a tag: exits 0" "$RC" 0
+is     "it is checked out as the branch" "$(git -C "$OUT" symbolic-ref -q HEAD 2>/dev/null)" refs/heads/rel
+is     "at the remote branch's tip" "$(git -C "$R3" rev-parse -q --verify refs/heads/rel)" "$(git -C "$R3" rev-parse refs/remotes/origin/rel)"
+is     "tracking the remote branch" "$(git -C "$R3" config --get branch.rel.merge)" refs/heads/rel
+
+# A base name that a tag shadows: the branch wins, in create and in the merged check.
+T="$TMP/t/proj"; new_repo "$T"; git -C "$T" tag release
+git -C "$T" checkout -q -b release && commit "$T" rel.txt "release work" && git -C "$T" checkout -q main
+P="$(mkwt "$T" t-st --base release)"
+is     "--base <name> starts from the branch, not a same-name tag" "$(git -C "$T" rev-parse -q --verify refs/heads/t-st)" "$(git -C "$T" rev-parse refs/heads/release)"
+is     "and records the branch" "$(git -C "$T" config --get branch.t-st.harnessBase)" release
+commit "$P" st.txt "stacked work"; git -C "$T" branch -f release t-st
+wt "$T" list
+is     "the merged check reads the branch, not the tag" "$(field "$(row t-st)" 5)" merged
+
+# A bisect, or a rebase stopped at break (detached), is work in progress: prune keeps it.
+P="$(mkwt "$PR" p-bisect)"; commit "$P" pb.txt "pb work"; git -C "$PR" merge -q --ff-only p-bisect
+git -C "$P" bisect start >/dev/null 2>&1
+P2="$(mkwt "$PR" p-rebase)"; commit "$P2" pr1.txt "pr one"; commit "$P2" pr2.txt "pr two"
+git -C "$PR" merge -q --ff-only p-rebase
+printf '#!/bin/sh\nprintf "break\\n" > "$1"\n' > "$TMP/seq-break"; chmod +x "$TMP/seq-break"
+GIT_SEQUENCE_EDITOR="$TMP/seq-break" git -C "$P2" rebase -i HEAD~1 >/dev/null 2>&1
+check  "the rebase fixture is stopped and detached" test -z "$(git -C "$P2" symbolic-ref -q HEAD)"
+wt "$PR" prune
+is     "prune does not list a worktree with a bisect in progress" "$(row p-bisect)" ""
+says   "prune says why it keeps the bisect" "$ERR" "kept p-bisect:"
+is     "prune does not list a detached worktree in a rebase" "$(row p-rebase)" ""
+says   "prune says why it keeps the rebase" "$ERR" "kept p-rebase:"
+wt "$PR" remove p-bisect
+is     "remove refuses a worktree with a bisect in progress" "$RC" 1
+says   "the refusal names the bisect" "$ERR" "bisect"
+wt "$PR" remove p-bisect --force
+is     "--force removes it" "$RC" 0
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

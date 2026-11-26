@@ -28,14 +28,16 @@ Release procedure (harness maintainers):
   collide.
   - `create <slug> [--base <ref>] [--branch <name>]`: a new branch from the default branch (or
     `--base`) with no upstream, or an existing branch. A re-run prints the existing path and changes
-    nothing. A branch that several remotes have needs `checkout.defaultRemote`, as in git.
+    nothing; a branch checked out in the main checkout or another tool's worktree exits 1. A branch
+    that several remotes have needs `checkout.defaultRemote`, as in git.
   - `list [--all]`: kind, slug, branch, state (`clean`/`dirty`/`missing`), merged, last commit,
     path. `--all` adds the worktrees an agent tool made itself (`external`); the harness never
     touches those.
   - `remove <slug> [--delete-branch] [--force]`: refuses uncommitted work, ignored files outside the
     junk list (an `.env`) and unmerged commits unless you pass `--force`. It never removes a locked
-    worktree, one outside the root, or the one you are in. `--delete-branch` deletes only a merged
-    branch (merge commit, rebase-merge or one-commit squash).
+    worktree, one outside the root, or the one you are in, and stops on a rebase, merge or bisect in
+    progress. `--delete-branch` deletes only a merged branch (merge commit, rebase-merge or
+    one-commit squash), and never the default branch.
   - `prune [--yes]`: a dry run until `--yes`. It removes the clean and merged, and the missing,
     harness worktrees one path at a time, and never deletes a branch. A worktree with no commit since
     `create` is kept, since another session may still be using it.
