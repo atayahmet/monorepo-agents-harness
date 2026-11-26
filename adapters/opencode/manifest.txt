@@ -35,6 +35,7 @@ merge opencode.jsonc
 copy  .opencode/commands/monorepo-harness-security-review.md
 copy  .opencode/commands/monorepo-harness-team.md
 copy  .opencode/commands/monorepo-harness-init.md
+copy  .opencode/commands/monorepo-harness-worktree.md
 
 # Retired entry points (issue #73: renamed to monorepo-harness-init in 0.4.0-rc.35; hash = 0.4.0-rc.34).
 retire .opencode/commands/monorepo-harness-agents-init.md b6d9900ecd0d22c55d8efb33e18a44bfa409d1dc53504c01e0b79ba4f7590061

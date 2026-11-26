@@ -56,6 +56,7 @@ they coexist with your existing hooks safely.
 | Knowledge base query/lint (`/monorepo-harness-kb-index`) | `core/scripts/kb-index.sh` (SQLite FTS5 cache) + `core/skills/knowledge-base/SKILL.md` | `/monorepo-harness-kb-index` skill → `.agents/skills/monorepo-harness-kb-index/SKILL.md` |
 | Team registry (`/monorepo-harness-team`) | `core/scripts/team.sh` + `team-infer.sh` + `core/skills/team-registry/SKILL.md` | `/monorepo-harness-team` skill → `.agents/skills/monorepo-harness-team/SKILL.md` |
 | Workspace AGENTS.md tree (`/monorepo-harness-init`) | `core/scripts/agents-tree.sh` + `core/skills/agents-init/SKILL.md` | `/monorepo-harness-init` skill → `.agents/skills/monorepo-harness-init/SKILL.md` |
+| Worktrees (`/monorepo-harness-worktree`) | `core/scripts/worktree.sh` + `docs/worktrees.md` | `/monorepo-harness-worktree` skill → `.agents/skills/monorepo-harness-worktree/SKILL.md` (commits need `--add-dir "$(git rev-parse --git-common-dir)"`) |
 | Self-improvement (`/monorepo-self-improve`) | `core/skills/self-improvement-workflow/SKILL.md` | `/monorepo-self-improve` skill · skill symlinked into `.agents/skills/` |
 
 ## Verify

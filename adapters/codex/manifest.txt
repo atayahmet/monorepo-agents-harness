@@ -35,6 +35,7 @@ merge .codex/hooks.json
 copy  .agents/skills/monorepo-harness-security-review/SKILL.md
 copy  .agents/skills/monorepo-harness-team/SKILL.md
 copy  .agents/skills/monorepo-harness-init/SKILL.md
+copy  .agents/skills/monorepo-harness-worktree/SKILL.md
 
 # Retired entry points (issue #73: renamed to monorepo-harness-init in 0.4.0-rc.35; hash = 0.4.0-rc.34).
 retire .agents/skills/monorepo-harness-agents-init/SKILL.md ed70e84050b84cc119add43ba37540fb16dcb4706eb0ebfcea9625ef0a781e84

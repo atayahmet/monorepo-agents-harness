@@ -17,6 +17,50 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.41] - 2026-11-26
+
+### Added
+
+- **`/monorepo-harness-worktree`: one worktree root for every adapter** (issue #85). Claude Code,
+  OpenCode and Codex put the worktrees the harness creates in one place outside the repository:
+  `~/.harness-worktrees/<repo-id>/<slug>`. `<repo-id>` is `<name>-<hash8>` of the shared git
+  directory, so every worktree of a repo gets the same id and two clones with the same name never
+  collide.
+  - `create <slug> [--base <ref>] [--branch <name>]`: a new branch from the default branch (or
+    `--base`) with no upstream, or an existing branch. A re-run prints the existing path and changes
+    nothing; a branch checked out in the main checkout or another tool's worktree exits 1. A branch
+    that several remotes have needs `checkout.defaultRemote`, as in git.
+  - `list [--all]`: kind, slug, branch, state (`clean`/`dirty`/`missing`), merged, last commit,
+    path. `--all` adds the worktrees an agent tool made itself (`external`); the harness never
+    touches those.
+  - `remove <slug> [--delete-branch] [--force]`: refuses uncommitted work, ignored files outside the
+    junk list (an `.env`) and unmerged commits unless you pass `--force`. It never removes a locked
+    worktree, one outside the root, or the one you are in, and stops on a rebase, merge or bisect in
+    progress. `--delete-branch` deletes only a merged branch (merge commit, rebase-merge or
+    one-commit squash), and never the default branch.
+  - `prune [--yes]`: a dry run until `--yes`. It removes the clean and merged, and the missing,
+    harness worktrees one path at a time, and never deletes a branch. A worktree with no commit since
+    `create` is kept, since another session may still be using it.
+  - `path <slug>`: prints the path and writes nothing.
+- `core/scripts/worktree.sh` does all of it; the three entry points only call it.
+  `docs/worktrees.md` covers the layout, the safety rules, what to do after `create` (ignored files
+  such as `node_modules` and `.env` are not copied, so run the project's install there) and
+  per-adapter notes.
+- `HARNESS_WORKTREE_ROOT` moves the root for CI and containers where `$HOME` does not work. It must be
+  an absolute path outside the repository.
+- `.agents/worktree-junk.txt` (optional, project-owned) adds names to the list of ignored files
+  `remove` may delete. An entry matches the ignored file or folder's own name, never a folder above
+  it, so an ignored key inside a tracked `build/` folder still stops `remove`.
+
+### Upgrade Notes
+
+- Nothing to do. The command arrives with the adapter refresh, and nothing changes until you run
+  it: no `.gitignore`, settings or `AGENTS.md` change.
+- To edit a worktree from a session in the main checkout, Claude Code and Codex need the root as an
+  extra directory (`--add-dir ~/.harness-worktrees`). A new session started in the worktree needs no
+  setup. See `docs/worktrees.md`; `changelogs/version-0.4.0-rc.41.md` lists these optional
+  follow-ups.
+
 ## [0.4.0-rc.40] - 2026-11-24
 
 ### Added

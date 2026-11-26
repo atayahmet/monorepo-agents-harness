@@ -18,6 +18,7 @@ This adapter wires the harness into **Claude Code**. It gives you an automatic p
 - **`/monorepo-harness-kb-index <query|rebuild|links>`** — ranked search over the repo-root `knowledge/` base: BM25-ordered paths with snippets from a gitignored SQLite FTS5 cache that rebuilds itself whenever a page changed, plus the orphan / broken-`[[wiki-link]]` lint. Without `sqlite3`/FTS5 it says so once and falls back to `index.md` + grep — the answers just lose their ranking.
 - **`/monorepo-harness-team [init|add|remove <key>|lint|migrate]`** — set up the team registry `.agents/team.yml` (people, roles, platform IDs, workspace → assignee routing). `init` reads git authors and `CODEOWNERS` as suggestions only, asks you to mark each person member/contact/drop, fills IDs through your own tooling, and writes only on an explicit yes. `remove` lists every forward-looking file that still names the person and never edits intents, task artifacts, fixtures or history. Intent capture/review, dispatch and `tracker-issue.sh --assignee` read it through `team.sh`; with no registry they behave as before.
 - **`/monorepo-harness-init <workspace> [--audit]`** — build the nested `AGENTS.md` tree for one workspace. It surveys the repo's instruction files (reporting plain `CLAUDE.md` files as drift), ranks candidate directories, shows a directory map and writes nothing until you say yes, then writes a short routing root plus nested files, adds `CLAUDE.md`/`GEMINI.md` symlinks and runs `agents-tree.sh lint`. `--audit` only reports.
+- **`/monorepo-harness-worktree [list | create <slug> | remove <slug> | prune]`** — keep worktrees in one root outside the repository (`~/.harness-worktrees/<repo-id>/<slug>`) that every adapter shares, with a safe `remove` and a dry-run `prune`.
 - **`/monorepo-harness-update`** — check the installed harness version against upstream and, on your consent, upgrade the core and every installed adapter.
 - **`/monorepo-self-improve`** — harvest recurring patterns from lessons and task memories, then propose durable project-owned rules (`.agents/rules/*.md`) and skills (`.agents/skills/*/SKILL.md`). Requires explicit approval before writing anything.
 - **`/monorepo-harness-intent-dispatch <intent.md>`** — turn an **approved** intent into scoped work: confirm the workspace scope, split it into 3-5 phases, record your sign-off, ask before filing work the tracker already has open, ask whether 2+ phases should be grouped under one parent epic issue (a single phase gets none), open the epic and file every phase as its sub-issue via the `tracker` subagent, record the keys back on the intent, then ask whether to merge the intent's PR — writing no spec, plan or task directory. It stops after that answer — each phase is scoped and built separately, starting with `/monorepo-harness-spec <intent.md>`. No credential is ever installed or stored; without `gh` you get paste-ready issue text instead, and an unreachable PR yields an explicit "approval unknown" rather than a merge.
@@ -138,6 +139,17 @@ existing file changes only through a shown diff. `agents-tree.sh link` adds the 
 symlinks and `lint` fails on budgets, missing symlinks, broken paths, unrouted nested files and copied
 blocks. `--audit` runs the survey and lint and writes nothing. Workflow:
 `core/skills/agents-init/SKILL.md`.
+
+### `/monorepo-harness-worktree [list | path | create | remove | prune]` — One worktree root for every adapter
+
+Creates, lists, removes and prunes git worktrees at `~/.harness-worktrees/<repo-id>/<slug>`: one root
+outside the repository that Claude Code, OpenCode and Codex share. The command only runs
+`core/scripts/worktree.sh`, which owns the path and the safety rules: `remove` refuses uncommitted
+work, ignored files outside the junk list (an `.env`) and unmerged commits unless you pass `--force`,
+`--delete-branch` never deletes an unmerged branch, and `prune` is a dry run until you say yes. After
+`create`, open a new Claude Code session in the printed path and run the project's own install there:
+ignored files such as `node_modules` and `.env` are not copied. To edit a worktree from a session in the main checkout, start that session with
+`claude --add-dir ~/.harness-worktrees` (or use `/add-dir`). Details: `docs/worktrees.md`.
 
 ### `/monorepo-self-improve` — Harvest patterns into project-owned rules and skills
 
