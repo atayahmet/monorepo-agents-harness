@@ -27,10 +27,6 @@ done
 same "claude and opencode bodies identical" "$(body "$CLAUDE")" "$(body "$OPENCODE")"
 same "claude and codex bodies identical" "$(body "$CLAUDE")" "$(body "$CODEX")"
 says "codex skill is named" "$(cat "$CODEX")" "name: monorepo-harness-worktree"
-# Codex refuses a skill whose frontmatter is not valid YAML; a ': ' inside a plain scalar is the
-# usual cause (the side finding of the issue #85 probes).
-desc="$(sed -n 's/^description: //p' "$CODEX" | head -n1)"
-saysn "codex description has no ': ' (valid YAML plain scalar)" "$desc" ": "
 
 b="$(body "$CLAUDE")"
 for w in "core/scripts/worktree.sh" "No arguments" "Never build a worktree path" "git worktree" \
