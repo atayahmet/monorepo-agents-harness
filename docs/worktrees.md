@@ -58,6 +58,16 @@ when you ask for it. A session that needs no worktree does nothing new, and the 
 stdout carries only the result (a path or a table); notes, refusals and everything the project's
 setup script prints go to stderr. The script never fetches or pushes.
 
+The script drops the caller's git repository variables when it starts: every name
+`git rev-parse --local-env-vars` lists (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE` and so on),
+except `GIT_CONFIG_PARAMETERS` and `GIT_CONFIG_COUNT`, which carry `git -c` and CI settings. git sets
+such variables for a hook and for a shell alias run in a linked worktree, and they beat `git -C`, so
+the script would read and write the caller's checkout instead of the folder it names (issue #104).
+
+Run the script from inside the repository. It works on the repository of the current folder: a
+`GIT_DIR` or `git --git-dir` that names another one is ignored. A repository reachable only through
+`GIT_DIR` exits 3.
+
 | Exit code | Meaning |
 | --- | --- |
 | 0 | Done (or nothing to do). |
@@ -152,9 +162,10 @@ pnpm install --frozen-lockfile
   executable `.agents/worktree-setup.sh`.
 - It runs after the copy step, in the new worktree, by its own shebang (any language), with stdin
   from `/dev/null`. Everything it prints goes to stderr, so stdout still carries one path.
-- Environment: yours (with `LC_ALL` and `GIT_OPTIONAL_LOCKS` as you had them), plus
-  `HARNESS_WORKTREE_MAIN` (the main checkout), `HARNESS_WORKTREE_PATH` (the new worktree) and
-  `HARNESS_WORKTREE_BRANCH` (its branch; empty when detached).
+- Environment: yours (with `LC_ALL` and `GIT_OPTIONAL_LOCKS` as you had them), without git's
+  repository variables (see [Subcommands](#subcommands)), so a git command in it answers for the new
+  worktree. Added: `HARNESS_WORKTREE_MAIN` (the main checkout), `HARNESS_WORKTREE_PATH` (the new
+  worktree) and `HARNESS_WORKTREE_BRANCH` (its branch; empty when detached).
 - A non-zero exit is reported as `setup: .agents/worktree-setup.sh exited <code>`.
 
 Without a setup script, run the project's own install in the new worktree, e.g. `pnpm install`.

@@ -7,7 +7,8 @@
 # the worktree rule in root AGENTS.md and the agent-workflow skill, and the adoption docs. Issue #95:
 # the docs and --help say a bare repository's harness worktree supplies no copy list or setup script.
 # Issue #102: the docs say what an unreviewed branch controls; the docs, --help and the body name the
-# agent-files note.
+# agent-files note. Issue #104: the docs and --help say the script drops the caller's git repository
+# variables.
 # Repo-local, never installed.
 set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -226,5 +227,25 @@ for w in "AGENTS.override.md" "CLAUDE.local.md" "a character a disk may read as 
          "files that the listed ones call or import" "the setup script has already run the branch's code"; do
   says "docs unreviewed branch: $w" "$control" "$w"
 done
+# Issue #104: git's repository variables (GIT_DIR and the others) are dropped at start, for the
+# script and for the project's setup script; `git -c` settings stay.
+all104="$(norm < "$DOC")"
+for w in "drops the caller's git repository variables" "git rev-parse --local-env-vars" \
+         "GIT_CONFIG_PARAMETERS" "GIT_CONFIG_COUNT" "reachable only through \`GIT_DIR\`"; do
+  says "docs git environment: $w" "$all104" "$w"
+done
+setup104="$(awk '/^### `.agents\/worktree-setup.sh`/ {on=1; next} on && /^##/ {exit} on {print}' "$DOC" | norm)"
+says  "docs setup environment: no caller repository variables" "$setup104" \
+      "without git's repository variables"
+says  "--help: the caller's repository variables are dropped" \
+      "$(bash "$SCRIPT" --help 2>/dev/null | sed 's/^#//' | norm)" \
+      "The caller's git repository variables (GIT_DIR and the others) are dropped at start"
+# Review of e54c4ed: the exception is part of the first sentence, and another repository's GIT_DIR is
+# said to be ignored.
+for w in "except \`GIT_CONFIG_PARAMETERS\` and \`GIT_CONFIG_COUNT\`" \
+         "a \`GIT_DIR\` or \`git --git-dir\` that names another one is ignored"; do
+  says "docs git environment (review): $w" "$all104" "$w"
+done
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

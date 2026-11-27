@@ -7,7 +7,8 @@
 # elsewhere; prune keeps a worktree with no create record) adds the sections marked "#89 AC<n>".
 # Issue #95 (bare repository: no copy list or setup script read in a harness worktree) adds the
 # sections marked "#95 AC<n>". Issue #102 (create names the committed agent files that differ) adds the
-# sections marked "#102 AC<n>".
+# sections marked "#102 AC<n>". Issue #104 (the script drops the caller's git repository variables)
+# adds the sections marked "#104 AC<n>".
 #
 # Repo-local on purpose: this file is NOT listed in core/install-manifest.txt, so it never reaches a
 # consumer bundle.
@@ -1468,6 +1469,129 @@ git -C "$S102" worktree add -q -b mine "$TMP/q/mine" main
 ENVX=(GIT_DIR="$S102P/.git/worktrees/mine"); wt "$TMP/q/mine" create q-agents --branch agents; ENVX=()
 says  "#102 review: a linked checkout's GIT_DIR still compares with the main checkout" "$ERR" "$DIFFER $S102P."
 check "#102 review: and names the files" agent_line AGENTS.md
+
+# --- Issue #104: the caller's git repository variables never decide what the script reads -----
+# git sets GIT_DIR for a hook and for a shell alias run in a linked worktree, and it beats
+# `git -C <dir>`. `mine` is such a checkout, one commit behind main. `tracks` is a checkout whose
+# branch tracks two files that main ignores.
+S104="$TMP/r/env"; new_repo "$S104"; S104P="$(cd "$S104" && pwd -P)"
+printf 'local.cfg\nshared.cfg\n' > "$S104/.gitignore"; git -C "$S104" add -A && git -C "$S104" commit -qm ignores
+git -C "$S104" branch other-tree
+commit "$S104" next.txt next
+git -C "$S104" worktree add -q -b older "$TMP/r/mine" main~1
+git -C "$S104" worktree add -q -b tracks "$TMP/r/tracks" main
+put "$TMP/r/tracks" local.cfg KEY=1; put "$TMP/r/tracks" shared.cfg KEY=2
+git -C "$TMP/r/tracks" add -f local.cfg shared.cfg && git -C "$TMP/r/tracks" commit -qm tracked
+TRACKS_GIT="$S104P/.git/worktrees/tracks"
+# alias_wt <dir> [git options...] -- <args...> - worktree.sh through a git shell alias run in <dir>.
+alias_wt() {
+  local d="$1" opts=(); shift
+  while [ "$1" != -- ]; do opts[${#opts[@]}]="$1"; shift; done; shift
+  OUT="$(git -C "$d" ${opts[@]+"${opts[@]}"} -c "alias.wt=!bash '$WT'" wt "$@" 2>"$TMP/.err")"; RC=$?
+  ERR="$(cat "$TMP/.err")"
+}
+
+echo "Issue #104 AC1 — a shell alias in a linked checkout records the new worktree's HEAD"
+alias_wt "$TMP/r/mine" -- create fresh
+FRESH="$OUT"
+is    "#104 AC1: create exits 0" "$RC" 0
+is    "#104 AC1: the start commit is the new worktree's HEAD" \
+      "$(git -C "$S104" config --get branch.fresh.harnessStart)" "$(git -C "$S104" rev-parse main)"
+wt "$S104" prune
+is    "#104 AC1: prune does not list it" "$(row fresh)" ""
+wt "$S104" prune --yes
+check "#104 AC1: prune --yes keeps it" test -d "$FRESH"
+ENVX=(GIT_CONFIG="$TMP/r/other-config"); wt "$S104" create cfg; ENVX=()
+is    "#104 AC1: with GIT_CONFIG set, create exits 0" "$RC" 0
+is    "#104 AC1: and the start commit is in the repository config" \
+      "$(git -C "$S104" config --get branch.cfg.harnessStart)" "$(git -C "$S104" rev-parse main)"
+check "#104 AC1: nothing is written to the GIT_CONFIG file" test ! -e "$TMP/r/other-config"
+
+echo "Issue #104 AC2 — remove with GIT_DIR sees a bisect in progress"
+P="$(mkwt "$S104" e-bisect)"; git -C "$P" bisect start >/dev/null 2>&1
+ENVX=(GIT_DIR="$S104P/.git"); wt "$S104" remove e-bisect; ENVX=()
+is    "#104 AC2: remove refuses" "$RC" 1
+says  "#104 AC2: names the bisect" "$ERR" "a bisect in progress"
+check "#104 AC2: the worktree stays" test -d "$P"
+
+echo "Issue #104 AC3 — remove with GIT_DIR sees an ignored file the caller's checkout tracks"
+P="$(mkwt "$S104" e-ign)"; put "$P" local.cfg KEY=1; put "$P" shared.cfg KEY=2
+ENVX=(GIT_DIR="$TRACKS_GIT"); wt "$S104" remove e-ign; ENVX=()
+is    "#104 AC3: remove refuses" "$RC" 1
+says  "#104 AC3: names the file" "$ERR" "local.cfg"
+check "#104 AC3: the file stays" test -f "$P/local.cfg"
+
+echo "Issue #104 AC4 — list with GIT_DIR reads the worktree itself"
+P="$(mkwt "$S104" e-clean)"
+ENVX=(GIT_DIR="$TRACKS_GIT"); wt "$S104" list; ENVX=()
+is    "#104 AC4: a clean worktree reads clean" "$(field "$(row e-clean)" 4)" clean
+
+echo "Issue #104 AC5 — the copy step with GIT_DIR"
+put "$S104" shared.cfg KEY=2; put "$S104" .agents/worktree-copy.txt shared.cfg
+ENVX=(GIT_DIR="$TRACKS_GIT"); wt "$S104" create e-copy; ENVX=()
+is    "#104 AC5: create exits 0" "$RC" 0
+check "#104 AC5: the ignored file is copied" test -f "$ROOTP/$(repo_id "$S104")/e-copy/shared.cfg"
+rm -f "$S104/.agents/worktree-copy.txt"
+
+echo "Issue #104 AC6 — the setup script's environment"
+cat > "$S104/.agents/worktree-setup.sh" <<EOF
+#!/bin/sh
+printf '%s\n' "\${GIT_DIR:-unset}" > "$TMP/r/setup-env"
+git rev-parse --absolute-git-dir > "$TMP/r/setup-gitdir"
+EOF
+chmod +x "$S104/.agents/worktree-setup.sh"
+ENVX=(GIT_DIR="$S104P/.git"); wt "$S104" create e-setup --setup; ENVX=()
+is    "#104 AC6: create --setup exits 0" "$RC" 0
+is    "#104 AC6: the setup script sees no GIT_DIR" "$(cat "$TMP/r/setup-env" 2>/dev/null)" unset
+is    "#104 AC6: its git commands answer for the new worktree" \
+      "$(cat "$TMP/r/setup-gitdir" 2>/dev/null)" "$(git -C "$OUT" rev-parse --absolute-git-dir)"
+rm -f "$S104/.agents/worktree-setup.sh"
+
+echo "Issue #104 AC7 — create with GIT_INDEX_FILE leaves that index alone"
+cp "$S104/.git/index" "$TMP/r/hook-index"; before="$(cksum < "$TMP/r/hook-index")"
+ENVX=(GIT_INDEX_FILE="$TMP/r/hook-index"); wt "$S104" create e-index --branch other-tree; ENVX=()
+is    "#104 AC7: create exits 0" "$RC" 0
+is    "#104 AC7: the caller's index is unchanged" "$(cksum < "$TMP/r/hook-index")" "$before"
+is    "#104 AC7: the new worktree is clean" "$(git -C "$OUT" status --porcelain)" ""
+
+echo "Issue #104 AC8 — git -c settings still apply (guard)"
+for r in a b; do
+  git init -q --bare "$TMP/r/remote-$r.git"; git -C "$S104" remote add "$r" "$TMP/r/remote-$r.git"
+  git -C "$S104" push -q "$r" main:refs/heads/two main:refs/heads/two-alias 2>/dev/null
+  git -C "$S104" fetch -q "$r" 2>/dev/null
+done
+ENVX=(GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=checkout.defaultRemote GIT_CONFIG_VALUE_0=b)
+wt "$S104" create e-two --branch two; ENVX=()
+is    "#104 AC8: GIT_CONFIG_COUNT still applies: exits 0" "$RC" 0
+is    "#104 AC8: and picks that remote" "$(git -C "$S104" config --get branch.two.remote)" b
+alias_wt "$S104" -c checkout.defaultRemote=b -- create e-two-alias --branch two-alias
+is    "#104 AC8: git -c through an alias still applies: exits 0" "$RC" 0
+is    "#104 AC8: and picks that remote" "$(git -C "$S104" config --get branch.two-alias.remote)" b
+
+echo "Issue #104 — a repository reachable only through GIT_DIR"
+ENVX=(GIT_DIR="$S104P/.git"); wt "$TMP/norepo" path x; ENVX=()
+is    "#104: is an environment error" "$RC" 3
+
+echo "Issue #104 review — the setup script keeps the caller's own variables"
+cat > "$S104/.agents/worktree-setup.sh" <<EOF
+#!/bin/sh
+printf 'v=%s c=%s\n' "\${v-unset}" "\${c-unset}" > "$TMP/r/setup-vars"
+EOF
+chmod +x "$S104/.agents/worktree-setup.sh"
+ENVX=(v=1.2.3 c=keep); wt "$S104" create e-vars --setup; ENVX=()
+is    "#104 review: create --setup exits 0" "$RC" 0
+is    "#104 review: v and c reach the setup script" "$(cat "$TMP/r/setup-vars" 2>/dev/null)" "v=1.2.3 c=keep"
+rm -f "$S104/.agents/worktree-setup.sh"
+
+# BSD grep still reads GREP_OPTIONS, so the cleanup must not pass the names through grep.
+echo "Issue #104 review — GREP_OPTIONS does not switch the cleanup off (guard)"
+ENVX=(GREP_OPTIONS=-n GIT_DIR="$S104P/.git"); wt "$TMP/norepo" path x; ENVX=()
+is    "#104 review: GIT_DIR is still dropped" "$RC" 3
+
+echo "Issue #104 review — a GIT_DIR naming another repository is ignored (guard)"
+ENVX=(GIT_DIR="$R1P/.git"); wt "$S104" path x; ENVX=()
+is    "#104 review: path answers for the current folder's repository" \
+      "$OUT" "$ROOTP/$(repo_id "$S104")/x"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
