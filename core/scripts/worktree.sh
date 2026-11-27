@@ -51,6 +51,8 @@
 #
 # stdout carries only the result (a path or a table); notes, refusals and everything the setup
 # script prints go to stderr. Needs git >= 2.17 and coreutils. Never fetches or pushes.
+# The caller's git repository variables (GIT_DIR and the others) are dropped at start; `git -c`
+# settings stay.
 #
 # Exit codes: 0 done, 1 refused (reason printed), 2 bad call, 3 environment (not inside a git work
 # tree, HOME unset, root not writable, root inside the repository), 4 the worktree exists but the
@@ -60,6 +62,14 @@ set -uo pipefail
 # project's own tools, not this script's parsing.
 CALLER_LC_ALL="${LC_ALL-}"; CALLER_LC_ALL_SET="${LC_ALL+1}"
 CALLER_GOL="${GIT_OPTIONAL_LOCKS-}"; CALLER_GOL_SET="${GIT_OPTIONAL_LOCKS+1}"
+# git sets repository variables for a hook and for a shell alias run in a linked worktree, and they
+# beat `git -C <dir>`: a read would answer for the caller, and a checkout could write the caller's
+# index (issue #104). They are dropped once, here, for the setup script too. The two that carry
+# `git -c` and CI settings stay.
+for v in $(git rev-parse --local-env-vars 2>/dev/null); do
+  case "$v" in GIT_CONFIG_PARAMETERS|GIT_CONFIG_COUNT) ;; *) unset "$v" ;; esac
+done
+unset v
 # GIT_OPTIONAL_LOCKS=0: `git status` never takes index.lock, so a scan cannot make a concurrent
 # git command in that worktree fail.
 export LC_ALL=C GIT_OPTIONAL_LOCKS=0
@@ -682,31 +692,20 @@ post_steps() {
   return 0
 }
 
-# own_git <dir> <git args...> - git in <dir>, answering for that folder. The caller's repository
-# variables are unset (a shell alias run in a linked checkout exports GIT_DIR, as a hook does; the
-# same as harness-common.sh), and GIT_LITERAL_PATHSPECS, which would turn every pathspec into a plain
-# name, is pinned off.
-own_git() {
-  ( unset $(git rev-parse --local-env-vars 2>/dev/null)
-    export GIT_LITERAL_PATHSPECS=0
-    dir="$1"; shift
-    exec git -C "$dir" "$@" )
-}
-
 # agent_note <worktree> - name on stderr the committed agent files that differ between the reference
 # checkout (MAIN) and <worktree>. Advice only: stdout and the exit code are the caller's. A failed git
-# call is said, never read as "no difference". Every git call goes through own_git: with the caller's
-# GIT_DIR both HEADs would be the caller's and the list empty. Needs load_repo and resolve_root.
+# call is said, never read as "no difference". GIT_LITERAL_PATHSPECS, which would turn every pathspec
+# into a plain name, is pinned off for the diff. Needs load_repo and resolve_root.
 agent_note() {
   local wt="$1" from to out n before='before you run anything or start an agent session'
   if untrusted_main; then
     note "agent files: not compared: $NO_MAIN there is nothing to compare with. Review them $before in $wt (run create again from your own checkout to list the differences)"
     return 0
   fi
-  if ! { from="$(own_git "$MAIN" rev-parse --verify -q 'HEAD^{commit}')" \
-         && to="$(own_git "$wt" rev-parse --verify -q 'HEAD^{commit}')" \
-         && out="$(own_git "$TOP" -c core.quotePath=true diff --name-only --no-renames \
-                     --ignore-submodules=none "$from" "$to" -- "${AGENT_PATHS[@]}")"; }; then
+  if ! { from="$(git -C "$MAIN" rev-parse --verify -q 'HEAD^{commit}')" \
+         && to="$(git -C "$wt" rev-parse --verify -q 'HEAD^{commit}')" \
+         && out="$(GIT_LITERAL_PATHSPECS=0 git -C "$TOP" -c core.quotePath=true diff --name-only \
+                     --no-renames --ignore-submodules=none "$from" "$to" -- "${AGENT_PATHS[@]}")"; }; then
     note "agent files: could not compare $wt with $MAIN; review them $before there"
     return 0
   fi

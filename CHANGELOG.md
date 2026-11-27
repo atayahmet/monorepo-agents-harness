@@ -17,6 +17,32 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.50] - 2026-11-28
+
+### Fixed
+
+- **`worktree.sh` answers for the folder it names, not for the caller's `GIT_DIR`** (issue #104).
+  git sets `GIT_DIR` for a hook and for a shell alias run in a linked worktree, and it beats
+  `git -C <dir>`. With git's repository variables in the environment:
+  - `create` recorded the caller's `HEAD` as the start commit, so `prune --yes` could remove a
+    worktree that was just made;
+  - `remove` and `prune` could miss a bisect or a stopped rebase in the worktree, and `remove` could
+    delete an ignored file that the caller's checkout tracks;
+  - `list` could call a clean worktree dirty, and the copy step could refuse an ignored file
+    (exit 4);
+  - with `GIT_INDEX_FILE`, `create` overwrote that index and left the new worktree broken;
+  - the project's setup script ran git against the caller's checkout.
+
+  The script now drops these variables once, when it starts. `git -c` and CI settings
+  (`GIT_CONFIG_PARAMETERS`, `GIT_CONFIG_COUNT`) stay.
+
+### Upgrade Notes
+
+- The project's `.agents/worktree-setup.sh` no longer gets the caller's git repository variables.
+- `worktree.sh` must run from inside the repository: one reachable only through `GIT_DIR` now exits 3.
+- Start commits recorded before this release are not corrected. See
+  `changelogs/version-0.4.0-rc.50.md`.
+
 ## [0.4.0-rc.49] - 2026-11-28
 
 ### Added
