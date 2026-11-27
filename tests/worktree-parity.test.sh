@@ -90,15 +90,22 @@ for w in "Worktrees go through the harness script" "needs its own checkout" \
          "/monorepo-harness-worktree create <slug>" "its tracker key, else the task slug" \
          "Never run \`git worktree add\` yourself" "an agent tool's own worktree option" \
          "inside the repository or in a temp directory" "that is their call" \
-         ".agents/monorepo-agents-harness/docs/worktrees.md"; do
+         ".agents/monorepo-agents-harness/docs/worktrees.md" \
+         "Pass \`--setup\`, or run \`setup <slug>\`, only when the developer asks for it"; do
   says "root AGENTS.md Gotcha 9: $w" "$g9" "$w"
 done
 edge="$(awk '/^## Edge cases/ {on=1; next} on && /^## / {exit} on {print}' \
           "$REPO/core/skills/agent-workflow/SKILL.md" | norm)"
-for w in "Gotcha 9" "needs its own checkout" "worktree.sh create <slug>" "tracker key, else the task slug" \
-         "\`git worktree add\`" "an agent tool's own worktree option" \
-         "inside the repository or in a temp directory" "docs/worktrees.md"; do
+for w in "Worktrees go through the harness script" "needs its own checkout" "worktree.sh create <slug>" \
+         "tracker key, else the task slug" "\`git worktree add\`" "an agent tool's own worktree option" \
+         "inside the repository or in a temp directory" "docs/worktrees.md" \
+         "Pass \`--setup\`, or run \`setup <slug>\`, only when the developer asks for it"; do
   says "agent-workflow Edge cases: $w" "$edge" "$w"
+done
+# Review round 1: the AGENTS.md merge renumbers a consumer's gotchas (it drops the example item and
+# appends the harness items), so shipped text names the rule by its title, never by its number.
+for f in core/skills/agent-workflow/SKILL.md docs/worktrees.md; do
+  saysn "$f does not name the rule by number" "$(norm < "$REPO/$f")" "Gotcha 9"
 done
 says  "entry body: never call git worktree" "$(printf '%s' "$b" | norm)" \
       "Never build a worktree path and never call \`git worktree\` for a harness worktree yourself"

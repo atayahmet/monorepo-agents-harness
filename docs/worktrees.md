@@ -13,10 +13,11 @@ bash .agents/monorepo-agents-harness/core/scripts/worktree.sh remove feat-login 
 bash .agents/monorepo-agents-harness/core/scripts/worktree.sh prune          # dry run
 ```
 
-The installed root `AGENTS.md` has one rule for agents (Critical Gotcha 9): when a task needs its
-own checkout, the agent creates it with `worktree.sh create <slug>`, never with `git worktree add`
-inside the repository or in a temp directory. A session that needs no worktree does nothing new,
-and the installer writes no `.gitignore` line or setting for the feature.
+The installed root `AGENTS.md` has one rule for agents, the Critical Gotcha "Worktrees go through
+the harness script": when a task needs its own checkout, the agent creates it with
+`worktree.sh create <slug>`, never with `git worktree add` inside the repository or in a temp
+directory, and passes `--setup` only when you ask for it. A session that needs no worktree does
+nothing new, and the installer writes no `.gitignore` line or setting for the feature.
 
 ## Where worktrees live
 

@@ -87,9 +87,10 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
    `bash .agents/monorepo-agents-harness/core/scripts/worktree.sh create <slug>` (or
    `/monorepo-harness-worktree create <slug>`) and work in the path it prints. Name it after the
    task: its tracker key, else the task slug; add `--branch <name>` when the project has a branch
-   naming rule. Never run `git worktree add` yourself, never use an agent tool's own worktree
-   option, and never put a worktree inside the repository or in a temp directory. When the developer
-   asks for a specific tool or path, that is their call. Details:
+   naming rule. Pass `--setup`, or run `setup <slug>`, only when the developer asks for it: it runs
+   the project's setup script. Never run `git worktree add` yourself, never use an agent tool's own
+   worktree option, and never put a worktree inside the repository or in a temp directory. When the
+   developer asks for a specific tool or path, that is their call. Details:
    `.agents/monorepo-agents-harness/docs/worktrees.md`.
 
 ## Before You Start — Mandatory Checklist

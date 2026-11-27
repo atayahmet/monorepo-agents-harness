@@ -12,11 +12,13 @@ worktrees they already made elsewhere (issue #89).
 
 ## What changed
 
-- The root `AGENTS.md` template has a new Critical Gotcha 9. It applies only when a task needs its
-  own checkout: the agent then runs `worktree.sh create <slug>` (the slug is the tracker key, else
-  the task slug). It never runs `git worktree add` itself, never uses an agent tool's own worktree
-  option, and never puts a worktree inside the repository or in a temp directory. When you ask for
-  a specific tool or path, that is your call. The update's `AGENTS.md` merge step offers this gotcha.
+- The root `AGENTS.md` template has a new Critical Gotcha, "Worktrees go through the harness
+  script". It applies only when a task needs its own checkout: the agent then runs
+  `worktree.sh create <slug>` (the slug is the tracker key, else the task slug). It passes `--setup`
+  only when you ask for it. It never runs `git worktree add` itself, never uses an agent tool's own
+  worktree option, and never puts a worktree inside the repository or in a temp directory. When you
+  ask for a specific tool or path, that is your call. The update's `AGENTS.md` merge step offers
+  this gotcha.
 - `prune` now keeps a worktree with no create record: one moved under the root with
   `git worktree move`, one made by hand there, or a detached one. Before, a fresh adopted worktree
   could be listed and removed. `remove <slug>` still removes such a worktree after its checks.

@@ -27,8 +27,11 @@ Release procedure (harness maintainers):
   where `prune` cannot reach it. The new rule applies only when a task needs its own checkout: the
   agent runs `worktree.sh create <slug>` (slug: the tracker key, else the task slug) and never
   `git worktree add`, an agent tool's own worktree option, or a path inside the repository or a temp
-  directory. A developer's explicit request for a tool or path is their call. The `agent-workflow`
-  skill carries the same rule as one Edge-cases bullet. The entry points are unchanged.
+  directory. Like the entry point, it passes `--setup` (or runs `setup <slug>`) only when the
+  developer asks for it, because that runs the project's setup script (review round 1). A
+  developer's explicit request for a tool or path is their call. The `agent-workflow` skill carries
+  the same rule as one Edge-cases bullet, which names the gotcha by its title: the `AGENTS.md` merge
+  can number it differently in a project with its own gotchas. The entry points are unchanged.
 - **`docs/worktrees.md` "Adopting a worktree made elsewhere"**: move an `external` worktree under the
   root yourself (`mkdir -p` the parent of `worktree.sh path <slug>`, `git worktree move`, then
   `setup <slug>`), with the cases git refuses (a locked worktree, submodules, another disk) and the
