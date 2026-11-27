@@ -1026,8 +1026,10 @@ fi
 wt "$PN" create v-none
 is     "#95 AC2: create from a harness worktree without the files" "$RC" 0
 says   "#95 AC2: the same reason there" "$ERR" "nothing copied"
-saysn  "#95 AC2: no hint to list a file in the unread list" "$ERR" "bring over any .env"
+saysn  "#95 AC2: no hint to list a file in the unread list" "$ERR" "or list it in .agents/worktree-copy.txt"
 saysn  "#95 AC2: no hint to add the unread script" "$ERR" "or add .agents/worktree-setup.sh"
+says   "#95 review: the install reminder stays" "$ERR" "run the project's own install in the new worktree (e.g. pnpm install)"
+says   "#95 review: so does the .env reminder" "$ERR" "bring over any .env by hand"
 
 PU2="$(mkwt "$C95" u-hosts)"
 if put "$PU2" .agents/worktree-copy.txt "/etc/hosts"; then
@@ -1067,6 +1069,29 @@ wt "$C95" setup o-later
 is     "#95 AC6: setup <slug> from your own checkout" "$RC" 0
 check  "#95 AC6: it copies the listed file" test -f "$P95/.env"
 check  "#95 AC6: it runs your setup script" test -f "$P95/ran-own"
+
+echo "Issue #95 review — a harness worktree is recognised whatever the letter case of the root"
+# On a case-insensitive disk (the macOS default) <root> and <ROOT> are one folder but differ as text:
+# the check must compare folders, or an unreviewed branch's files are read again.
+if [ -d "$TMP/ROOT" ]; then
+  ENVX=(HARNESS_WORKTREE_ROOT="$TMP/ROOT")
+  PK="$(mkwt "$C95" u-case)"; PJ="$(mkwt "$C95" j-case)"; HK="${PK%/*}"
+  put "$PK" .agents/worktree-junk.txt ".env"
+  if put "$PK" .agents/worktree-setup.sh $'#!/bin/sh\n: > ran-case'; then
+    git -C "$PK" add -A && git -C "$PK" commit -qm "unreviewed project files"
+  fi
+  put "$PJ" .env "EDITED=j"
+  wt "$PK" create v-case --setup
+  is     "#95 review: create --setup is refused with the root in another case" "$RC" 1
+  says   "#95 review: for the bare-repository reason" "$ERR" "in a harness worktree"
+  check  "#95 review: nothing created, so nothing ran" test ! -e "$HK/v-case"
+  wt "$PK" remove j-case
+  is     "#95 review: that worktree's junk list is not used either" "$RC" 1
+  check  "#95 review: the edited .env stays" test -f "$PJ/.env"
+  ENVX=()
+else
+  echo "  (skipped: the filesystem is case-sensitive)"
+fi
 
 # ---------------------------------------------------------------------------------------------
 # Issue #89 — adopt worktrees an agent made elsewhere (docs/worktrees.md, "Adopting a worktree made

@@ -142,7 +142,8 @@ says  "create's warning: prune keeps the worktree" "$(cat "$SCRIPT")" "prune kee
 # script. The "After `create`" section and --help state it.
 after="$(awk '/^## After `create`/ {on=1; next} on && /^## / {exit} on {print}' "$DOC" | norm)"
 for w in "bare repository has no main checkout" "in a harness worktree neither file is read" \
-         "\`create --setup\` and \`setup <slug>\` exit 1" "your own checkout" "git worktree add"; do
+         "\`create --setup\` and \`setup <slug>\` exit 1" "your own checkout" "git worktree add" \
+         "under another \`HARNESS_WORKTREE_ROOT\`"; do
   says "docs After create: $w" "$after" "$w"
 done
 says "--help: bare repository, harness worktree" \

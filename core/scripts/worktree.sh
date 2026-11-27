@@ -196,8 +196,9 @@ resolve_root() {
 
 # untrusted_main - true in a bare repository when the script runs in a harness worktree. There is no
 # main checkout, and a harness worktree is where an unreviewed branch lands (create --branch), so no
-# project file is read there. Needs load_repo and resolve_root.
-untrusted_main() { [ "${WT_BARE[0]:-0}" = 1 ] && [ "${TOP%/*}" = "$BASE_DIR" ]; }
+# project file is read there. -ef compares the folders, not their text: on a case-insensitive disk
+# a root written in another letter case must not switch this off. Needs load_repo and resolve_root.
+untrusted_main() { [ "${WT_BARE[0]:-0}" = 1 ] && [ "${TOP%/*}" -ef "$BASE_DIR" ]; }
 
 # default_branch - origin/HEAD, then main, then master (the order forge.sh uses). Bare name.
 default_branch() {
@@ -600,8 +601,8 @@ copy_step() {
   done
 }
 
-# need_setup_script - exit 1 unless the main checkout has an executable setup script (create
-# --setup checks this before anything is created).
+# need_setup_script - exit 1 unless the main checkout has an executable setup script, and always
+# with untrusted_main (create --setup checks this before anything is created).
 need_setup_script() {
   ! untrusted_main \
     || die 1 "refused: --setup: $NO_MAIN $SETUP_SCRIPT is not read: run create from your own checkout; nothing created"
@@ -824,6 +825,7 @@ cmd_create() {
     || note "warning: $p has no .agents/monorepo-agents-harness/ (the bundle is not tracked in git), so hooks and /monorepo-harness-* commands cannot run in this worktree until the bundle is committed or installed there"
   if untrusted_main; then
     note "copy and setup: $NO_MAIN $COPY_LIST and $SETUP_SCRIPT are not read: nothing copied. Run 'worktree.sh setup $slug' from your own checkout to use them"
+    note "if your own checkout has neither file, run the project's own install in the new worktree (e.g. pnpm install) and bring over any .env by hand"
   else
     [ -f "$MAIN/$COPY_LIST" ] \
       || note "ignored files (node_modules, .env, build output) are not copied: bring over any .env by hand, or list it in $COPY_LIST"

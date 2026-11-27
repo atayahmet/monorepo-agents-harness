@@ -29,6 +29,9 @@ Release procedure (harness maintainers):
   - `create` makes the worktree, copies nothing and says why;
   - `create --setup` exits 1 before anything is created;
   - `setup <slug>` exits 1 and copies and runs nothing.
+- The check that recognises a harness worktree compares folders, not path text. A
+  `HARNESS_WORKTREE_ROOT` written in another letter case (a case-insensitive disk) no longer switches
+  it off, here or for the junk list (issue #93).
 - Your own checkout of a bare repository, and every non-bare repository, work as before.
 
 ### Upgrade Notes

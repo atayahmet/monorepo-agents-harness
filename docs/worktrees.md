@@ -98,7 +98,8 @@ both files so every clone has them. (The script still reads them only from the m
 **In a bare repository.** A bare repository has no main checkout, so the checkout you run the script
 in stands in: your own checkout, a worktree you added yourself outside the harness root. A harness
 worktree never stands in, because it can hold a branch nobody reviewed: in a harness worktree neither
-file is read (issue #95). Run from one:
+file is read (issue #95). "Harness worktree" means one directly under the current harness root: one
+made under another `HARNESS_WORKTREE_ROOT` reads as your own checkout. Run from a harness worktree:
 
 - `create` makes the worktree, copies nothing and says why;
 - `create --setup` and `setup <slug>` exit 1: nothing is created, copied or run.
