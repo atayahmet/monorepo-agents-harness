@@ -33,9 +33,11 @@ Release procedure (harness maintainers):
   - `core/skills/intent-workflow/SKILL.md`: the description is in double quotes (it held `pr: on`).
     No adapter loads this file as a skill today, but it ships.
 - New repo-local test `tests/frontmatter-yaml.test.sh` checks the frontmatter of every shipped
-  markdown file under `core/` and `adapters/` (66 today). Its lint catches `: ` in an unquoted value
-  and a continuation line in column 1, without PyYAML. When Ruby is installed, it also runs a strict
-  YAML parse of each file. It replaces the narrower check in `tests/worktree-parity.test.sh`.
+  markdown file under `core/` and `adapters/` (66 today), without PyYAML. Its lint catches a colon
+  followed by a space or tab in an unquoted value, a continuation line in column 1, and a key that
+  appears twice (YAML parsers accept that, but Codex rejects the skill). When Ruby is installed, it
+  also runs a strict YAML parse and a duplicate-key check of each file. It replaces the narrower
+  check in `tests/worktree-parity.test.sh`.
 
 ### Upgrade Notes
 
