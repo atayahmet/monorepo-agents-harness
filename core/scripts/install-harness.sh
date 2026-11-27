@@ -108,27 +108,32 @@ fi
 VERSION="$(tr -d '[:space:]' <"$DEST/VERSION" 2>/dev/null || true)"
 echo "install-harness: synced $rows manifest row(s) — harness v${VERSION:-unknown}"
 
-# --- 2b. Root .gitignore: merge the derived-cache ignore lines (idempotent) ---------------------
-# The fragment ships as a manifest row; only its LINES land in the project's own .gitignore. Every
-# line (comments included) is appended only when absent, so re-running never duplicates anything.
-FRAGMENT="$DEST/core/gitignore-fragment.txt"
-if [ -f "$FRAGMENT" ]; then
-  gi="$ROOT/.gitignore"
-  [ -e "$gi" ] || { : > "$gi"; echo "  + .gitignore (created)"; }
-  gi_added=0
+# --- 2b. Root .gitignore and .gitattributes: merge the fragments' lines (idempotent) -------------
+# Each fragment ships as a manifest row; only its LINES land in the project's own file. Every line
+# (comments included) is appended only when absent, so re-running never duplicates anything. A line
+# is never removed: a project's own rule for the same path stays as it is (issue #90).
+# merge_fragment <fragment, relative to the bundle> <target, relative to the repo root>
+merge_fragment() {
+  local frag="$DEST/$1" tgt="$ROOT/$2" line added=0
+  [ -f "$frag" ] || return 0
+  [ -e "$tgt" ] || { : > "$tgt"; echo "  + $2 (created)"; }
+  # A target that does not end in a newline gets one first, so the first appended line stays a line.
+  if [ -s "$tgt" ] && [ -n "$(tail -c 1 "$tgt")" ]; then printf '\n' >> "$tgt"; fi
   while IFS= read -r line; do
     [ -n "$line" ] || continue
-    if ! grep -qxF "$line" "$gi" 2>/dev/null; then
-      printf '%s\n' "$line" >> "$gi"
-      gi_added=$((gi_added + 1))
+    if ! grep -qxF "$line" "$tgt" 2>/dev/null; then
+      printf '%s\n' "$line" >> "$tgt"
+      added=$((added + 1))
     fi
-  done < "$FRAGMENT"
-  if [ "$gi_added" -gt 0 ]; then
-    echo "  + .gitignore += $gi_added line(s) from core/gitignore-fragment.txt"
+  done < "$frag"
+  if [ "$added" -gt 0 ]; then
+    echo "  + $2 += $added line(s) from $1"
   else
-    echo "  = .gitignore already carries core/gitignore-fragment.txt"
+    echo "  = $2 already carries $1"
   fi
-fi
+}
+merge_fragment core/gitignore-fragment.txt .gitignore
+merge_fragment core/gitattributes-fragment.txt .gitattributes
 
 if [ "$SYNC_ONLY" -eq 1 ]; then
   [ -n "$TRASH" ] && echo "install-harness: previous copies moved to ${TRASH#"$ROOT"/}"

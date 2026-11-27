@@ -17,6 +17,37 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.46] - 2026-11-27
+
+### Fixed
+
+- **Per-workspace state files no longer block `remove` and `prune`** (issue #90). A worktree had no
+  `lessons.md`, `session-log.md` or `todo.md`. A lesson or a session log written there was an ignored
+  file outside the junk list, so `prune` kept the worktree and `remove` refused it. The policy now:
+  - `lessons.md` is tracked. The installer adds `**/.agents/lessons.md merge=union` to
+    `.gitattributes` (new `core/gitattributes-fragment.txt`), so lessons that two branches add merge
+    without a conflict.
+  - `session-log.md` and `todo.md` are git-ignored per checkout (the installer adds two
+    `.gitignore` lines). At their `.agents/` paths they count as junk for `remove` and `prune`; a
+    project's own file with the same name, such as `docs/todo.md`, does not.
+  - `worktree.sh create` and `setup` copy each workspace's `session-log.md` from the main checkout
+    into a worktree that has none, when git ignores it there. Otherwise stderr names the file.
+- `worktree.sh create`: a tracked file listed in `.agents/worktree-copy.txt` no longer exits 4 with
+  "not ignored in the new worktree". An existing destination is kept, never overwritten.
+- `audit-install.sh` warns about a workspace `lessons.md` that a project rule git-ignores. It is a
+  warning, not a gap.
+- `docs/worktrees.md` has a new "Per-workspace state" section. The junk list says the two files count
+  only at their `.agents/` paths.
+- Root `AGENTS.md` ("Working state is per-workspace") says which files are tracked and how a worktree
+  gets its session log.
+
+### Upgrade Notes
+
+- The next sync adds the `.gitattributes` line and the two `.gitignore` lines. It never removes a
+  line. Commit both files, so new worktrees see them.
+- A project that ignores `lessons.md` keeps that rule until its owner removes it. See
+  `changelogs/version-0.4.0-rc.46.md` for the manual follow-up.
+
 ## [0.4.0-rc.45] - 2026-11-27
 
 ### Added

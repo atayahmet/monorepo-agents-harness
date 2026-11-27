@@ -1050,5 +1050,115 @@ check  "#89 AC5: without --delete-branch its branch stays" has_branch "$AD" a-fr
 wt "$AD" remove a-det
 is     "#89 AC5: remove removes a clean detached worktree at the base" "$RC" 0
 
+echo "Issue #90 AC1 — create seeds the session log from the main checkout"
+# The project ignores the per-checkout files (the installer's .gitignore lines). apps/web has a session
+# log and a todo file in the main checkout; apps/api has neither.
+S9="$TMP/n/proj"; new_repo "$S9"; IDS9="$(repo_id "$S9")"; S9P="$(cd "$S9" && pwd -P)"
+printf '**/.agents/session-log.md\n**/.agents/todo.md\n' > "$S9/.gitignore"
+put "$S9" apps/web/package.json '{}'; put "$S9" apps/api/package.json '{}'
+git -C "$S9" add -A && git -C "$S9" commit -qm "workspaces and ignore rules"
+put "$S9" apps/web/.agents/session-log.md "web log (main)"
+put "$S9" apps/web/.agents/todo.md "web todo (main)"
+wt "$S9" create n-seed
+is    "#90 AC1: create exits 0" "$RC" 0
+is    "#90 AC1: create prints only the path" "$OUT" "$ROOTP/$IDS9/n-seed"
+N1="$ROOTP/$IDS9/n-seed"
+check "#90 AC1: the web session log is copied from the main checkout" \
+      test "$(cat "$N1/apps/web/.agents/session-log.md" 2>/dev/null)" = "web log (main)"
+checkn "#90 AC1: apps/api (no session log in main) gets none" test -e "$N1/apps/api/.agents/session-log.md"
+checkn "#90 AC1: todo.md is not seeded (the task writes it)" test -e "$N1/apps/web/.agents/todo.md"
+check  "#90 AC1: the worktree is clean (the seeded copy is ignored)" test -z "$(git -C "$N1" status --porcelain)"
+
+echo "Issue #90 AC2 — a tracked file in the copy list is kept"
+S9c="$TMP/n/copytracked"; new_repo "$S9c"
+put "$S9c" .agents/worktree-copy.txt "README.md"
+git -C "$S9c" add -A && git -C "$S9c" commit -qm "copy list names a tracked file"
+wt "$S9c" create n-tracked
+is    "#90 AC2: a listed tracked file exits 0" "$RC" 0
+saysn "#90 AC2: the tracked file is not refused" "$ERR" "refused"
+check "#90 AC2: the tracked file is still in the worktree" test -f "$ROOTP/$(repo_id "$S9c")/n-tracked/README.md"
+
+echo "Issue #90 AC3 — prune removes a worktree whose only ignored state is the session log and todo"
+# n-seed: the session edits the seeded log, commits its work, and the branch is merged.
+N1="$ROOTP/$IDS9/n-seed"
+# The session writes its log; mkdir keeps the write valid before the seed exists (the red run).
+mkdir -p "$N1/apps/web/.agents"
+printf 'session 2\n' >> "$N1/apps/web/.agents/session-log.md"
+commit "$N1" apps/web/feature.txt "n-seed work"
+git -C "$S9" merge -q --ff-only n-seed
+wt "$S9" prune
+check "#90 AC3: prune lists n-seed as a candidate" test -n "$(row n-seed)"
+wt "$S9" prune --yes
+is    "#90 AC3: prune --yes exits 0" "$RC" 0
+checkn "#90 AC3: prune --yes removes n-seed (session log is junk)" test -d "$N1"
+# n-todo: the same for an ignored todo file.
+wt "$S9" create n-todo; N5="$OUT"
+mkdir -p "$N5/apps/web/.agents"
+printf 'task todo\n' >> "$N5/apps/web/.agents/todo.md"
+commit "$N5" apps/web/todo-work.txt "n-todo work"
+git -C "$S9" merge -q --ff-only n-todo
+wt "$S9" prune --yes
+is    "#90 AC3: prune --yes exits 0 with an ignored todo file" "$RC" 0
+checkn "#90 AC3: prune --yes removes n-todo (todo is junk)" test -d "$N5"
+
+echo "Issue #90 AC4 — setup copies the session log back"
+wt "$S9" create n-again; N3="$OUT"
+rm -f "$N3/apps/web/.agents/session-log.md"
+wt "$S9" setup n-again
+is    "#90 AC4: setup exits 0" "$RC" 0
+check "#90 AC4: setup copies the session log back" \
+      test "$(cat "$N3/apps/web/.agents/session-log.md" 2>/dev/null)" = "web log (main)"
+saysn "#90 AC4: setup does not say nothing to set up" "$ERR" "nothing to set up"
+
+echo "Issue #90 AC5 — an unignored session log is named, not copied"
+S9d="$TMP/n/unignored"; new_repo "$S9d"
+put "$S9d" apps/web/package.json '{}'
+git -C "$S9d" add -A && git -C "$S9d" commit -qm "workspace"
+put "$S9d" apps/web/.agents/session-log.md "web log (unignored)"
+wt "$S9d" create n-unignored; N4="$OUT"
+is    "#90 AC5: create exits 0" "$RC" 0
+checkn "#90 AC5: the unignored session log is not copied" test -e "$N4/apps/web/.agents/session-log.md"
+says  "#90 AC5: the refusal is named on stderr" "$ERR" "copy: not copied apps/web/.agents/session-log.md"
+says  "#90 AC5: the reason is given" "$ERR" "not ignored in the new worktree"
+
+echo "Issue #90 AC6 — a tracked session log is kept byte for byte"
+S9e="$TMP/n/tracked-log"; new_repo "$S9e"
+put "$S9e" apps/web/package.json '{}'; put "$S9e" apps/web/.agents/session-log.md "tracked log (main)"
+git -C "$S9e" add -A && git -C "$S9e" commit -qm "tracked session log"
+wt "$S9e" create n-tracked-log; N6="$OUT"
+is    "#90 AC6: create exits 0" "$RC" 0
+check "#90 AC6: the tracked session log is unchanged" \
+      test "$(cat "$N6/apps/web/.agents/session-log.md")" = "tracked log (main)"
+saysn "#90 AC6: the tracked log is not refused" "$ERR" "refused"
+
+echo "Issue #90 review round 1 — the junk names count only in a workspace's .agents/ folder"
+# A project's own ignored docs/todo.md or log/session-log.md is not scratch: remove keeps the worktree
+# and names the file, as it does on main. The harness's own copies (.agents/) stay junk.
+S9f="$TMP/n/own-notes"; new_repo "$S9f"
+printf 'docs/todo.md\nlog/session-log.md\n' > "$S9f/.gitignore"
+git -C "$S9f" add -A && git -C "$S9f" commit -qm "ignore project notes"
+wt "$S9f" create r-notes; NF="$OUT"
+put "$NF" docs/todo.md "my own notes"
+put "$NF" log/session-log.md "project log"
+commit "$NF" feature.txt "r-notes work"
+git -C "$S9f" merge -q --ff-only r-notes
+wt "$S9f" remove r-notes
+is    "#90 review: remove refuses a project's own ignored notes" "$RC" 1
+says  "#90 review: the refusal names docs/todo.md" "$ERR" "docs/todo.md"
+says  "#90 review: the refusal names log/session-log.md" "$ERR" "log/session-log.md"
+check "#90 review: the project's notes file survives" test -f "$NF/docs/todo.md"
+check "#90 review: the worktree is still there" test -d "$NF"
+
+# Control: a root-level .agents/todo.md (the harness's own scratch, root workspace) is still junk.
+S9g="$TMP/n/root-scratch"; new_repo "$S9g"
+printf '.agents/todo.md\n' > "$S9g/.gitignore"
+git -C "$S9g" add -A && git -C "$S9g" commit -qm "ignore root scratch"
+wt "$S9g" create r-root; NR="$OUT"
+mkdir -p "$NR/.agents"; printf 'root todo\n' > "$NR/.agents/todo.md"
+commit "$NR" root-work.txt "r-root work"
+git -C "$S9g" merge -q --ff-only r-root
+wt "$S9g" remove r-root
+is    "#90 review control: remove discards the root .agents/todo.md (junk)" "$RC" 0
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

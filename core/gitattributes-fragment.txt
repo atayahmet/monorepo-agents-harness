@@ -1,0 +1,3 @@
+# Per-workspace lessons (issue #90): lessons.md is append-only, so two branches that each add a lesson
+# merge without a conflict. install-harness.sh merges these lines into <repo-root>/.gitattributes.
+**/.agents/lessons.md merge=union

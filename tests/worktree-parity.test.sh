@@ -148,5 +148,20 @@ for a in claude-code opencode codex; do
   says "$a README documents the command" "$(cat "$REPO/adapters/$a/README.md")" "/monorepo-harness-worktree"
 done
 
+# Issue #90: the per-workspace state policy is in the docs, the junk list and the root AGENTS.md.
+state="$(awk '/^## Per-workspace state/ {on=1; next} on && /^## / {exit} on {print}' "$DOC" | norm)"
+says  "docs: the Per-workspace state section mentions lessons.md" "$state" "lessons.md"
+says  "Per-workspace state: lessons.md is tracked with merge=union" "$state" "merge=union"
+says  "Per-workspace state: the installer adds the .gitattributes line" "$state" ".gitattributes"
+says  "Per-workspace state: session-log.md is per checkout" "$state" "session-log.md"
+says  "Per-workspace state: create copies the session log" "$state" "copied from the main checkout"
+says  "Per-workspace state: an ignored lessons.md warning" "$state" "audit-install.sh"
+says  "Junk list section lists session-log.md" "$junk" "session-log.md"
+says  "Junk list section lists todo.md" "$junk" "todo.md"
+says  "root AGENTS.md: lessons.md is tracked with merge=union" \
+      "$(norm < "$REPO/core/root-AGENTS.md")" "merge=union"
+says  "root AGENTS.md: session-log.md is git-ignored per checkout" \
+      "$(norm < "$REPO/core/root-AGENTS.md")" "session-log.md"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

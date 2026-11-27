@@ -117,6 +117,12 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
 > the workspace your task targets. Seed new workspaces from
 > `.agents/monorepo-agents-harness/core/workspace-agents-template/` (or run
 > `.agents/monorepo-agents-harness/core/scripts/scaffold-workspace-agents.sh`).
+>
+> **Git.** `lessons.md` is tracked. Its `merge=union` line in `.gitattributes` comes from the installer,
+> so lessons that parallel branches add merge without a conflict. Commit your `lessons.md` changes with
+> the task's commit. `session-log.md` and `todo.md` are git-ignored, one copy per checkout. A worktree
+> gets its session log from the main checkout (`.agents/monorepo-agents-harness/docs/worktrees.md`,
+> "Per-workspace state").
 
 ## Core Principles
 

@@ -33,6 +33,12 @@
 #   .agents/worktree-junk.txt  extra junk-list entries for remove and prune (read from the main
 #                              checkout)
 #
+# Per-workspace state (issue #90): create and setup also copy each workspace's .agents/session-log.md
+# from the main checkout into a worktree that has none, when git ignores it there. session-log.md and
+# todo.md are per-checkout scratch: remove and prune discard their copies at the .agents/ paths with the
+# worktree (a project's own file with the same name is not junk).
+# lessons.md is tracked (its merge=union attribute comes from the installer), so it arrives by checkout.
+#
 # stdout carries only the result (a path or a table); notes, refusals and everything the setup
 # script prints go to stderr. Needs git >= 2.17 and coreutils. Never fetches or pushes.
 #
@@ -52,13 +58,18 @@ COPY_LIST=.agents/worktree-copy.txt
 SETUP_SCRIPT=.agents/worktree-setup.sh
 JUNK_LIST=.agents/worktree-junk.txt
 
-# Ignored files that can be rebuilt, so `remove` may lose them (docs/worktrees.md, "Junk list"). An
-# entry matches the name of the ignored file or directory itself (`*`, `?`, `[` are globs), never a
-# folder above it. A project adds entries in the main checkout's .agents/worktree-junk.txt.
-# `.index.sqlite*` is the harness's own derived cache (kb-index.sh).
+# Ignored files that can be rebuilt, or that are per-checkout scratch, so `remove` may lose them
+# (docs/worktrees.md, "Junk list"). An entry matches the name of the ignored file or directory itself
+# (`*`, `?`, `[` are globs), never a folder above it. A project adds entries in the main checkout's
+# .agents/worktree-junk.txt. `.index.sqlite*` is the harness's own derived cache (kb-index.sh).
+# The harness's per-workspace scratch files, .agents/session-log.md and .agents/todo.md (issue #90), are
+# junk too, but only at those paths: is_junk matches them by path, never by name (a project's own
+# docs/todo.md is not scratch).
 JUNK_DEFAULT='node_modules dist build out .turbo .next .nuxt .svelte-kit .output .vercel .cache
 .parcel-cache coverage .nyc_output target __pycache__ .pytest_cache .mypy_cache .ruff_cache .venv
 .gradle .eslintcache .DS_Store *.tsbuildinfo *.pyc *.log .index.sqlite*'
+# The bundle's own directory: the workspace detector that the seed reads lives next to this script.
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
 usage() { awk 'NR == 1 { next } /^#/ { print; next } { exit }' "$0"; }
 note()  { printf 'worktree: %s\n' "$*" >&2; }
@@ -315,10 +326,14 @@ load_junk() {
   while [ "$i" -lt "${#LIST[@]}" ]; do JUNK[${#JUNK[@]}]="${LIST[i]%/}"; i=$((i+1)); done
 }
 
-# is_junk <path> - true when an ignored entry is rebuildable output. Only the entry's own name
-# counts: an ignored key inside a tracked build/ folder is not junk because of build/.
+# is_junk <path> - true when an ignored entry is rebuildable output or the harness's per-workspace
+# scratch. Only the entry's own name counts: an ignored key inside a tracked build/ folder is not junk
+# because of build/. The two scratch files count only at their .agents/ path (issue #90).
 is_junk() {
   local base="${1%/}" e
+  case "$base" in
+    .agents/session-log.md|.agents/todo.md|*/.agents/session-log.md|*/.agents/todo.md) return 0 ;;
+  esac
   base="${base##*/}"
   for e in "${JUNK[@]}"; do
     case "$base" in $e) return 0 ;; esac
@@ -453,7 +468,7 @@ lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 load_copy_list() {
   local i=0 e
   read_list "$MAIN/$COPY_LIST"
-  COPY=(); COPY_LINE=()
+  COPY=(); COPY_LINE=(); COPY_DEFAULT=()
   while [ "$i" -lt "${#LIST[@]}" ]; do
     e="${LIST[i]}"
     while [ "${e#./}" != "$e" ]; do e="${e#./}"; done
@@ -467,9 +482,31 @@ load_copy_list() {
     case "/$(lower "$e")/" in
       */.git/*) die 1 "refused: $COPY_LIST line ${LIST_LINE[i]}: $e names .git; nothing created" ;;
     esac
-    COPY[${#COPY[@]}]="$e"; COPY_LINE[${#COPY_LINE[@]}]="${LIST_LINE[i]}"
+    COPY[${#COPY[@]}]="$e"; COPY_LINE[${#COPY_LINE[@]}]="${LIST_LINE[i]}"; COPY_DEFAULT[${#COPY_DEFAULT[@]}]=0
     i=$((i+1))
   done
+  seed_entries
+}
+
+# seed_entries - the harness's own copy entries (issue #90): each workspace's .agents/session-log.md,
+# appended after the project's entries with COPY_DEFAULT=1, so a refusal of one is a note, never exit
+# 4. The workspaces come from the bundle's detector, run in the main checkout (the script's own
+# directory holds it). A bare repository has no main checkout, so it gets none. An entry with a glob
+# character is skipped: copy_matches expands globs.
+seed_entries() {
+  local top ws rel
+  [ "${WT_BARE[0]:-0}" = 0 ] || return 0
+  [ -f "$SELF_DIR/detect-monorepo-framework.sh" ] || return 0
+  top="$(git -C "$MAIN" rev-parse --show-toplevel 2>/dev/null)" && [ -n "$top" ] || return 0
+  while IFS= read -r ws; do
+    [ -n "$ws" ] || continue
+    if [ "$ws" = "$top" ]; then rel=""
+    else rel="${ws#"$top"/}"; [ "$rel" != "$ws" ] || continue
+    fi
+    case "$rel" in *[*?\[]*) continue ;; esac
+    COPY[${#COPY[@]}]="${rel:+$rel/}.agents/session-log.md"
+    COPY_LINE[${#COPY_LINE[@]}]=0; COPY_DEFAULT[${#COPY_DEFAULT[@]}]=1
+  done < <(cd "$MAIN" && bash "$SELF_DIR/detect-monorepo-framework.sh" --workspace-dirs 2>/dev/null)
 }
 
 # copy_matches <pattern> - the paths under the main checkout that a copy-list entry names, relative
@@ -483,16 +520,26 @@ copy_matches() {
     done )
 }
 
+# copy_refuse <rel> <why> <soft> - a copy-list match that is not copied. A project entry is refused:
+# POST_FAIL=1, exit 4. A harness seed (soft=1, issue #90) is only named on stderr.
+copy_refuse() {
+  if [ "$3" = 1 ]; then note "copy: not copied $1: $2"
+  else note "copy: refused $1: $2"; POST_FAIL=1
+  fi
+}
+
 # copy_step <worktree> - copy every copy-list match from the main checkout to the same path in
-# <worktree> with cp -p. Only ignored regular files are copied; an existing destination is never
-# overwritten. A refusal or a failed copy sets POST_FAIL=1; the other entries still run.
+# <worktree> with cp -p. Only ignored regular files are copied, and an existing destination is never
+# overwritten. An existing destination needs no ignore test: a tracked file is already in the
+# checkout, so a project may list one without exit 4 (issue #90). A refusal of a project entry or a
+# failed copy sets POST_FAIL=1; a refusal of a harness seed is a note. The other entries still run.
 copy_step() {
-  local wt="$1" i=0 e rel src dst d r n why
-  if [ -f "$wt/$COPY_LIST" ] && ! cmp -s "$MAIN/$COPY_LIST" "$wt/$COPY_LIST"; then
+  local wt="$1" i=0 e soft rel src dst d r n why
+  if [ -f "$MAIN/$COPY_LIST" ] && [ -f "$wt/$COPY_LIST" ] && ! cmp -s "$MAIN/$COPY_LIST" "$wt/$COPY_LIST"; then
     note "copy: this worktree's own $COPY_LIST differs; the main checkout's list is used"
   fi
   while [ "$i" -lt "${#COPY[@]}" ]; do
-    e="${COPY[i]}"; i=$((i+1)); n=0
+    e="${COPY[i]}"; soft="${COPY_DEFAULT[i]:-0}"; i=$((i+1)); n=0
     while IFS= read -r -d '' rel; do
       n=$((n+1)); why=""
       src="$MAIN/$rel"; dst="$wt/$rel"
@@ -517,15 +564,7 @@ copy_step() {
         done
       fi
       [ -n "$why" ] || [ ! -L "$dst" ] || why="the destination in the worktree is a symlink"
-      if [ -z "$why" ]; then
-        git -C "$wt" check-ignore -q -- "$rel" 2>/dev/null
-        case "$?" in
-          0) ;;
-          1) why="it is not ignored in the new worktree, so git add -A could commit it" ;;
-          *) why="git check-ignore failed, so it may not be ignored there" ;;
-        esac
-      fi
-      if [ -n "$why" ]; then note "copy: refused $rel: $why"; POST_FAIL=1; continue; fi
+      if [ -n "$why" ]; then copy_refuse "$rel" "$why" "$soft"; continue; fi
       # Compare only a regular file: cmp would block on a FIFO.
       if [ -e "$dst" ]; then
         if [ ! -f "$dst" ]; then
@@ -535,10 +574,18 @@ copy_step() {
         fi
         continue
       fi
+      # Only a file that git ignores in the new worktree is copied, so `git add -A` cannot commit it.
+      git -C "$wt" check-ignore -q -- "$rel" 2>/dev/null
+      case "$?" in
+        0) ;;
+        1) why="it is not ignored in the new worktree, so git add -A could commit it" ;;
+        *) why="git check-ignore failed, so it may not be ignored there" ;;
+      esac
+      if [ -n "$why" ]; then copy_refuse "$rel" "$why" "$soft"; continue; fi
       if mkdir -p "$(dirname "$dst")" && cp -p "$src" "$dst"; then note "copy: $rel"
       else note "copy: could not copy $rel (see above)"; POST_FAIL=1; fi
     done < <(copy_matches "$e")
-    [ "$n" -gt 0 ] || note "copy: no match for $e ($COPY_LIST line ${COPY_LINE[i-1]})"
+    [ "$n" -gt 0 ] || [ "$soft" = 1 ] || note "copy: no match for $e ($COPY_LIST line ${COPY_LINE[i-1]})"
   done
 }
 
@@ -574,11 +621,12 @@ setup_step() {
   return 0
 }
 
-# post_steps <worktree> <branch> <run-setup: 0|1> - the copy step (when the main checkout has a
-# copy list), then the setup step (with 1). POST_FAIL says whether either failed.
+# post_steps <worktree> <branch> <run-setup: 0|1> - the copy step (the project's copy list and the
+# harness's session-log seeds; either may be empty), then the setup step (with 1). POST_FAIL says
+# whether either failed.
 post_steps() {
   POST_FAIL=0
-  if [ -f "$MAIN/$COPY_LIST" ]; then copy_step "$1"; fi
+  copy_step "$1"
   if [ "$3" = 1 ]; then setup_step "$1" "$2"; fi
   return 0
 }
@@ -784,8 +832,8 @@ cmd_setup() {
   p="${WT_PHYS[i]}"
   [ -d "$p" ] || die 1 "$p is still registered but its directory is gone: run 'worktree.sh remove $slug' or 'worktree.sh prune' first"
   load_copy_list
-  if [ ! -f "$MAIN/$COPY_LIST" ] && [ ! -e "$MAIN/$SETUP_SCRIPT" ]; then
-    note "nothing to set up: the main checkout has no $COPY_LIST or $SETUP_SCRIPT"
+  if [ "${#COPY[@]}" -eq 0 ] && [ ! -e "$MAIN/$SETUP_SCRIPT" ]; then
+    note "nothing to set up: the main checkout has no $COPY_LIST, $SETUP_SCRIPT or session log"
     printf '%s\n' "$p"
     return 0
   fi

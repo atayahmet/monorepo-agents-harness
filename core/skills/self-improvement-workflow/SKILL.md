@@ -133,9 +133,9 @@ turn — so it is saved here as a report instead of being silently dropped.
 - **Ownership** — project-owned working state, like `lessons.md` and `todo.md`. The harness never
   reads it back automatically and never prunes it; the next run should cite an existing report
   rather than re-deriving the same pattern from scratch.
-- **Git** — the harness ships no `.gitignore` (each monorepo owns that). Treat these reports the
-  same way the project treats `.agents/todo.md`: track them if declined proposals are worth a
-  history, ignore them if they are scratch.
+- **Git** — the harness adds no `.gitignore` line for these reports (its fragment covers only
+  `session-log.md` and `todo.md`). Treat the reports as the project decides: track them if declined
+  proposals are worth a history, ignore them if they are scratch.
 
 Write nothing here unless the user declined, deferred, or partly approved — a fully applied
 proposal needs no report, because the rule/skill files themselves are the record.
