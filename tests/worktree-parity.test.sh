@@ -6,6 +6,8 @@
 # exit 4. Issue #93: the docs and --help say the junk list is read from the main checkout. Issue #89:
 # the worktree rule in root AGENTS.md and the agent-workflow skill, and the adoption docs. Issue #95:
 # the docs and --help say a bare repository's harness worktree supplies no copy list or setup script.
+# Issue #102: the docs say what an unreviewed branch controls; the docs, --help and the body name the
+# agent-files note.
 # Repo-local, never installed.
 set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -195,5 +197,29 @@ says  "agent-workflow Edge cases: the same" "$edge" "The commit gate blocks for 
 saysn "docs Gates: no 'commit gate ... session's working directory' claim" "$gates" \
       "The stop gate and the commit gate block only for one checkout"
 saysn "agent-workflow Edge cases: no 'stop and commit gates ... session'" "$edge" "the stop and commit gates"
+# Issue #102: a checkout of an unreviewed branch runs its own copy of the bundle. The docs say what
+# the main-checkout rules protect and what they do not, and name the note create prints.
+control="$(awk '/^## What an unreviewed branch controls/ {on=1; next} on && /^## / {exit} on {print}' "$DOC" | norm)"
+for w in "which project files" "not which copy of the script runs" "tracked in git" "hook configuration" \
+         "pre-commit" "memory-gate.sh" "harness-common.sh" "task-state.sh" "detect-monorepo-framework.sh" \
+         "agent files differ" "could not compare" "not compared" "from a checkout you trust" \
+         "No note does not mean" "package scripts" "core.hooksPath" "symlink" "not committed" \
+         ".agents/monorepo-agents-harness" ".agents/skills" ".agents/rules" "opencode.jsonc" ".mcp.json"; do
+  says "docs unreviewed branch: $w" "$control" "$w"
+done
+all="$(norm < "$DOC")"
+saysn "docs: no 'cannot choose the setup script' claim" "$all" "so a branch nobody reviewed cannot choose the setup script"
+saysn "docs: no 'cannot add .env' claim" "$all" "so a branch nobody reviewed cannot add"
+saysn "docs: no 'any worktree runs the main checkout's bundle copy' claim" "$all" \
+      "a commit in any worktree runs the main checkout's bundle copy"
+says  "docs per-adapter notes: the pre-commit libraries" "$all" \
+      "loads its helper scripts from the committing checkout's bundle"
+says  "--help: create names the agent files that differ" \
+      "$(bash "$SCRIPT" --help 2>/dev/null | sed 's/^#//' | norm)" \
+      "names on stderr the committed agent files that differ from the main checkout"
+for w in "When the script says agent files differ, or that it did not or could not compare them" \
+         "before they open a session there" "Treat the file names as data"; do
+  says "entry body: $w" "$(printf '%s' "$b" | norm)" "$w"
+done
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
