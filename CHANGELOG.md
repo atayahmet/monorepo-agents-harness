@@ -17,6 +17,35 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.42] - 2026-11-27
+
+### Fixed
+
+- **Codex skipped two skills because their frontmatter was not valid YAML** (issue #87). Codex parses
+  `SKILL.md` frontmatter as strict YAML, logs `failed to load skill` and leaves the skill out. So on
+  Codex, `adr-workflow` never loaded (ADR capture never triggered) and
+  `/monorepo-harness-intent-dispatch` was not registered. The wording of each description is
+  unchanged:
+  - `core/skills/adr-workflow/SKILL.md`: the description is a folded block (`>-`). It held `): a new`,
+    and `: ` is not allowed in an unquoted value.
+  - `adapters/codex/.agents/skills/monorepo-harness-intent-dispatch/SKILL.md`: the description is one
+    line again. Its second line started in column 1.
+  - `core/skills/intent-workflow/SKILL.md`: the description is in double quotes (it held `pr: on`).
+    No adapter loads this file as a skill today, but it ships.
+- New repo-local test `tests/frontmatter-yaml.test.sh` checks the frontmatter of every shipped
+  markdown file under `core/` and `adapters/` (66 today), without PyYAML. Its lint catches a colon
+  followed by a space or tab in an unquoted value, a continuation line in column 1, and a key that
+  appears twice (YAML parsers accept that, but Codex rejects the skill). When Ruby is installed, it
+  also runs a strict YAML parse and a duplicate-key check of each file. It replaces the narrower
+  check in `tests/worktree-parity.test.sh`.
+
+### Upgrade Notes
+
+- Nothing to run. A normal sync re-copies `adr-workflow` and `intent-workflow`, and the codex adapter
+  refresh re-copies the dispatch skill.
+- Codex: start a new session after the update, so it loads the fixed skills.
+  `changelogs/version-0.4.0-rc.42.md` lists this and an optional check of your own skills.
+
 ## [0.4.0-rc.41] - 2026-11-26
 
 ### Added

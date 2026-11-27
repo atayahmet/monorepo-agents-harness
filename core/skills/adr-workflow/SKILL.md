@@ -1,6 +1,7 @@
 ---
 name: adr-workflow
-description: Captures architecture-affecting decisions as Architecture Decision Records
+description: >-
+  Captures architecture-affecting decisions as Architecture Decision Records
   (adr/NNNN-<title>.md) inside the active task directory. Trigger automatically during the
   agent-workflow Phase 1 (spec, when the spec's "## Architectural decisions" section lists one or
   more decisions) or Phase 2 (plan, when the plan surfaces a decision not yet recorded): a new
