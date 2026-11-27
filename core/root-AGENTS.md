@@ -82,6 +82,17 @@ A {{MONOREPO_FRAMEWORK}}-managed monorepo with multiple workspaces under `apps/`
    forward-only: never rewrite intents, task artifacts, fixtures or git history — they were true on
    their date. Details: `.agents/monorepo-agents-harness/core/team/AGENTS.md`.
 
+9. **Worktrees go through the harness script.** When a task needs its own checkout (another session
+   works in the main checkout, or the current branch must stay untouched), create it with
+   `bash .agents/monorepo-agents-harness/core/scripts/worktree.sh create <slug>` (or
+   `/monorepo-harness-worktree create <slug>`) and work in the path it prints. Name it after the
+   task: its tracker key, else the task slug; add `--branch <name>` when the project has a branch
+   naming rule. Pass `--setup`, or run `setup <slug>`, only when the developer asks for it: it runs
+   the project's setup script. Never run `git worktree add` yourself, never use an agent tool's own
+   worktree option, and never put a worktree inside the repository or in a temp directory. When the
+   developer asks for a specific tool or path, that is their call. Details:
+   `.agents/monorepo-agents-harness/docs/worktrees.md`.
+
 ## Before You Start — Mandatory Checklist
 
 - [ ] Resolve the **target workspace** (`apps/<name>`, `packages/<name>`, or the equivalent for the detected framework) — see Workspace Routing below.

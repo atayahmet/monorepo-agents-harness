@@ -13,8 +13,13 @@ bash .agents/monorepo-agents-harness/core/scripts/worktree.sh remove feat-login 
 bash .agents/monorepo-agents-harness/core/scripts/worktree.sh prune          # dry run
 ```
 
-If you never run the command, nothing changes: the installer writes no `.gitignore` line, setting
-or `AGENTS.md` change for it.
+The root `AGENTS.md` template has one rule for agents, the Critical Gotcha "Worktrees go through
+the harness script". An install writes it into a new `AGENTS.md`. For an existing file, the
+`AGENTS.md` merge step of the install or the update offers it, which you can decline. The rule:
+when a task needs its own checkout, the agent creates it with `worktree.sh create <slug>`, never
+with `git worktree add` inside the repository or in a temp directory, and passes `--setup` only
+when you ask for it. A session that needs no worktree does nothing new, and the installer writes no
+`.gitignore` line or setting for the feature.
 
 ## Where worktrees live
 
@@ -34,7 +39,9 @@ or `AGENTS.md` change for it.
   root inside the main checkout or any worktree (also through a symlink) exits 3.
 - The harness owns only the worktrees under its root. A worktree an agent tool made itself (Claude
   Code `--worktree`, the Codex app) is `external`: `list --all` shows it, and the harness never
-  moves, removes or recreates it.
+  moves, removes or recreates it. You can move it under the root yourself, once the tool that made
+  it no longer uses it (see
+  [Adopting a worktree made elsewhere](#adopting-a-worktree-made-elsewhere)).
 - Git is the only record. The script keeps no registry file; it reads `git worktree list` every time.
 
 ## Subcommands
@@ -46,7 +53,7 @@ or `AGENTS.md` change for it.
 | `setup <slug>` | Runs the copy step and the project's setup script again in an existing harness worktree (for example after a failed install) and prints its path. |
 | `list [--all]` | A tab-separated table: `kind slug branch state merged last_commit path`. `--all` adds `external` worktrees. |
 | `remove <slug> [--delete-branch] [--force]` | Removes one harness worktree after the safety checks below. |
-| `prune [--yes]` | Dry run by default: lists the harness worktrees that are clean, merged, have at least one commit since `create` and hold no ignored files outside the junk list, plus the missing ones. `--yes` re-reads the worktree list, checks each one again and removes it. Never deletes a branch. |
+| `prune [--yes]` | Dry run by default: lists the harness worktrees that are clean, merged, have at least one commit since `create` and hold no ignored files outside the junk list, plus the missing ones. A present worktree without a create record (adopted, or made by hand) is kept. `--yes` re-reads the worktree list, checks each one again and removes it. Never deletes a branch. |
 
 stdout carries only the result (a path or a table); notes, refusals and everything the project's
 setup script prints go to stderr. The script never fetches or pushes.
@@ -205,7 +212,9 @@ The checks read untracked and ignored files even when `status.showUntrackedFiles
 
 `prune` also keeps a worktree whose branch has no commit since `create` (its tip is still
 `branch.<branch>.harnessStart`, recorded by `create`): another agent session may still be working
-there. `remove <slug>` removes it when you mean it.
+there. A worktree with no create record (no `harnessStart` on its branch, or detached: adopted with
+`git worktree move`, or made by hand) is kept for the same reason, since nothing shows that its
+work is finished. `remove <slug>` removes either one when you mean it.
 
 A missing worktree (directory deleted by hand) is removed by its own path. `prune` never runs a global
 `git worktree prune`, because that would also drop the records of `external` worktrees. The script
@@ -243,6 +252,49 @@ A bare repository has no main checkout, so the current checkout stands in, excep
 worktree, where only the default list applies: that is where `create --branch` puts a branch you
 may not have reviewed. stderr says so. Run `remove` and `prune` from your own checkout to use the
 project's list.
+
+## Adopting a worktree made elsewhere
+
+A worktree an agent made with `git worktree add` (inside the repository, in a temp directory, next
+to the clone) is `external`: `prune` never sees it, and the harness never moves it. To bring one
+under the root, move it yourself in a terminal. Close every agent session working in it first: the
+move changes its path.
+
+```bash
+wt=.agents/monorepo-agents-harness/core/scripts/worktree.sh
+bash "$wt" list --all       # find the external worktrees
+dest="$(bash "$wt" path <slug>)"; mkdir -p "${dest%/*}"
+git worktree move <old-path> "$dest"
+bash "$wt" setup <slug>     # the copy list and setup script: only on a branch you trust
+```
+
+- `path` writes nothing, so create the parent folder first: without it `git worktree move` fails
+  with "No such file or directory".
+- Pick the slug the way the root `AGENTS.md` rule does: the task's tracker key, else the task slug.
+  The branch stays as it is. From then on `list` shows the worktree as `harness`.
+- The move keeps everything in the folder: uncommitted changes, untracked and ignored files (an
+  edited `.env`, `node_modules`). `setup <slug>` never overwrites a file that is already there. It
+  runs the project's setup script (an install) in that branch, so run it only on a branch you trust:
+  an agent may have made the worktree for a branch nobody reviewed.
+- An adopted worktree has no create record, so `prune` keeps it ("no create record"), even when it
+  is clean and merged. Remove it with `remove <slug> [--delete-branch]`; all of `remove`'s checks
+  apply. To clean up a finished external worktree with those checks, adopt it, then remove it.
+- Git refuses to move a locked worktree (`git worktree unlock <old-path>` is your call) and one that
+  contains submodules.
+- Git moves the folder with a rename, so a move to another disk can fail. In that case, and for a
+  worktree with submodules, re-create the worktree instead:
+  1. In the old worktree, commit the work, or stash it with `git stash -u` (a plain `git stash`
+     leaves untracked files behind).
+  2. Copy any ignored file you still need: `git worktree remove` deletes an ignored `.env` without a
+     warning.
+  3. Run `git worktree remove <old-path>`. Git refuses that for a worktree with submodules too; use
+     `git worktree remove --force <old-path>`, which also deletes uncommitted and untracked files,
+     so run `git status` there first.
+  4. Run `bash "$wt" create <slug> --branch <branch>`. If you stashed, run `git stash pop` in the
+     new worktree: the stash is shared by every worktree of the repository.
+- A worktree whose folder is gone (a cleaned temp directory) is only a record and cannot be moved:
+  `list --all` shows it as `missing`. `git worktree prune` drops it, together with every other
+  record whose folder is gone (`git worktree prune -n -v` shows them first). Its branch stays.
 
 ## Per-adapter notes
 

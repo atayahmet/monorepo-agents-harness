@@ -17,6 +17,48 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.45] - 2026-11-27
+
+### Added
+
+- **Root `AGENTS.md` Critical Gotcha 9: worktrees go through the harness script** (issue #89). Only
+  `/monorepo-harness-worktree` named `core/scripts/worktree.sh`, so an agent that decided on its own
+  that a task needed a checkout ran `git worktree add` inside the repository or in a temp directory,
+  where `prune` cannot reach it. The new rule applies only when a task needs its own checkout: the
+  agent runs `worktree.sh create <slug>` (slug: the tracker key, else the task slug) and never
+  `git worktree add`, an agent tool's own worktree option, or a path inside the repository or a temp
+  directory. Like the entry point, it passes `--setup` (or runs `setup <slug>`) only when the
+  developer asks for it, because that runs the project's setup script (review round 1). A
+  developer's explicit request for a tool or path is their call. The `agent-workflow` skill carries
+  the same rule as one Edge-cases bullet, which names the gotcha by its title: the `AGENTS.md` merge
+  can number it differently in a project with its own gotchas. The entry points are unchanged.
+- **`docs/worktrees.md` "Adopting a worktree made elsewhere"**: move an `external` worktree under the
+  root yourself (`mkdir -p` the parent of `worktree.sh path <slug>`, `git worktree move`, then
+  `setup <slug>`), with the cases git refuses (a locked worktree, submodules, another disk) and the
+  fallback. Each step was run in a scratch repository first. The harness itself still never moves
+  an external worktree.
+
+### Changed
+
+- **`/monorepo-harness-worktree prune` keeps a present worktree with no create record.** A worktree
+  adopted with `git worktree move` has no `branch.<b>.harnessStart`, so `prune` listed a fresh one
+  while a `create`-made worktree in the same state was kept ("may still be in use"). Now a worktree
+  on a branch with no `harnessStart`, or a detached one, is kept with `kept <slug>: no create record
+  (adopted, made by hand, or not on the branch create made), so it may still be in use
+  ('worktree.sh remove <slug>' removes it)`.
+  A detached harness worktree that `prune` used to remove is now kept too. A missing worktree is
+  still pruned, and `remove <slug>` still removes either kind after its checks.
+- `docs/worktrees.md` no longer says the installer makes no `AGENTS.md` change; its `prune` row and
+  "Removal safety" name the new rule. `create`'s warning when it cannot record `harnessStart` now
+  says `prune` keeps the worktree until you remove it.
+
+### Upgrade Notes
+
+- **`core/root-AGENTS.md` changed** (Critical Gotcha 9). The update's `AGENTS.md` merge step offers
+  the new gotcha with your approval. Nothing to run; a project whose agents never need a worktree
+  sees only the new text. See `changelogs/version-0.4.0-rc.45.md` for one optional follow-up: adopt
+  the worktrees agents already made inside the repository or in a temp directory.
+
 ## [0.4.0-rc.44] - 2026-11-27
 
 ### Fixed
