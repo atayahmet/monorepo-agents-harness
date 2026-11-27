@@ -43,6 +43,8 @@ Release procedure (harness maintainers):
 
 - Nothing to run. A normal sync re-copies `adr-workflow` and `intent-workflow`, and the codex adapter
   refresh re-copies the dispatch skill.
+- Codex: start a new session after the update, so it loads the fixed skills.
+  `changelogs/version-0.4.0-rc.42.md` lists this and an optional check of your own skills.
 
 ## [0.4.0-rc.41] - 2026-11-26
 
