@@ -154,8 +154,8 @@ Copied files (an `.env`, a key) live under `~/.harness-worktrees/<repo-id>/<slug
 repository, under your user, with the source's mode. `remove` deletes an unchanged copy with the
 worktree; the main checkout keeps the original (see [Removal safety](#removal-safety)).
 
-Unlike these two files, `.agents/worktree-junk.txt` (see [Junk list](#junk-list)) is read from the
-checkout you run the script in.
+The junk list, `.agents/worktree-junk.txt` (see [Junk list](#junk-list)), is read from the main
+checkout too.
 
 ## Merged rule
 
@@ -225,14 +225,24 @@ folder above it never counts: an ignored `build/signing.p12` inside a tracked `b
 `remove`. When `.gitignore` ignores only the files inside a folder (`dist/*`), git reports each file,
 so ignore the folder itself (`dist/`) to make it junk. `.index.sqlite*` is the harness's own
 knowledge-base cache. A project adds entries in `.agents/worktree-junk.txt` (one name or glob per
-line, `#` comments, read from the checkout you run the script in). The file can only add entries,
-and the harness never writes it.
+line, `#` comments). The file can only add entries, and the harness never writes it.
 
 ```
 # .agents/worktree-junk.txt
 .terraform
 *.pem.cache
 ```
+
+`remove` and `prune` read it from the main checkout, like the copy list and the setup script. A
+worktree's own copy is never used, so a branch nobody reviewed cannot add `.env` to the list and
+have `remove` delete an `.env` without `--force`. When you run the script from a worktree whose own
+copy differs, stderr says the main checkout's list is used. To change the list, edit the main
+checkout's file.
+
+A bare repository has no main checkout, so the current checkout stands in, except in a harness
+worktree, where only the default list applies: that is where `create --branch` puts a branch you
+may not have reviewed. stderr says so. Run `remove` and `prune` from your own checkout to use the
+project's list.
 
 ## Per-adapter notes
 

@@ -2,7 +2,8 @@
 # Tests for worktree.sh — one adapter-neutral root for the worktrees the harness creates, and the
 # path / create / list / remove / prune contract (issue #85). One section per acceptance criterion
 # in the task spec (AC1–AC11). Issue #88 (the project-owned setup step: copy list, setup script,
-# `setup <slug>`, exit 4) adds the sections marked "#88 AC<n>".
+# `setup <slug>`, exit 4) adds the sections marked "#88 AC<n>". Issue #93 (the junk list read from
+# the main checkout) adds the sections marked "#93 AC<n>".
 #
 # Repo-local on purpose: this file is NOT listed in core/install-manifest.txt, so it never reaches a
 # consumer bundle.
@@ -903,6 +904,79 @@ for e in .GIT/config 'sub/.Git/hooks/x'; do
   checkn "#88 R1: '$e' creates no branch" has_branch "$S" "s-case$n"
 done
 copylist .env
+
+# ---------------------------------------------------------------------------------------------
+# Issue #93 — remove and prune read .agents/worktree-junk.txt from the main checkout, so a branch
+# nobody reviewed cannot make an .env junk by running the script from its own worktree.
+echo "Issue #93 AC1/AC4 — a branch's own junk list is not used"
+J="$TMP/jm/proj"; new_repo "$J"
+put "$J" .gitignore ".env" && git -C "$J" add -A && git -C "$J" commit -qm "ignore .env"
+PA="$(mkwt "$J" j-a)"
+if put "$PA" .agents/worktree-junk.txt ".env"; then git -C "$PA" add -A && git -C "$PA" commit -qm "junk: .env"; fi
+PB="$(mkwt "$J" j-b)"; put "$PB" .env "EDITED=b"
+PC="$(mkwt "$J" j-c)"; commit "$PC" jc.txt "jc work"
+git -C "$J" merge -q --no-ff -m "merge j-c" j-c; put "$PC" .env "EDITED=c"
+wt "$PA" remove j-b
+is    "#93 AC1: remove from a worktree whose branch lists .env is refused" "$RC" 1
+says  "#93 AC1: the refusal names the .env" "$ERR" ".env"
+check "#93 AC1: the edited .env stays" test -f "$PB/.env"
+says  "#93 AC4: the note names the differing list" "$ERR" "this checkout's own .agents/worktree-junk.txt differs"
+says  "#93 AC4: the note says the main checkout's list is used" "$ERR" "the main checkout's list is used"
+
+echo "Issue #93 AC3 — prune reads the same list"
+wt "$PA" prune
+is    "#93 AC3: prune does not list a merged worktree with an edited .env" "$(row j-c)" ""
+says  "#93 AC3: prune says why" "$ERR" "kept j-c: ignored files outside the junk list"
+wt "$PA" prune --yes
+check "#93 AC3: prune --yes keeps the edited .env" test -f "$PC/.env"
+
+echo "Issue #93 AC2/AC4 — the main checkout's list applies everywhere"
+if fixture_dir "$J"; then mkdir -p "$J/.agents"; printf '.env\n' > "$J/.agents/worktree-junk.txt"; fi
+wt "$PA" remove j-b
+is    "#93 AC2: remove passes once the main checkout's list has .env" "$RC" 0
+check "#93 AC2: the worktree is gone" test ! -e "$PB"
+saysn "#93 AC4: no note when the lists are identical" "$ERR" "worktree-junk.txt differs"
+PD="$(mkwt "$J" j-d)"; PE="$(mkwt "$J" j-e)"; put "$PE" .env "EDITED=e"
+wt "$PD" remove j-e
+is    "#93 AC2: remove from a worktree without its own list uses the main checkout's" "$RC" 0
+check "#93 AC2: that worktree is gone" test ! -e "$PE"
+saysn "#93 AC4: no note when the worktree has no list" "$ERR" "worktree-junk.txt differs"
+wt "$PD" prune
+check "#93 AC3: with the main checkout's list, prune lists j-c" test -n "$(row j-c)"
+wt "$J" prune
+saysn "#93 AC4: no note from the main checkout" "$ERR" "worktree-junk.txt differs"
+if fixture_dir "$J"; then printf '.env\n# main\n' > "$J/.agents/worktree-junk.txt"; fi
+wt "$PA" prune
+says  "#93 AC4: a note when both lists exist and differ" "$ERR" "this checkout's own .agents/worktree-junk.txt differs"
+
+echo "Issue #93 AC5 — a bare repository uses the current checkout's list"
+BR="$TMP/bm/proj.git"; mkdir -p "$TMP/bm"; git clone -q --bare "$J" "$BR"
+BC="$TMP/bm/main"; git -C "$BR" worktree add -q "$BC" main
+put "$BC" .agents/worktree-junk.txt ".env"
+PX="$(mkwt "$BC" b-x)"; put "$PX" .env "EDITED=x"
+wt "$BC" remove b-x
+is    "#93 AC5: in a bare repository the current checkout's list applies" "$RC" 0
+check "#93 AC5: the worktree is gone" test ! -e "$PX"
+saysn "#93 AC5: no note in a bare repository" "$ERR" "worktree-junk.txt differs"
+
+echo "Issue #93 review round 1 — a bare repository never reads a harness worktree's list"
+# A bare repository has no main checkout. A harness worktree is where an unreviewed branch lands
+# (create --branch), so run from one, only the default list applies.
+PY="$(mkwt "$BC" b-y)"
+if put "$PY" .agents/worktree-junk.txt ".env"; then git -C "$PY" add -A && git -C "$PY" commit -qm "junk: .env"; fi
+PZ="$(mkwt "$BC" b-z)"; put "$PZ" .env "EDITED=z"
+wt "$PY" remove b-z
+is    "#93 R1: bare repo, run from a harness worktree: its own list is not used" "$RC" 1
+check "#93 R1: the edited .env stays" test -f "$PZ/.env"
+says  "#93 R1: the note says only the default list applies" "$ERR" "in a harness worktree only the default list applies"
+PW="$(mkwt "$BC" b-w)"
+wt "$PW" remove b-z
+is    "#93 R1: also from a harness worktree without a list of its own" "$RC" 1
+says  "#93 R1: the note appears there too" "$ERR" "in a harness worktree only the default list applies"
+wt "$BC" remove b-z
+is    "#93 R1: the bare repository's own checkout still uses its list" "$RC" 0
+check "#93 R1: that worktree is gone" test ! -e "$PZ"
+saysn "#93 R1: no harness note from that checkout" "$ERR" "only the default list applies"
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

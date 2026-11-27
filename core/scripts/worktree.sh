@@ -29,8 +29,8 @@
 #   .agents/worktree-setup.sh  an executable run in the new worktree, only on --setup or setup, with
 #                              HARNESS_WORKTREE_MAIN, HARNESS_WORKTREE_PATH, HARNESS_WORKTREE_BRANCH
 #                              set and stdin from /dev/null (read from the main checkout)
-#   .agents/worktree-junk.txt  extra junk-list entries for remove and prune (read from the checkout
-#                              this script runs in)
+#   .agents/worktree-junk.txt  extra junk-list entries for remove and prune (read from the main
+#                              checkout)
 #
 # stdout carries only the result (a path or a table); notes, refusals and everything the setup
 # script prints go to stderr. Needs git >= 2.17 and coreutils. Never fetches or pushes.
@@ -49,11 +49,12 @@ export LC_ALL=C GIT_OPTIONAL_LOCKS=0
 
 COPY_LIST=.agents/worktree-copy.txt
 SETUP_SCRIPT=.agents/worktree-setup.sh
+JUNK_LIST=.agents/worktree-junk.txt
 
 # Ignored files that can be rebuilt, so `remove` may lose them (docs/worktrees.md, "Junk list"). An
 # entry matches the name of the ignored file or directory itself (`*`, `?`, `[` are globs), never a
-# folder above it. A project adds entries in .agents/worktree-junk.txt. `.index.sqlite*` is the
-# harness's own derived cache (kb-index.sh).
+# folder above it. A project adds entries in the main checkout's .agents/worktree-junk.txt.
+# `.index.sqlite*` is the harness's own derived cache (kb-index.sh).
 JUNK_DEFAULT='node_modules dist build out .turbo .next .nuxt .svelte-kit .output .vercel .cache
 .parcel-cache coverage .nyc_output target __pycache__ .pytest_cache .mypy_cache .ruff_cache .venv
 .gradle .eslintcache .DS_Store *.tsbuildinfo *.pyc *.log .index.sqlite*'
@@ -117,8 +118,8 @@ load_repo() {
   [ -n "$name" ] || name=repo
   REPO_ID="$name-$(printf '%s' "$COMMON" | git hash-object --stdin | cut -c1-8)"
   load_worktrees
-  # MAIN: the main checkout. The project's copy list and setup script are read there and the copy
-  # list copies from there, whatever branch a new worktree is on. A bare repository has no main
+  # MAIN: the main checkout. The project's copy list, setup script and junk list are read there and
+  # the copy list copies from there, whatever branch a worktree is on. A bare repository has no main
   # checkout: the checkout this script runs in stands in.
   if [ "${WT_BARE[0]:-0}" = 1 ]; then MAIN="$TOP"; else MAIN="${WT_PHYS[0]}"; fi
 }
@@ -289,14 +290,27 @@ read_list() {
   done < "$1"
 }
 
-# load_junk - the default junk list plus the project's .agents/worktree-junk.txt (read-only).
+# load_junk - the default junk list plus the main checkout's .agents/worktree-junk.txt (read-only).
+# The list decides what remove may delete without --force, so a branch never extends it: run from
+# another checkout, that checkout's own copy is only compared (regular files only: cmp blocks on a
+# FIFO), and a difference is a note. A bare repository has no main checkout and the current one
+# stands in, except a harness worktree (where an unreviewed branch lands): there only the default
+# list applies. Needs load_repo and resolve_root.
 load_junk() {
   local e i=0
   JUNK=()
   set -f
   for e in $JUNK_DEFAULT; do JUNK[${#JUNK[@]}]="$e"; done
   set +f
-  read_list "$TOP/.agents/worktree-junk.txt"
+  if [ "${WT_BARE[0]:-0}" = 1 ] && [ "${TOP%/*}" = "$BASE_DIR" ]; then
+    note "junk list: a bare repository has no main checkout, so in a harness worktree only the default list applies (run from another checkout to use the project's $JUNK_LIST)"
+    return 0
+  fi
+  if [ "$TOP" != "$MAIN" ] && [ -f "$TOP/$JUNK_LIST" ] \
+     && { [ ! -f "$MAIN/$JUNK_LIST" ] || ! cmp -s "$MAIN/$JUNK_LIST" "$TOP/$JUNK_LIST"; }; then
+    note "junk list: this checkout's own $JUNK_LIST differs; the main checkout's list is used"
+  fi
+  read_list "$MAIN/$JUNK_LIST"
   while [ "$i" -lt "${#LIST[@]}" ]; do JUNK[${#JUNK[@]}]="${LIST[i]%/}"; i=$((i+1)); done
 }
 

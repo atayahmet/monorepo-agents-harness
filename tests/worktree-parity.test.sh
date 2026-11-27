@@ -3,7 +3,7 @@
 # same body, every install row exists, the script is executable, the docs list the command and carry
 # the after-`create` install note, and no install guide grew past the 100-line cap. Issue #88: the
 # body and the docs describe the project-owned copy list and setup script, --setup, setup <slug> and
-# exit 4.
+# exit 4. Issue #93: the docs and --help say the junk list is read from the main checkout.
 # Repo-local, never installed.
 set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -62,6 +62,20 @@ for w in "~/.harness-worktrees" "HARNESS_WORKTREE_ROOT" "<repo-id>" "worktree-ju
          "main checkout's copy" "check-ignore" "lifecycle scripts" "branches you trust"; do
   says "docs/worktrees.md mentions: $w" "$d" "$w"
 done
+
+# Issue #93: the junk list is read from the main checkout (docs section, the After-create note, and
+# the script's --help). Whitespace is normalized so a line wrap cannot hide a phrase.
+norm() { tr '\n' ' ' | tr -s ' '; }
+junk="$(awk '/^### Junk list/ {on=1; next} on && /^##/ {exit} on {print}' "$DOC" | norm)"
+says  "Junk list section: read from the main checkout" "$junk" "read it from the main checkout, like the copy list and the setup script"
+says  "Junk list section: a worktree's own copy is never used" "$junk" "A worktree's own copy is never used"
+# Review round 1: in a bare repository a harness worktree never supplies the list.
+says  "Junk list section: bare repository, harness worktree" "$junk" "except in a harness worktree, where only the default list applies"
+saysn "Junk list section: not read from the current checkout" "$junk" "the checkout you run the script in"
+saysn "docs: no 'is read from the checkout you run the script in'" "$(norm < "$DOC")" "is read from the checkout you run the script in"
+says  "--help: worktree-junk.txt is read from the main checkout" \
+      "$(bash "$SCRIPT" --help 2>/dev/null | sed 's/^#//' | norm)" \
+      "worktree-junk.txt extra junk-list entries for remove and prune (read from the main checkout)"
 
 for f in INSTALL.md adapters/claude-code/INSTALL.md adapters/opencode/INSTALL.md adapters/codex/INSTALL.md; do
   n="$(wc -l < "$REPO/$f" | tr -d ' ')"
