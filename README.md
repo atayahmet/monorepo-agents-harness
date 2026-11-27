@@ -83,7 +83,7 @@ Rules while you do this:
 | `/monorepo-harness-kb-index` | Query knowledge base | Ranked results | [knowledge-base](core/skills/knowledge-base/SKILL.md) |
 | `/monorepo-harness-team` | Set up the team registry (`.agents/team.yml`) | People, IDs, assignee routing | [team-registry](core/skills/team-registry/SKILL.md) |
 | `/monorepo-harness-init` | Document one workspace for agents (`<ws> [--audit]`) | Nested `AGENTS.md` tree + `CLAUDE.md`/`GEMINI.md` symlinks, lint | [agents-init](core/skills/agents-init/SKILL.md) |
-| `/monorepo-harness-worktree` | Work on a branch in its own checkout (`create <slug>`, `list`, `remove`, `prune`) | Worktree under `~/.harness-worktrees/<repo-id>/`, the same for every adapter | [docs/worktrees.md](docs/worktrees.md) |
+| `/monorepo-harness-worktree` | Work on a branch in its own checkout (`create <slug> [--setup]`, `setup`, `list`, `remove`, `prune`) | Worktree under `~/.harness-worktrees/<repo-id>/`, the same for every adapter | [docs/worktrees.md](docs/worktrees.md) |
 | `/monorepo-self-improve` | Harvest learnings | Rules/skills/proposals | [self-improvement-workflow](core/skills/self-improvement-workflow/SKILL.md) |
 
 ## Features
@@ -92,7 +92,7 @@ Rules while you do this:
 - **Tiered red-first tests** — `Tier: red-first` or `evidence-only`; failures recorded in `4_verify.md`. [agent-workflow](core/skills/agent-workflow/SKILL.md)
 - **Architecture decisions** — ADRs written next to plan/spec when needed. [adr-workflow](core/skills/adr-workflow/SKILL.md)
 - **Intent capture & dispatch** — File, approve, and dispatch intents to tracked work; `--pr` pushes the intent branch and opens its PR on your forge; approve/reject directly from an intent PR link (`--approve` submits a real review, `--reject` declines on the branch and merges). [docs/intents.md](docs/intents.md)
-- **One worktree root** — `/monorepo-harness-worktree` puts every worktree it creates at `~/.harness-worktrees/<repo-id>/<slug>`, outside the repo and the same for every adapter, and lists, removes and prunes them safely. [docs/worktrees.md](docs/worktrees.md)
+- **One worktree root** — `/monorepo-harness-worktree` puts every worktree it creates at `~/.harness-worktrees/<repo-id>/<slug>`, outside the repo and the same for every adapter, and lists, removes and prunes them safely. A project can list files to copy into each new worktree (`.agents/worktree-copy.txt`) and add a setup script (`.agents/worktree-setup.sh`, run on `--setup`). [docs/worktrees.md](docs/worktrees.md)
 - **Deterministic install/update** — Manifest-driven scripts, self-healing adapters. [INSTALL.md](INSTALL.md)
 - **CI & PR review** — Enforce memory-gate in CI and review diffs against task artifacts. [ci-integration](core/skills/ci-integration/SKILL.md) · [pr-review](core/skills/pr-review/SKILL.md)
 - **Knowledge base & self-improvement** — Query past work, harvest reusable rules/skills. [knowledge-base](core/skills/knowledge-base/SKILL.md) · [self-improvement-workflow](core/skills/self-improvement-workflow/SKILL.md)

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Tests for worktree.sh — one adapter-neutral root for the worktrees the harness creates, and the
 # path / create / list / remove / prune contract (issue #85). One section per acceptance criterion
-# in the task spec (AC1–AC11).
+# in the task spec (AC1–AC11). Issue #88 (the project-owned setup step: copy list, setup script,
+# `setup <slug>`, exit 4) adds the sections marked "#88 AC<n>".
 #
 # Repo-local on purpose: this file is NOT listed in core/install-manifest.txt, so it never reaches a
 # consumer bundle.
@@ -643,6 +644,265 @@ is     "remove refuses a worktree with a bisect in progress" "$RC" 1
 says   "the refusal names the bisect" "$ERR" "bisect"
 wt "$PR" remove p-bisect --force
 is     "--force removes it" "$RC" 0
+
+# ---------------------------------------------------------------------------------------------
+# Issue #88 — a project-owned setup step after create: .agents/worktree-copy.txt (copied on every
+# create) and .agents/worktree-setup.sh (run on create --setup or setup <slug>), both read from the
+# main checkout; exit 4 when a post-create step fails; byte-identical ignored files are recoverable.
+
+echo "Issue #88 AC1 — no project files: create as in 0.4.0-rc.42"
+S0="$TMP/s0/proj"; new_repo "$S0"; IDS0="$(repo_id "$S0")"
+wt "$S0" create s0-a
+is    "#88 AC1: create exits 0" "$RC" 0
+is    "#88 AC1: create prints only the path" "$OUT" "$ROOTP/$IDS0/s0-a"
+says  "#88 AC1: the install note stays" "$ERR" "run the project's own install"
+says  "#88 AC1: the .env note stays" "$ERR" "bring over any .env by hand"
+saysn "#88 AC1: no setup command without a setup script" "$ERR" "worktree.sh setup"
+wt "$S0" setup s0-a
+is    "#88 AC1: setup with neither file exits 0" "$RC" 0
+is    "#88 AC1: setup prints the path" "$OUT" "$ROOTP/$IDS0/s0-a"
+says  "#88 AC1: setup says there is nothing to set up" "$ERR" "nothing to set up"
+
+# Fixture: a main checkout with ignored files, a setup script that records how it ran, a branch
+# that carries its own (different) setup script, and a branch where conf/ is a tracked symlink that
+# leads outside the worktree.
+S="$TMP/s/proj"; new_repo "$S"; IDS="$(repo_id "$S")"; SP="$(cd "$S" && pwd -P)"
+printf '.env\n.env.local\nnode_modules/\ncerts/\nlinked.env\nx.env\nsecret.env\n' > "$S/.gitignore"
+git -C "$S" add -A && git -C "$S" commit -qm ignores
+git -C "$S" checkout -q -b other-setup
+put "$S" .agents/worktree-setup.sh '#!/bin/sh
+mkdir -p node_modules && : > node_modules/.branch-ran'
+chmod +x "$S/.agents/worktree-setup.sh"; git -C "$S" add -A && git -C "$S" commit -qm "branch setup"
+git -C "$S" checkout -q main
+mkdir -p "$TMP/outside" "$TMP/outside2"
+git -C "$S" checkout -q -b symlinked
+ln -s "$TMP/outside2" "$S/conf"; ln -s ../nowhere "$S/conf2"
+git -C "$S" add -A && git -C "$S" commit -qm "conf links"
+git -C "$S" checkout -q main
+put "$S" .env "SECRET=main"; chmod 600 "$S/.env"
+put "$S" apps/web/.env.local "WEB=1"; put "$S" apps/api/.env.local "API=1"
+put "$S" .agents/worktree-setup.sh '#!/bin/sh
+echo "setup-stdout-marker"
+mkdir -p node_modules
+{
+  echo "cwd=$(pwd -P)"
+  echo "main=$HARNESS_WORKTREE_MAIN"
+  echo "path=$HARNESS_WORKTREE_PATH"
+  echo "branch=$HARNESS_WORKTREE_BRANCH"
+  echo "lc_all=${LC_ALL-unset}"
+  if [ -f .env ]; then echo "env=yes"; else echo "env=no"; fi
+  if [ -t 0 ]; then echo "stdin=tty"; else echo "stdin=$(wc -c | tr -d " ")"; fi
+} > node_modules/.setup-ran
+exit "${SETUP_EXIT:-0}"'
+chmod +x "$S/.agents/worktree-setup.sh"
+# copylist <entry>... - write the main checkout's .agents/worktree-copy.txt, one entry per line.
+copylist() { printf '%s\n' "$@" > "$S/.agents/worktree-copy.txt"; }
+
+echo "Issue #88 AC2 — the copy list"
+copylist '# env files' '' '  .env  ' './apps/*/.env.local' 'missing.env' 'nomatch/*.env'
+wt "$S" create s-copy
+P="$ROOTP/$IDS/s-copy"
+is    "#88 AC2: create with a copy list exits 0" "$RC" 0
+is    "#88 AC2: stdout is only the path" "$OUT" "$P"
+is    "#88 AC2: a literal entry is copied" "$(cat "$P/.env" 2>/dev/null)" "SECRET=main"
+is    "#88 AC2: the copy keeps the mode" "$(ls -l "$P/.env" 2>/dev/null | cut -c1-10)" "-rw-------"
+is    "#88 AC2: a glob entry is copied (web)" "$(cat "$P/apps/web/.env.local" 2>/dev/null)" "WEB=1"
+is    "#88 AC2: a glob entry is copied (api)" "$(cat "$P/apps/api/.env.local" 2>/dev/null)" "API=1"
+says  "#88 AC2: a missing source is reported" "$ERR" "no match for missing.env"
+says  "#88 AC2: an empty glob is reported" "$ERR" "no match for nomatch/*.env"
+saysn "#88 AC2: no .env-by-hand note with a copy list" "$ERR" "bring over any .env by hand"
+is    "#88 AC2: the copies leave the worktree clean" "$(git -C "$P" status --porcelain 2>/dev/null)" ""
+
+echo "Issue #88 AC3 — copy-list entries that leave the repository"
+n=0
+for e in /etc/hosts ../x 'a/../../x' .git/config 'sub/.git/hooks/x'; do
+  n=$((n+1)); copylist .env "$e"
+  wt "$S" create "s-bad$n"
+  is     "#88 AC3: '$e' is refused" "$RC" 1
+  says   "#88 AC3: the refusal for '$e' names the line" "$ERR" "line 2"
+  check  "#88 AC3: '$e' creates no directory" test ! -e "$ROOTP/$IDS/s-bad$n"
+  checkn "#88 AC3: '$e' creates no branch" has_branch "$S" "s-bad$n"
+done
+
+# A glob such as .*/x can match .. in bash 3.2 (newer bash skips it): a match is checked again.
+mkdir -p "$TMP/s/outside3"; put "$TMP/s/outside3" secret.env "OUT=3"
+copylist '.*/outside3/secret.env'
+wt "$S" setup s-copy
+check  "#88 AC3: a glob that matches .. writes nothing outside the worktree" test ! -e "$ROOTP/$IDS/outside3"
+saysn  "#88 AC3: a glob that matches .. copies nothing" "$ERR" "copy: ../outside3"
+
+echo "Issue #88 AC4 — copy guards"
+ln -s .env "$S/linked.env"
+put "$S" certs/a.pem "PEM"
+put "$TMP/outside" secret.env "OUT=1"; ln -s "$TMP/outside" "$S/ext"
+put "$S" notignored.txt "plain"
+put "$S" conf/x.env "X=1"; put "$S" conf2/x.env "X=2"
+copylist .env linked.env certs ext/secret.env notignored.txt conf/x.env conf2/x.env
+wt "$S" create s-guard --base symlinked
+P="$ROOTP/$IDS/s-guard"
+is    "#88 AC4: a refused entry makes create exit 4" "$RC" 4
+is    "#88 AC4: exit 4 still prints the path" "$OUT" "$P"
+check "#88 AC4: the worktree stays" test -d "$P"
+check "#88 AC4: the branch stays" has_branch "$S" s-guard
+is    "#88 AC4: the other entries are still copied" "$(cat "$P/.env" 2>/dev/null)" "SECRET=main"
+for e in linked.env certs ext/secret.env notignored.txt conf/x.env; do
+  says "#88 AC4: refused $e is reported" "$ERR" "refused $e"
+done
+check "#88 AC4: a symlink source is not copied" test ! -e "$P/linked.env"
+check "#88 AC4: a directory is not copied" test ! -e "$P/certs"
+check "#88 AC4: a source outside the main checkout is not copied" test ! -e "$P/ext"
+check "#88 AC4: a file git does not ignore is not copied" test ! -e "$P/notignored.txt"
+check "#88 AC4: nothing is written through a symlinked folder" test ! -e "$TMP/outside2/x.env"
+# The copy never writes through a symlink in the worktree, also one that is dangling there.
+says  "#88 AC4: a symlinked folder is refused for that reason" "$ERR" "refused conf/x.env: a folder on its path in the worktree is a symlink"
+says  "#88 AC4: a dangling symlinked folder is refused for that reason" "$ERR" "refused conf2/x.env: a folder on its path in the worktree is a symlink"
+says  "#88 AC4: stderr says how to retry" "$ERR" "worktree.sh setup s-guard"
+copylist .env
+put "$ROOTP/$IDS/s-copy" .env "EDITED"
+wt "$S" setup s-copy
+is    "#88 AC4: setup with a differing destination exits 0" "$RC" 0
+says  "#88 AC4: a differing destination is kept" "$ERR" "kept .env"
+is    "#88 AC4: an existing destination is never overwritten" "$(cat "$ROOTP/$IDS/s-copy/.env" 2>/dev/null)" "EDITED"
+
+echo "Issue #88 AC5 — the setup script runs only on --setup"
+wt "$S" create s-plain
+P="$ROOTP/$IDS/s-plain"
+is    "#88 AC5: a plain create exits 0" "$RC" 0
+check "#88 AC5: a plain create never runs the setup script" test ! -e "$P/node_modules/.setup-ran"
+says  "#88 AC5: stderr names the setup command" "$ERR" "worktree.sh setup s-plain"
+saysn "#88 AC5: no install note when a setup script exists" "$ERR" "run the project's own install"
+mv "$S/.agents/worktree-setup.sh" "$TMP/setup.saved"
+wt "$S" create s-noscript --setup
+is     "#88 AC5: --setup without a setup script is refused" "$RC" 1
+says   "#88 AC5: the refusal names the file" "$ERR" "worktree-setup.sh"
+check  "#88 AC5: nothing is created without a setup script" test ! -e "$ROOTP/$IDS/s-noscript"
+checkn "#88 AC5: no branch is created without a setup script" has_branch "$S" s-noscript
+mv "$TMP/setup.saved" "$S/.agents/worktree-setup.sh"; chmod -x "$S/.agents/worktree-setup.sh"
+wt "$S" create s-noexec --setup
+is     "#88 AC5: --setup with a non-executable script is refused" "$RC" 1
+check  "#88 AC5: nothing is created for a non-executable script" test ! -e "$ROOTP/$IDS/s-noexec"
+chmod +x "$S/.agents/worktree-setup.sh"
+
+echo "Issue #88 AC6 — create --setup"
+ENVX=(LC_ALL=POSIX); wt "$S" create s-setup --setup <<<"stdin-data"; ENVX=()
+P="$ROOTP/$IDS/s-setup"; M="$P/node_modules/.setup-ran"
+is   "#88 AC6: create --setup exits 0" "$RC" 0
+is   "#88 AC6: stdout is exactly the path" "$OUT" "$P"
+is   "#88 AC6: the script runs in the new worktree" "$(grep '^cwd=' "$M" 2>/dev/null)" "cwd=$P"
+is   "#88 AC6: HARNESS_WORKTREE_MAIN is the main checkout" "$(grep '^main=' "$M" 2>/dev/null)" "main=$SP"
+is   "#88 AC6: HARNESS_WORKTREE_PATH is the worktree" "$(grep '^path=' "$M" 2>/dev/null)" "path=$P"
+is   "#88 AC6: HARNESS_WORKTREE_BRANCH is the branch" "$(grep '^branch=' "$M" 2>/dev/null)" "branch=s-setup"
+is   "#88 AC6: the caller's LC_ALL is restored" "$(grep '^lc_all=' "$M" 2>/dev/null)" "lc_all=POSIX"
+is   "#88 AC6: the copy step runs first" "$(grep '^env=' "$M" 2>/dev/null)" "env=yes"
+is   "#88 AC6: stdin is empty" "$(grep '^stdin=' "$M" 2>/dev/null)" "stdin=0"
+says "#88 AC6: the script's stdout goes to stderr" "$ERR" "setup-stdout-marker"
+ENVX=(-u LC_ALL); wt "$S" create s-setup2 --setup; ENVX=()
+is   "#88 AC6: an unset LC_ALL stays unset" "$(grep '^lc_all=' "$ROOTP/$IDS/s-setup2/node_modules/.setup-ran" 2>/dev/null)" "lc_all=unset"
+wt "$S" create s-branchcopy --base other-setup --setup
+P="$ROOTP/$IDS/s-branchcopy"
+is    "#88 AC6: exits 0 when the branch has its own script" "$RC" 0
+check "#88 AC6: the main checkout's script runs" test -f "$P/node_modules/.setup-ran"
+check "#88 AC6: the branch's script does not run" test ! -e "$P/node_modules/.branch-ran"
+says  "#88 AC6: stderr says the worktree's copy differs" "$ERR" "differs"
+
+echo "Issue #88 AC7 — a failing setup script"
+ENVX=(SETUP_EXIT=7); wt "$S" create s-fail --setup; ENVX=()
+P="$ROOTP/$IDS/s-fail"
+is    "#88 AC7: a failing setup exits 4" "$RC" 4
+is    "#88 AC7: exit 4 still prints the path" "$OUT" "$P"
+check "#88 AC7: the worktree stays" test -d "$P"
+check "#88 AC7: the branch stays" has_branch "$S" s-fail
+says  "#88 AC7: stderr names the exit code" "$ERR" "exited 7"
+says  "#88 AC7: stderr says how to retry" "$ERR" "worktree.sh setup s-fail"
+
+echo "Issue #88 AC8 — setup <slug> and a re-run of create"
+wt "$S" setup s-fail
+is   "#88 AC8: setup re-runs both steps (exit 0 once fixed)" "$RC" 0
+is   "#88 AC8: setup prints the path" "$OUT" "$ROOTP/$IDS/s-fail"
+says "#88 AC8: setup runs the script" "$ERR" "setup-stdout-marker"
+wt "$S" setup;             is "#88 AC8: setup without a slug is a bad call" "$RC" 2
+wt "$S" setup a b;         is "#88 AC8: setup takes one slug" "$RC" 2
+wt "$S" setup s-fail --x;  is "#88 AC8: setup takes no option" "$RC" 2
+wt "$S" setup no-such;     is "#88 AC8: an unknown slug is refused" "$RC" 1
+git -C "$S" worktree add -q -b s-ext "$TMP/s-ext"
+wt "$S" setup s-ext;       is "#88 AC8: an external worktree is refused" "$RC" 1
+P="$(mkwt "$S" s-gone)"; case "$P" in "$TMPP"/*) rm -rf "$P" ;; esac
+wt "$S" setup s-gone;      is "#88 AC8: a missing worktree directory is refused" "$RC" 1
+rm -f "$ROOTP/$IDS/s-fail/node_modules/.setup-ran"
+wt "$S" create s-fail --setup
+is    "#88 AC8: a re-run of create --setup exits 0" "$RC" 0
+is    "#88 AC8: a re-run of create prints the path" "$OUT" "$ROOTP/$IDS/s-fail"
+check "#88 AC8: a re-run of create runs no setup" test ! -e "$ROOTP/$IDS/s-fail/node_modules/.setup-ran"
+says  "#88 AC8: a re-run of create names setup <slug>" "$ERR" "worktree.sh setup s-fail"
+wt "$S" create s-fail
+says  "#88 AC8: a plain re-run of create names setup <slug> too" "$ERR" "worktree.sh setup s-fail"
+
+echo "Issue #88 AC9 — byte-identical ignored files are recoverable"
+copylist .env
+# A copy made by hand counts too: the rule reads the bytes, not the copy list.
+P="$(mkwt "$S" s-ident)"; put "$P" .env "SECRET=main"; put "$P" apps/web/.env.local "WEB=1"
+wt "$S" remove s-ident
+is    "#88 AC9: identical ignored files do not stop remove" "$RC" 0
+check "#88 AC9: the worktree is gone" test ! -e "$ROOTP/$IDS/s-ident"
+P="$(mkwt "$S" s-edit)"; put "$P" .env "SECRET=edited"
+wt "$S" remove s-edit
+is    "#88 AC9: an edited copy stops remove" "$RC" 1
+says  "#88 AC9: the refusal names the edited copy" "$ERR" ".env"
+P="$(mkwt "$S" s-link)"
+if fixture_dir "$P"; then rm -f "$P/.env"; ln -s "$SP/.env" "$P/.env"; fi
+wt "$S" remove s-link
+is    "#88 AC9: a symlinked .env stops remove" "$RC" 1
+P="$(mkwt "$S" s-maingone)"; put "$P" apps/api/.env.local "API=1"
+mv "$S/apps/api/.env.local" "$TMP/api.saved"
+wt "$S" remove s-maingone
+is    "#88 AC9: a copy whose main-checkout file is gone stops remove" "$RC" 1
+says  "#88 AC9: the refusal names that file" "$ERR" "apps/api/.env.local"
+mv "$TMP/api.saved" "$S/apps/api/.env.local"
+P="$(mkwt "$S" s-pident)"; put "$P" .env "SECRET=main"; commit "$P" pi.txt "pi work"
+git -C "$S" merge -q --ff-only s-pident
+P="$(mkwt "$S" s-pedit)"; put "$P" .env "SECRET=edited"; commit "$P" pe.txt "pe work"
+git -C "$S" merge -q --ff-only s-pedit
+wt "$S" prune
+check "#88 AC9: prune lists a merged worktree with an identical .env" test -n "$(row s-pident)"
+is    "#88 AC9: prune keeps a merged worktree with an edited .env" "$(row s-pedit)" ""
+says  "#88 AC9: prune says why" "$ERR" "kept s-pedit: ignored files"
+
+echo "Issue #88 — security review round 1"
+# wt_bounded <secs> <fifo> <dir> <args...> - wt in the background. When it still runs after <secs>,
+# set HUNG=1 and open <fifo> for writing once, which releases a reader blocked on it.
+wt_bounded() {
+  local secs="$1" fifo="$2" d="$3" pid n=0; shift 3
+  HUNG=0
+  ( wt "$d" "$@"; printf '%s' "$RC" > "$TMP/.b.rc"; printf '%s' "$OUT" > "$TMP/.b.out"; printf '%s' "$ERR" > "$TMP/.b.err" ) &
+  pid=$!
+  while kill -0 "$pid" 2>/dev/null && [ "$n" -lt $((secs * 5)) ]; do sleep 0.2; n=$((n+1)); done
+  if kill -0 "$pid" 2>/dev/null; then HUNG=1; ( : > "$fifo" ) & fi
+  wait "$pid"
+  RC="$(cat "$TMP/.b.rc")"; OUT="$(cat "$TMP/.b.out")"; ERR="$(cat "$TMP/.b.err")"
+}
+copylist .env
+P="$(mkwt "$S" s-fifo)"
+if fixture_dir "$P"; then rm -f "$P/.env"; mkfifo "$P/.env"; fi
+wt_bounded 5 "$P/.env" "$S" setup s-fifo
+is    "#88 R1: a FIFO destination does not hang setup" "$HUNG" 0
+is    "#88 R1: setup with a FIFO destination exits 0" "$RC" 0
+says  "#88 R1: a non-regular destination is kept" "$ERR" "kept .env (not a regular file"
+check "#88 R1: the FIFO is left as it is" test -p "$P/.env"
+if fixture_dir "$P"; then rm -f "$P/.env"; mkdir -p "$P/.agents"; mkfifo "$P/.agents/worktree-setup.sh"; fi
+wt_bounded 5 "$P/.agents/worktree-setup.sh" "$S" setup s-fifo
+is    "#88 R1: a FIFO as the worktree's setup script does not hang setup" "$HUNG" 0
+is    "#88 R1: setup still runs the main checkout's script" "$RC" 0
+if fixture_dir "$P"; then rm -f "$P/.agents/worktree-setup.sh"; fi
+# .git in any letter case names the git dir on a case-insensitive filesystem (macOS default).
+n=0
+for e in .GIT/config 'sub/.Git/hooks/x'; do
+  n=$((n+1)); copylist .env "$e"
+  wt "$S" create "s-case$n"
+  is     "#88 R1: '$e' is refused" "$RC" 1
+  says   "#88 R1: the refusal for '$e' names .git" "$ERR" "names .git"
+  checkn "#88 R1: '$e' creates no branch" has_branch "$S" "s-case$n"
+done
+copylist .env
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

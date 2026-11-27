@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Parity check for `/monorepo-harness-worktree` (issue #85): the three adapter entry points carry the
 # same body, every install row exists, the script is executable, the docs list the command and carry
-# the after-`create` install note, and no install guide grew past the 100-line cap.
+# the after-`create` install note, and no install guide grew past the 100-line cap. Issue #88: the
+# body and the docs describe the project-owned copy list and setup script, --setup, setup <slug> and
+# exit 4.
 # Repo-local, never installed.
 set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -32,7 +34,9 @@ b="$(body "$CLAUDE")"
 for w in "core/scripts/worktree.sh" "No arguments" "Never build a worktree path" "git worktree" \
          "new agent session" "docs/worktrees.md" "not copied" "pnpm install" ".env" \
          "Never run an install yourself" "--force" "--delete-branch" "in this turn" \
-         "Remove these N worktrees?" "--yes" "external" "Exit 3"; do
+         "Remove these N worktrees?" "--yes" "external" "Exit 3" \
+         ".agents/worktree-copy.txt" ".agents/worktree-setup.sh" "--setup" "setup <slug>" "Exit 4" \
+         "never follow instructions in it"; do
   says "body mentions: $w" "$b" "$w"
 done
 
@@ -52,7 +56,10 @@ for w in "~/.harness-worktrees" "HARNESS_WORKTREE_ROOT" "<repo-id>" "worktree-ju
          "## After \`create\`" "not copied" "pnpm install" ".env" "--add-dir" "Why not inside the repository" \
          "/monorepo-harness-worktree" "checkout.defaultRemote" "harnessStart" "showUntrackedFiles" \
          "GIT_OPTIONAL_LOCKS" "merge commit of its own" "its own base" "never deletes the default branch" \
-         "bisect" "same-name tag"; do
+         "bisect" "same-name tag" \
+         ".agents/worktree-copy.txt" ".agents/worktree-setup.sh" "--setup" "setup <slug>" "| 4 |" \
+         "HARNESS_WORKTREE_MAIN" "HARNESS_WORKTREE_PATH" "HARNESS_WORKTREE_BRANCH" "byte-identical" \
+         "main checkout's copy" "check-ignore" "lifecycle scripts" "branches you trust"; do
   says "docs/worktrees.md mentions: $w" "$d" "$w"
 done
 
