@@ -32,6 +32,10 @@
 #                              set and stdin from /dev/null (read from the main checkout)
 #   .agents/worktree-junk.txt  extra junk-list entries for remove and prune (read from the main
 #                              checkout)
+# A bare repository has no main checkout: the checkout the script runs in stands in. A harness
+# worktree can hold a branch nobody reviewed, so it never stands in: in a harness worktree neither
+# the copy list nor the setup script is read, create --setup and setup exit 1, and only the default
+# junk list applies.
 #
 # Per-workspace state (issue #90): create and setup also copy each workspace's .agents/session-log.md
 # from the main checkout into a worktree that has none, when git ignores it there. session-log.md and
@@ -57,6 +61,7 @@ export LC_ALL=C GIT_OPTIONAL_LOCKS=0
 COPY_LIST=.agents/worktree-copy.txt
 SETUP_SCRIPT=.agents/worktree-setup.sh
 JUNK_LIST=.agents/worktree-junk.txt
+NO_MAIN='a bare repository has no main checkout, so in a harness worktree'
 
 # Ignored files that can be rebuilt, or that are per-checkout scratch, so `remove` may lose them
 # (docs/worktrees.md, "Junk list"). An entry matches the name of the ignored file or directory itself
@@ -132,7 +137,7 @@ load_repo() {
   load_worktrees
   # MAIN: the main checkout. The project's copy list, setup script and junk list are read there and
   # the copy list copies from there, whatever branch a worktree is on. A bare repository has no main
-  # checkout: the checkout this script runs in stands in.
+  # checkout: the checkout this script runs in stands in, unless untrusted_main says otherwise.
   if [ "${WT_BARE[0]:-0}" = 1 ]; then MAIN="$TOP"; else MAIN="${WT_PHYS[0]}"; fi
 }
 
@@ -188,6 +193,11 @@ resolve_root() {
     i=$((i+1))
   done
 }
+
+# untrusted_main - true in a bare repository when the script runs in a harness worktree. There is no
+# main checkout, and a harness worktree is where an unreviewed branch lands (create --branch), so no
+# project file is read there. Needs load_repo and resolve_root.
+untrusted_main() { [ "${WT_BARE[0]:-0}" = 1 ] && [ "${TOP%/*}" = "$BASE_DIR" ]; }
 
 # default_branch - origin/HEAD, then main, then master (the order forge.sh uses). Bare name.
 default_branch() {
@@ -314,8 +324,8 @@ load_junk() {
   set -f
   for e in $JUNK_DEFAULT; do JUNK[${#JUNK[@]}]="$e"; done
   set +f
-  if [ "${WT_BARE[0]:-0}" = 1 ] && [ "${TOP%/*}" = "$BASE_DIR" ]; then
-    note "junk list: a bare repository has no main checkout, so in a harness worktree only the default list applies (run from another checkout to use the project's $JUNK_LIST)"
+  if untrusted_main; then
+    note "junk list: $NO_MAIN only the default list applies (run from another checkout to use the project's $JUNK_LIST)"
     return 0
   fi
   if [ "$TOP" != "$MAIN" ] && [ -f "$TOP/$JUNK_LIST" ] \
@@ -464,11 +474,12 @@ lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 
 # load_copy_list - COPY / COPY_LINE: the main checkout's copy list, a leading ./ dropped. An entry
 # that leaves the repository (absolute, a .. component) or names .git (any letter case) is refused
-# here, before anything changes: exit 1.
+# here, before anything changes: exit 1. With untrusted_main the list stays empty and is not read.
 load_copy_list() {
   local i=0 e
-  read_list "$MAIN/$COPY_LIST"
   COPY=(); COPY_LINE=(); COPY_DEFAULT=()
+  untrusted_main && return 0
+  read_list "$MAIN/$COPY_LIST"
   while [ "$i" -lt "${#LIST[@]}" ]; do
     e="${LIST[i]}"
     while [ "${e#./}" != "$e" ]; do e="${e#./}"; done
@@ -592,6 +603,8 @@ copy_step() {
 # need_setup_script - exit 1 unless the main checkout has an executable setup script (create
 # --setup checks this before anything is created).
 need_setup_script() {
+  ! untrusted_main \
+    || die 1 "refused: --setup: $NO_MAIN $SETUP_SCRIPT is not read: run create from your own checkout; nothing created"
   [ -f "$MAIN/$SETUP_SCRIPT" ] && [ -x "$MAIN/$SETUP_SCRIPT" ] \
     || die 1 "refused: --setup needs an executable $SETUP_SCRIPT in the main checkout ($MAIN); nothing created"
 }
@@ -623,9 +636,11 @@ setup_step() {
 
 # post_steps <worktree> <branch> <run-setup: 0|1> - the copy step (the project's copy list and the
 # harness's session-log seeds; either may be empty), then the setup step (with 1). POST_FAIL says
-# whether either failed.
+# whether either failed. With untrusted_main there is neither step (create --setup and setup were
+# refused before this).
 post_steps() {
   POST_FAIL=0
+  untrusted_main && return 0
   copy_step "$1"
   if [ "$3" = 1 ]; then setup_step "$1" "$2"; fi
   return 0
@@ -691,7 +706,9 @@ cmd_create() {
         || die 1 "branch $branch is checked out at ${WT_PHYS[i]}, which no longer exists: run 'worktree.sh remove ${WT_PHYS[i]##*/}' or 'worktree.sh prune' first"
       note "branch $branch is already checked out at ${WT_PHYS[i]}; nothing created${base:+ (--base $base not used)}"
       [ "$setup" = 0 ] || note "--setup not used: a re-run of create changes nothing"
-      if [ -f "$MAIN/$COPY_LIST" ] || [ -e "$MAIN/$SETUP_SCRIPT" ]; then
+      if untrusted_main; then
+        note "copy and setup: $NO_MAIN $COPY_LIST and $SETUP_SCRIPT are not read: run 'worktree.sh setup ${WT_PHYS[i]##*/}' from your own checkout to use them"
+      elif [ -f "$MAIN/$COPY_LIST" ] || [ -e "$MAIN/$SETUP_SCRIPT" ]; then
         note "run 'worktree.sh setup ${WT_PHYS[i]##*/}' to re-run the copy and setup steps there"
       fi
       printf '%s\n' "${WT_PHYS[i]}"
@@ -805,12 +822,16 @@ cmd_create() {
   # 7. The bundle travels with git only.
   [ -d "$p/.agents/monorepo-agents-harness" ] \
     || note "warning: $p has no .agents/monorepo-agents-harness/ (the bundle is not tracked in git), so hooks and /monorepo-harness-* commands cannot run in this worktree until the bundle is committed or installed there"
-  [ -f "$MAIN/$COPY_LIST" ] \
-    || note "ignored files (node_modules, .env, build output) are not copied: bring over any .env by hand, or list it in $COPY_LIST"
-  if [ ! -e "$MAIN/$SETUP_SCRIPT" ]; then
-    note "run the project's own install in the new worktree (e.g. pnpm install), or add $SETUP_SCRIPT"
-  elif [ "$setup" = 0 ]; then
-    note "$SETUP_SCRIPT was not run: run 'worktree.sh setup $slug' to run it in the new worktree"
+  if untrusted_main; then
+    note "copy and setup: $NO_MAIN $COPY_LIST and $SETUP_SCRIPT are not read: nothing copied. Run 'worktree.sh setup $slug' from your own checkout to use them"
+  else
+    [ -f "$MAIN/$COPY_LIST" ] \
+      || note "ignored files (node_modules, .env, build output) are not copied: bring over any .env by hand, or list it in $COPY_LIST"
+    if [ ! -e "$MAIN/$SETUP_SCRIPT" ]; then
+      note "run the project's own install in the new worktree (e.g. pnpm install), or add $SETUP_SCRIPT"
+    elif [ "$setup" = 0 ]; then
+      note "$SETUP_SCRIPT was not run: run 'worktree.sh setup $slug' to run it in the new worktree"
+    fi
   fi
   finish "$slug" "$p"
 }
@@ -831,6 +852,8 @@ cmd_setup() {
     || die 1 "no harness worktree '$slug' at $BASE_DIR/$slug ('worktree.sh list' shows them; setup runs only in a worktree the harness created)"
   p="${WT_PHYS[i]}"
   [ -d "$p" ] || die 1 "$p is still registered but its directory is gone: run 'worktree.sh remove $slug' or 'worktree.sh prune' first"
+  ! untrusted_main \
+    || die 1 "refused: $NO_MAIN $COPY_LIST and $SETUP_SCRIPT are not read: run 'worktree.sh setup $slug' from your own checkout; nothing run"
   load_copy_list
   if [ "${#COPY[@]}" -eq 0 ] && [ ! -e "$MAIN/$SETUP_SCRIPT" ]; then
     note "nothing to set up: the main checkout has no $COPY_LIST, $SETUP_SCRIPT or session log"

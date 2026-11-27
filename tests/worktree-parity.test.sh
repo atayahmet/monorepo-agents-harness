@@ -4,7 +4,8 @@
 # the after-`create` install note, and no install guide grew past the 100-line cap. Issue #88: the
 # body and the docs describe the project-owned copy list and setup script, --setup, setup <slug> and
 # exit 4. Issue #93: the docs and --help say the junk list is read from the main checkout. Issue #89:
-# the worktree rule in root AGENTS.md and the agent-workflow skill, and the adoption docs.
+# the worktree rule in root AGENTS.md and the agent-workflow skill, and the adoption docs. Issue #95:
+# the docs and --help say a bare repository's harness worktree supplies no copy list or setup script.
 # Repo-local, never installed.
 set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -136,6 +137,17 @@ says  "docs Removal safety: no create record is kept" "$safety" "no create recor
 says  "--help: prune needs a commit since create" "$(bash "$SCRIPT" --help 2>/dev/null | sed 's/^#//' | norm)" \
       "harness worktrees with a commit since create"
 says  "create's warning: prune keeps the worktree" "$(cat "$SCRIPT")" "prune keeps this worktree until you remove it"
+
+# Issue #95: in a bare repository a harness worktree supplies neither the copy list nor the setup
+# script. The "After `create`" section and --help state it.
+after="$(awk '/^## After `create`/ {on=1; next} on && /^## / {exit} on {print}' "$DOC" | norm)"
+for w in "bare repository has no main checkout" "in a harness worktree neither file is read" \
+         "\`create --setup\` and \`setup <slug>\` exit 1" "your own checkout" "git worktree add"; do
+  says "docs After create: $w" "$after" "$w"
+done
+says "--help: bare repository, harness worktree" \
+     "$(bash "$SCRIPT" --help 2>/dev/null | sed 's/^#//' | norm)" \
+     "in a harness worktree neither the copy list nor the setup script is read"
 
 for f in INSTALL.md adapters/claude-code/INSTALL.md adapters/opencode/INSTALL.md adapters/codex/INSTALL.md; do
   n="$(wc -l < "$REPO/$f" | tr -d ' ')"

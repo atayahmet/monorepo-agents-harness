@@ -17,6 +17,26 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.48] - 2026-11-27
+
+### Fixed
+
+- **In a bare repository, a harness worktree no longer supplies the copy list or the setup script**
+  (issue #95). A bare repository has no main checkout, so `worktree.sh` read both files from the
+  checkout it ran in. Run from a harness worktree on an unreviewed branch, `create --setup` and
+  `setup <slug>` ran that branch's `.agents/worktree-setup.sh`, and `create` copied the files its
+  `.agents/worktree-copy.txt` listed. From a harness worktree of a bare repository:
+  - `create` makes the worktree, copies nothing and says why;
+  - `create --setup` exits 1 before anything is created;
+  - `setup <slug>` exits 1 and copies and runs nothing.
+- Your own checkout of a bare repository, and every non-bare repository, work as before.
+
+### Upgrade Notes
+
+- Bare repositories only: if you ran `create` or `setup` from inside a harness worktree, run them from
+  your own checkout (a worktree you added yourself, outside the harness root). See
+  `changelogs/version-0.4.0-rc.48.md`.
+
 ## [0.4.0-rc.47] - 2026-11-27
 
 ### Fixed

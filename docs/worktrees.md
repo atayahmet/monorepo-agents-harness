@@ -87,13 +87,25 @@ Without them, `create` copies only each workspace's session log (see
 | `.agents/worktree-copy.txt` | Copies files from the main checkout into the new worktree. Runs no code. | On every `create`, and on `setup <slug>` |
 | `.agents/worktree-setup.sh` | An executable the project writes, e.g. `pnpm install`. Runs code. | Only on `create --setup` or `setup <slug>` |
 
-Both are read from the **main checkout** (the first entry of `git worktree list`; in a bare
-repository, the checkout you run the script in), whatever branch the new worktree is on. The new
+Both are read from the **main checkout** (the first entry of `git worktree list`; for a bare
+repository see below), whatever branch the new worktree is on. The new
 worktree's own copy is never read or run, so a branch nobody reviewed cannot choose the setup
 script. The script still runs in that branch's checkout, though: an install there runs the
 branch's own lifecycle scripts (`postinstall` and the like). Use `--setup` only on branches you trust.
 When the worktree's copy differs, stderr says the main checkout's copy is used. Commit
 both files so every clone has them. (The script still reads them only from the main checkout.)
+
+**In a bare repository.** A bare repository has no main checkout, so the checkout you run the script
+in stands in: your own checkout, a worktree you added yourself outside the harness root. A harness
+worktree never stands in, because it can hold a branch nobody reviewed: in a harness worktree neither
+file is read (issue #95). Run from one:
+
+- `create` makes the worktree, copies nothing and says why;
+- `create --setup` and `setup <slug>` exit 1: nothing is created, copied or run.
+
+Run these commands from your own checkout instead. If you have none, add one with
+`git worktree add <path> <branch>`, with `<path>` outside the harness root and a branch you trust.
+That step is yours, not an agent's.
 
 ### `.agents/worktree-copy.txt`
 
