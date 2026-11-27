@@ -392,5 +392,150 @@ new_fixture root-only; d="$(ws_task_dir services/a/b arm_deep)"; write_spec "$d"
 hook_arm "{\"tool_input\":{\"file_path\":\"$FIXTURE/services/a/b/main.go\"}}"
 is "#83 a deeper workspace is armed" "$(task_state stage "$d")" "build"
 
+# --- issue #91: the gates see the other checkouts of the repository --------------------------------------
+# A session in one checkout can edit another one (`--add-dir`). The write hook arms the plan where the
+# file is written; the gate warns about another checkout's unfinished build and never blocks for it.
+WTS="$(mktemp -d "${TMPDIR:-/tmp}/harness-mg-wt.XXXXXX")"; WTS="$(cd "$WTS" && pwd -P)"
+trap 'rm -rf "$FIXTURE" "$WTS" "$NOJQ"' EXIT
+
+# commit_fixture — a worktree needs a commit to check out; it carries the bundle with it.
+commit_fixture() { ( cd "$FIXTURE" && git add -A && git commit -qm init ) >/dev/null 2>&1; }
+new_worktree_fixture() { # a committed fixture plus one linked worktree, outside it, at $WT
+  new_fixture; commit_fixture
+  rm -rf "$WTS"; mkdir -p "$WTS"
+  ( cd "$FIXTURE" && git worktree add -q -b t1 "$WTS/t1" ) >/dev/null 2>&1
+  WT="$WTS/t1"; mkdir -p "$WT/apps/api/src"
+  [ -d "$WT/.agents/monorepo-agents-harness" ] || { bad "#91 fixture: worktree with the bundle" "$WT"; exit 1; }
+}
+wt_task_dir() { printf '%s/apps/api/.agents/artifacts/task_%s_%s' "$WT" "$TODAY" "$1"; }
+payload() { printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$1"; }
+planned() { write_spec "$1"; write_plan "$1"; }
+wt_gate_code() { ( cd "$WT" && $S/memory-gate.sh >/dev/null 2>&1 </dev/null ); echo $?; }
+lacks() { case "$2" in *"$3"*) bad "$1" "expected no mention of '$3', got: $2" ;; *) ok "$1" ;; esac; }
+
+# AC1 — a write into a worktree arms that worktree's plan.
+new_worktree_fixture; d="$(wt_task_dir arm_wt)"; planned "$d"; m="$(task_dir arm_wt_main)"; planned "$m"
+hook_arm "$(payload "$WT/apps/api/src/a.ts")"
+is "#91 AC1 a write into a worktree arms its plan" "$(task_state stage "$d")" "build"
+is "#91 AC1 and leaves this checkout's plan alone" "$(task_state stage "$m")" "plan"
+new_worktree_fixture; d="$(wt_task_dir arm_wt_new)"; planned "$d"
+hook_arm "$(payload "$WT/apps/api/src/new/dir/b.ts")"
+is "#91 AC1 a new file in a new folder arms it too" "$(task_state stage "$d")" "build"
+new_worktree_fixture; d="$(wt_task_dir arm_wt_nojq)"; planned "$d"
+( cd "$FIXTURE" && payload "$WT/apps/api/src/a.ts" | PATH="$NOJQ:$PATH" $S/hook-arm-build.sh >/dev/null 2>&1 )
+is "#91 AC1 without jq a worktree write arms it" "$(task_state stage "$d")" "build"
+
+# AC2 — nothing is armed where nothing should be.
+new_worktree_fixture; m="$(task_dir arm_unrelated_main)"; planned "$m"
+git init -q "$WTS/other"; o="$WTS/other/apps/api/.agents/artifacts/task_${TODAY}_other"; planned "$o"
+hook_arm "$(payload "$WTS/other/apps/api/src/a.ts")"
+is "#91 AC2 an unrelated repository is not armed" "$(task_state stage "$o")" "plan"
+is "#91 AC2 and this checkout is not armed by it" "$(task_state stage "$m")" "plan"
+new_worktree_fixture; d="$(wt_task_dir arm_wt_artifact)"; planned "$d"
+hook_arm "$(payload "$d/2_plan.md")"
+is "#91 AC2 a worktree artifact write arms nothing" "$(task_state stage "$d")" "plan"
+new_worktree_fixture; d="$WT/apps/api/.agents/artifacts/task_2026_01_01_old"; planned "$d"
+hook_arm "$(payload "$WT/apps/api/src/a.ts")"
+is "#91 AC2 an old worktree plan is not armed" "$(task_state stage "$d")" "plan"
+
+# AC3 — both directions, and a checkout nested in this one.
+new_worktree_fixture; m="$(task_dir arm_from_wt)"; planned "$m"
+( cd "$WT" && payload "$FIXTURE/apps/api/src/a.ts" | $S/hook-arm-build.sh >/dev/null 2>&1 )
+is "#91 AC3 from a worktree, a main-checkout write arms the main plan" "$(task_state stage "$m")" "build"
+new_fixture; commit_fixture
+( cd "$FIXTURE" && git worktree add -q -b nested "$FIXTURE/.claude/worktrees/n1" ) >/dev/null 2>&1
+outer="$(root_task_dir outer_plan)"; planned "$outer"
+n="$FIXTURE/.claude/worktrees/n1"; inner="$n/apps/api/.agents/artifacts/task_${TODAY}_inner"; planned "$inner"
+hook_arm "$(payload "$n/README.md")"
+is "#91 AC3 a nested-checkout write does not arm the outer plan" "$(task_state stage "$outer")" "plan"
+hook_arm "$(payload "$n/apps/api/src/a.ts")"
+is "#91 AC3 it arms the nested checkout's own plan" "$(task_state stage "$inner")" "build"
+new_fixture; m="$(task_dir arm_nested_repo)"; planned "$m"; git init -q "$FIXTURE/apps/api/sub"
+hook_arm "$(payload "$FIXTURE/apps/api/sub/a.ts")"
+is "#91 AC3 a nested unrelated repository behaves as before" "$(task_state stage "$m")" "build"
+
+# AC4 — another checkout's unfinished build is a warning.
+new_worktree_fixture; d="$(wt_task_dir wt_owed)"; building "$d"
+is "#91 AC4 default mode exits 0" "$(gate_code </dev/null)" "0"
+out="$(gate </dev/null)"
+says "#91 AC4 it is a warning" "$out" "warning"
+says "#91 AC4 it names the checkout" "$out" "$WT"
+says "#91 AC4 it names the task" "$out" "apps/api/.agents/artifacts/task_${TODAY}_wt_owed"
+says "#91 AC4 it names the missing files" "$out" "3_memory.md 4_verify.md"
+j="$(gate --json </dev/null)"
+is "#91 AC4 --json exits 0" "$(gate_code --json </dev/null)" "0"
+says "#91 AC4 --json carries a systemMessage" "$(printf '%s' "$j" | jq -r '.systemMessage // empty' 2>/dev/null)" "task_${TODAY}_wt_owed"
+is "#91 AC4 --json has no decision" "$(printf '%s' "$j" | jq -r 'has("decision")' 2>/dev/null)" "false"
+write_memory "$d"
+says "#91 AC4 a missing verify alone is named" "$(gate </dev/null)" "missing: 4_verify.md"
+
+# AC5 — the holding checkout still blocks.
+new_worktree_fixture; d="$(wt_task_dir wt_owed)"; building "$d"
+is "#91 AC5 the worktree's own gate blocks" "$(wt_gate_code)" "1"
+m="$(task_dir main_owed)"; building "$m"
+is "#91 AC5 this checkout still blocks beside a warning" "$(gate_code </dev/null)" "1"
+out="$(gate </dev/null)"
+says "#91 AC5 the block is reported" "$out" "task_${TODAY}_main_owed"
+says "#91 AC5 and the warning" "$out" "task_${TODAY}_wt_owed"
+j="$(gate --json </dev/null)"
+is "#91 AC5 --json blocks" "$(printf '%s' "$j" | jq -r '.decision // empty' 2>/dev/null)" "block"
+lacks "#91 AC5 the block reason names only this checkout" "$(printf '%s' "$j" | jq -r '.reason // empty' 2>/dev/null)" "wt_owed"
+says "#91 AC5 the warning rides beside it" "$(printf '%s' "$j" | jq -r '.systemMessage // empty' 2>/dev/null)" "wt_owed"
+
+# AC6 — no noise.
+new_worktree_fixture; d="$(wt_task_dir done_task)"; building "$d"; write_memory "$d"; write_verify "$d"
+silent "#91 AC6 a finished task is silent" "$(gate </dev/null)"
+silent "#91 AC6 and silent in --json" "$(gate --json </dev/null)"
+new_worktree_fixture; d="$(wt_task_dir waiting)"; planned "$d"
+silent "#91 AC6 a plan-stage task is silent" "$(gate </dev/null)"
+new_worktree_fixture; d="$(wt_task_dir merged)"; building "$d"
+m="$(task_dir merged)"; building "$m"; write_memory "$m"; write_verify "$m"; seed_kb "$m"
+silent "#91 AC6 a stale copy of a recorded task is silent" "$(gate </dev/null)"
+new_worktree_fixture; d="$(wt_task_dir both)"; building "$d"; building "$(task_dir both)"
+lacks "#91 AC6 a task already blocked here is not warned about" "$(gate </dev/null)" "warning"
+new_worktree_fixture; d="$(wt_task_dir gone)"; building "$d"; rm -rf "$WT"
+silent "#91 AC6 a deleted worktree folder is silent" "$(gate </dev/null)"
+is "#91 AC6 and does not fail the gate" "$(gate_code </dev/null)" "0"
+new_worktree_fixture; d="$(wt_task_dir retry)"; building "$d"
+silent "#91 AC6 a stop retry is silent" "$(printf '{"stop_hook_active":true}' | gate --json)"
+
+# AC7 — a real commit in a linked worktree: git sets GIT_DIR and GIT_INDEX_FILE for the hook.
+new_worktree_fixture
+ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh "$FIXTURE/.git/hooks/pre-commit"
+m="$(task_dir main_owed)"; building "$m"
+out="$( cd "$WT" && echo x > apps/api/src/a.ts && git add apps/api/src/a.ts && git commit -qm t 2>&1; echo "exit=$?" )"
+says "#91 AC7 a worktree commit is not blocked by the main checkout" "$out" "exit=0"
+says "#91 AC7 and warns about it" "$out" "task_${TODAY}_main_owed"
+new_worktree_fixture
+ln -s ../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh "$FIXTURE/.git/hooks/pre-commit"
+d="$(wt_task_dir wt_owed)"; building "$d"
+out="$( cd "$FIXTURE" && echo x > apps/api/src/a.ts && git add apps/api/src/a.ts && git commit -qm t 2>&1; echo "exit=$?" )"
+says "#91 AC7 a main commit is not blocked by a worktree" "$out" "exit=0"
+says "#91 AC7 and warns about the worktree" "$out" "task_${TODAY}_wt_owed"
+
+# AC8 — Codex's Stop filter shows the warning.
+filter="$(jq -r '.hooks.Stop[0].hooks[0].command' "$REPO/adapters/codex/.codex/hooks.json" | sed -n "s/.*| jq '\(.*\)'\$/\1/p")"
+codex() { printf '%s' "$1" | jq -c "$filter" 2>&1; }
+is "#91 AC8 a warning-only message passes" "$(codex '{"systemMessage":"w"}')" '{"systemMessage":"w"}'
+is "#91 AC8 a block reason is still shown" "$(codex '{"decision":"block","reason":"r"}')" '{"systemMessage":"r"}'
+is "#91 AC8 a block and a warning are both shown" "$(codex '{"decision":"block","reason":"r","systemMessage":"w"}')" '{"systemMessage":"r\nw"}'
+silent "#91 AC8 no gate output stays silent" "$(codex '')"
+
+# Review of 14ce8a4: the other-checkout report runs at every stop and commit, so its cost per task dir
+# matters. Shims record the arguments `stat` and `awk` get: no sorting (a `stat` per dir) of another
+# checkout's dirs, and no spec read for a task that is not in the build stage.
+new_worktree_fixture; planned "$(wt_task_dir cost_waiting)"
+d="$(wt_task_dir cost_done)"; building "$d"; write_memory "$d"; write_verify "$d"
+building "$(wt_task_dir cost_owed)"
+SHIM="$WTS/shim"; mkdir -p "$SHIM"
+for tool in stat awk; do
+  printf '#!/bin/sh\nprintf "%%s\\n" "$@" >> "%s/%s.log"\nexec "%s" "$@"\n' "$WTS" "$tool" "$(command -v "$tool")" > "$SHIM/$tool"
+  chmod +x "$SHIM/$tool"
+done
+out="$( cd "$FIXTURE" && PATH="$SHIM:$PATH" $S/memory-gate.sh 2>&1 </dev/null )"
+says  "#91 cost: the warning is still there" "$out" "task_${TODAY}_cost_owed"
+lacks "#91 cost: another checkout's dirs are not sorted" "$(cat "$WTS/stat.log" 2>/dev/null)" "$WT/"
+lacks "#91 cost: a waiting task's spec is not read" "$(cat "$WTS/awk.log" 2>/dev/null)" "cost_waiting/1_spec.md"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
