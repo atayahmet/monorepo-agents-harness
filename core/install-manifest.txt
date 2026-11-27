@@ -40,6 +40,10 @@ core/knowledge-template
 # bundle row here; install-harness.sh merges its lines into <repo-root>/.gitignore idempotently and
 # audit-install.sh checks they landed. Listed explicitly so the merge is a first-class audited row.
 core/gitignore-fragment.txt
+# Root-.gitattributes lines (per-workspace lessons.md: merge=union, issue #90) — the same contract as the
+# .gitignore fragment above: install-harness.sh merges its lines into <repo-root>/.gitattributes
+# idempotently, and audit-install.sh checks the file. Listed explicitly so the merge is an audited row.
+core/gitattributes-fragment.txt
 # The paste-in harness update prompt (the single source the /monorepo-harness-update commands and the
 # project README both point at) — shipped via the `core` row above; listed explicitly so the
 # agent-facing update procedure is a first-class, audited install row.

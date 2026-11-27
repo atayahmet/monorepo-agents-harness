@@ -188,6 +188,23 @@ check_workspace_scaffold() {
     || add_warning "no workspace found — list yours in .agents/workspaces.txt (one path or glob per line, or . for a single-package repo), then run core/scripts/scaffold-workspace-agents.sh"
 }
 
+# --- Check 5c: lessons.md travels with the branch (issue #90) ---
+# lessons.md is tracked and merged with merge=union (core/gitattributes-fragment.txt). A project rule
+# that ignores it keeps a branch's lessons on one checkout, so each ignored workspace lessons.md is a
+# warning, not a gap. A file git tracks is never reported: check-ignore reads a tracked file as not
+# ignored, even when a rule also matches it.
+check_lessons_shared() {
+  local ws f
+  while IFS= read -r ws; do
+    [ -n "$ws" ] || continue
+    if [ "$ws" = "$ROOT" ]; then f=".agents/lessons.md"; else f="${ws#"$ROOT"/}/.agents/lessons.md"; fi
+    [ -f "$ROOT/$f" ] || continue
+    if git -C "$ROOT" check-ignore -q -- "$f" 2>/dev/null; then
+      add_warning "$f is git-ignored: its lessons do not travel with the branch (see docs/worktrees.md, Per-workspace state)"
+    fi
+  done < <(bash "$DETECT_SCRIPT" --workspace-dirs 2>/dev/null || true)
+}
+
 # --- Check 5b: project-root starter-rules seed ---
 # The bundle manifest cannot express a destination outside .agents/monorepo-agents-harness/, so the
 # starter rules under core/project-rules-template/ get their own bespoke presence check. Only a
@@ -316,6 +333,7 @@ done
 check_agents_md
 check_review_md
 check_workspace_scaffold
+check_lessons_shared
 check_project_rules
 check_knowledge_base
 

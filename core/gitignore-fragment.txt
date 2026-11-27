@@ -1,2 +1,7 @@
 # Derived harness caches (rebuilt on demand by core/scripts/kb-index.sh) — never commit them.
 knowledge/.index.sqlite*
+# Per-checkout agent working state (issue #90): each worktree has its own copy. worktree.sh create
+# copies the main checkout's session log into a new worktree. lessons.md is tracked (see
+# core/gitattributes-fragment.txt), so it is not listed here.
+**/.agents/session-log.md
+**/.agents/todo.md

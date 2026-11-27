@@ -78,7 +78,8 @@ Open a new agent session in the printed path (the current session stays where it
 Git checks out **tracked files only**. Ignored files are not copied by git: `node_modules`, `.env`,
 build output and the `.turbo` cache are not in the new worktree. Two optional files let the project
 fill that gap (issue #88). Both belong to the project: the harness reads them and never writes them.
-Without them, `create` does nothing beyond the checkout.
+Without them, `create` copies only each workspace's session log (see
+[Per-workspace state](#per-workspace-state)).
 
 | File | What it does | When it runs |
 | --- | --- | --- |
@@ -164,6 +165,33 @@ worktree; the main checkout keeps the original (see [Removal safety](#removal-sa
 The junk list, `.agents/worktree-junk.txt` (see [Junk list](#junk-list)), is read from the main
 checkout too.
 
+## Per-workspace state
+
+Each workspace keeps three agent files in its `.agents/` folder (issue #90). They differ in what a
+new worktree needs and what `remove` may discard:
+
+| File | Kept in git | In a new worktree | On `remove` and `prune` |
+| --- | --- | --- | --- |
+| `lessons.md` | Yes. The installer adds `**/.agents/lessons.md merge=union` to `.gitattributes`, so two branches that each add a lesson merge without a conflict. | Arrives with the checkout. | Committed lessons travel with the branch. Uncommitted ones block removal, like any other change. |
+| `session-log.md` | No. The installer adds an ignore line to `.gitignore`. | Copied from the main checkout by `create` and `setup`, when the worktree has none. | Junk: discarded with the worktree. |
+| `todo.md` | No. The installer adds an ignore line to `.gitignore`. | Not copied. The task writes its own plan. | Junk: discarded with the worktree. |
+
+Why lessons are the only tracked file: they are the one durable file, and the template makes them
+append-only. The session log changes at every session. As a blocker it would make almost every
+worktree refuse `remove`, and its outcomes are in the branch's commits and the task folder.
+
+Notes:
+- A session log is copied from the main checkout only when the worktree has none, and only when git
+  ignores it there. Otherwise stderr names the file ("copy: not copied ... not ignored in the new
+  worktree") and nothing is copied.
+- A session log that git already tracks stays tracked, and `create` keeps it as it is. An ignore line
+  does not untrack a file.
+- An ignore line takes effect in a new worktree only once it is committed: `create` checks out the
+  committed `.gitignore`. Until then the seed is refused and named on stderr.
+- The installer only adds lines to `.gitignore` and `.gitattributes`. A project that ignores
+  `lessons.md` keeps that rule. Remove the rule yourself, then `git add` the file.
+  `audit-install.sh` warns about each ignored workspace `lessons.md` until you do; the warning is not a gap.
+
 ## Merged rule
 
 The base is `branch.<branch>.harnessBase` (recorded by `create`; git deletes it with the branch),
@@ -223,11 +251,12 @@ reads an `external` worktree only for `list --all`, and runs every `git status` 
 
 ### Junk list
 
-Ignored files that can be rebuilt, so `remove` may lose them:
+Ignored files that can be rebuilt, or that are per-checkout scratch (see
+[Per-workspace state](#per-workspace-state)), so `remove` may lose them:
 
 `node_modules dist build out .turbo .next .nuxt .svelte-kit .output .vercel .cache .parcel-cache
 coverage .nyc_output target __pycache__ .pytest_cache .mypy_cache .ruff_cache .venv .gradle
-.eslintcache .DS_Store *.tsbuildinfo *.pyc *.log .index.sqlite*`
+.eslintcache .DS_Store *.tsbuildinfo *.pyc *.log .index.sqlite* session-log.md todo.md`
 
 An entry matches the name of the ignored file or folder itself; `*`, `?` and `[` work as globs. A
 folder above it never counts: an ignored `build/signing.p12` inside a tracked `build/` folder stops
