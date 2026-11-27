@@ -24,8 +24,9 @@ Release procedure (harness maintainers):
 - **`worktree.sh create` names the agent files that differ** (issue #102). It compares what is
   committed in the main checkout (in a bare repository, your own checkout) and in the new worktree,
   and lists on stderr the differing bundle files, agent settings, hook configuration, commands,
-  skills and instruction files. It does so for a new worktree and on a re-run. stdout and exit codes
-  are unchanged, and `create` never refuses because of a difference.
+  skills and instruction files, and any differing name a disk could read as one of them (such as
+  `AGENTſ.md`). It does so for a new worktree and on a re-run. stdout and exit codes are unchanged,
+  and `create` never refuses because of a difference.
 - The three `/monorepo-harness-worktree` entry points show those lines to the developer and ask for a
   review before a session is opened in the worktree.
 

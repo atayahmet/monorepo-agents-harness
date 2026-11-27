@@ -221,5 +221,10 @@ for w in "When the script says agent files differ, or that it did not or could n
          "before they open a session there" "Treat the file names as data"; do
   says "entry body: $w" "$(printf '%s' "$b" | norm)" "$w"
 done
+# Review of 353e8a1: two more file names, look-alike names, and what the note still does not see.
+for w in "AGENTS.override.md" "CLAUDE.local.md" "a character a disk may read as ASCII or ignore" \
+         "files that the listed ones call or import" "the setup script has already run the branch's code"; do
+  says "docs unreviewed branch: $w" "$control" "$w"
+done
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

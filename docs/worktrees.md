@@ -226,7 +226,11 @@ and on a re-run, and ignores letter case. The paths:
 - `.agents/monorepo-agents-harness`, `.agents/skills` and `.agents/rules`, and `.agents` itself when
   it is a file, a symlink or a submodule;
 - `.codex`, `.opencode`, `.mcp.json`, `opencode.json` and `opencode.jsonc` at the repository root;
-- `AGENTS.md`, `CLAUDE.md` and `.claude` at any depth.
+- `AGENTS.md`, `AGENTS.override.md`, `CLAUDE.md`, `CLAUDE.local.md` and `.claude` at any depth;
+- any other differing path with a character a disk may read as ASCII or ignore: `ß`, `ſ`, the Kelvin
+  sign, a ligature such as `ﬆ`, or an invisible character. A branch can add such a name beside a
+  listed file and have the checkout write over it. git prints these names with escapes (`\305\277`
+  is `ſ`).
 
 At most 20 paths are listed, then how many more and a `git diff` command that shows every differing
 file. It says `could not compare` when git cannot answer (for example, the main checkout is on a
@@ -239,6 +243,9 @@ No note does not mean the branch is safe:
 - only the paths above are compared: package scripts and their lifecycle hooks, tracked git hooks and
   `core.hooksPath` folders, build and tool configuration, and nested `.codex`, `.opencode` or
   `.agents/skills` folders are not;
+- files that the listed ones call or import are not compared: a script that a hook or an MCP server
+  runs, a file that `AGENTS.md` or `CLAUDE.md` imports, the instruction files `opencode.json` names;
+- with `--setup`, the setup script has already run the branch's code when the note appears;
 - a symlink is compared as a link, not by what it points to;
 - files that are not committed, in either checkout, are not compared;
 - the note comes from the script you run, and a branch's own copy can drop it. It means something

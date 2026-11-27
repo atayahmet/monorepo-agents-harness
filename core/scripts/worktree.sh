@@ -78,9 +78,25 @@ AGENT_PATHS=(
   ':(icase).agents/monorepo-agents-harness' ':(icase).agents/skills' ':(icase).agents/rules'
   ':(icase).codex' ':(icase).opencode' ':(icase).mcp.json'
   ':(icase)opencode.json' ':(icase)opencode.jsonc'
-  ':(icase,glob)**/AGENTS.md' ':(icase,glob)**/CLAUDE.md'
+  ':(icase,glob)**/AGENTS.md' ':(icase,glob)**/AGENTS.override.md'
+  ':(icase,glob)**/CLAUDE.md' ':(icase,glob)**/CLAUDE.local.md'
   ':(icase,glob)**/.claude' ':(icase,glob)**/.claude/**'
 )
+# A disk can read other names as these, and git's :(icase) folds ASCII only: a branch could add
+# AGENT<long s>.md and have the checkout write it over AGENTS.md. So every differing path with such a
+# character is listed, wherever it is. First the letters whose Unicode case folding is ASCII (sharp s
+# twice, long s, Kelvin sign, the ff, fi, fl, ffi, ffl and st ligatures), then the invisible characters
+# HFS+ ignores in a name (U+200C-200F, U+202A-202E, U+206A-206F, U+FEFF). Written as bytes.
+for c in $'\303\237' $'\341\272\236' $'\305\277' $'\342\204\252' $'\357\254\200' $'\357\254\201' \
+         $'\357\254\202' $'\357\254\203' $'\357\254\204' $'\357\254\205' $'\357\254\206' \
+         $'\342\200\214' $'\342\200\215' $'\342\200\216' $'\342\200\217' $'\342\200\252' \
+         $'\342\200\253' $'\342\200\254' $'\342\200\255' $'\342\200\256' $'\342\201\252' \
+         $'\342\201\253' $'\342\201\254' $'\342\201\255' $'\342\201\256' $'\342\201\257' \
+         $'\357\273\277'; do
+  AGENT_PATHS[${#AGENT_PATHS[@]}]=":(glob)**/*$c*"
+  AGENT_PATHS[${#AGENT_PATHS[@]}]=":(glob)**/*$c*/**"
+done
+unset c
 
 # Ignored files that can be rebuilt, or that are per-checkout scratch, so `remove` may lose them
 # (docs/worktrees.md, "Junk list"). An entry matches the name of the ignored file or directory itself
@@ -666,26 +682,36 @@ post_steps() {
   return 0
 }
 
+# own_git <dir> <git args...> - git in <dir>, answering for that folder. The caller's repository
+# variables are unset (a shell alias run in a linked checkout exports GIT_DIR, as a hook does; the
+# same as harness-common.sh), and GIT_LITERAL_PATHSPECS, which would turn every pathspec into a plain
+# name, is pinned off.
+own_git() {
+  ( unset $(git rev-parse --local-env-vars 2>/dev/null)
+    export GIT_LITERAL_PATHSPECS=0
+    dir="$1"; shift
+    exec git -C "$dir" "$@" )
+}
+
 # agent_note <worktree> - name on stderr the committed agent files that differ between the reference
 # checkout (MAIN) and <worktree>. Advice only: stdout and the exit code are the caller's. A failed git
-# call is said, never read as "no difference". GIT_LITERAL_PATHSPECS is pinned off: from the caller's
-# environment it would turn every pathspec into a plain name and empty the list. Needs load_repo and
-# resolve_root.
+# call is said, never read as "no difference". Every git call goes through own_git: with the caller's
+# GIT_DIR both HEADs would be the caller's and the list empty. Needs load_repo and resolve_root.
 agent_note() {
-  local wt="$1" from to out n then='before you run anything or start an agent session'
+  local wt="$1" from to out n before='before you run anything or start an agent session'
   if untrusted_main; then
-    note "agent files: not compared: $NO_MAIN there is nothing to compare with. Review them $then in $wt (run create again from your own checkout to list the differences)"
+    note "agent files: not compared: $NO_MAIN there is nothing to compare with. Review them $before in $wt (run create again from your own checkout to list the differences)"
     return 0
   fi
-  if ! { from="$(git -C "$MAIN" rev-parse --verify -q 'HEAD^{commit}')" \
-         && to="$(git -C "$wt" rev-parse --verify -q 'HEAD^{commit}')" \
-         && out="$(GIT_LITERAL_PATHSPECS=0 git -C "$TOP" -c core.quotePath=true diff --name-only --no-renames \
+  if ! { from="$(own_git "$MAIN" rev-parse --verify -q 'HEAD^{commit}')" \
+         && to="$(own_git "$wt" rev-parse --verify -q 'HEAD^{commit}')" \
+         && out="$(own_git "$TOP" -c core.quotePath=true diff --name-only --no-renames \
                      --ignore-submodules=none "$from" "$to" -- "${AGENT_PATHS[@]}")"; }; then
-    note "agent files: could not compare $wt with $MAIN; review them $then there"
+    note "agent files: could not compare $wt with $MAIN; review them $before there"
     return 0
   fi
   [ -n "$out" ] || return 0
-  note "agent files differ from the ones committed in $MAIN. Review them $then in $wt:"
+  note "agent files differ from the ones committed in $MAIN. Review them $before in $wt:"
   indent "$(printf '%s\n' "$out" | sed -n '1,20p')"
   n=$(($(printf '%s\n' "$out" | wc -l)))
   [ "$n" -le 20 ] \

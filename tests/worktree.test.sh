@@ -1406,5 +1406,68 @@ wt "$S102" create q-twenty --branch twenty
 is    "#102 AC8: 20 files are all listed" "$(printf '%s\n' "$ERR" | grep -c '^    \.claude/commands/t')" 20
 saysn "#102 AC8: 20 files leave nothing over" "$ERR" "more not shown"
 
+echo "Issue #102 review — look-alike names a disk reads as a listed one"
+# branch_with <repo> <branch> <name>... - a branch from main with more files (names as printf escapes),
+# built in a temporary index: on a disk that folds a name, writing it would replace the file it looks like.
+branch_with() {
+  local r="$1" b="$2" n blob tree idx="$TMP/q/index"; shift 2
+  fixture_dir "$r" || return 1
+  blob="$(printf 'BRANCH\n' | git -C "$r" hash-object -w --stdin)"
+  GIT_INDEX_FILE="$idx" git -C "$r" read-tree main
+  for n in "$@"; do GIT_INDEX_FILE="$idx" git -C "$r" update-index --add --cacheinfo "100644,$blob,$(printf "$n")"; done
+  tree="$(GIT_INDEX_FILE="$idx" git -C "$r" write-tree)"
+  git -C "$r" branch "$b" "$(git -C "$r" commit-tree "$tree" -p main -m "$b")"
+  rm -f "$idx"
+}
+S102l="$TMP/q/lookalike"; new_repo "$S102l"
+for f in AGENTS.md .mcp.json .agents/monorepo-agents-harness/x.sh; do put "$S102l" "$f" main; done
+git -C "$S102l" add -A && git -C "$S102l" commit -qm tooling
+# U+017F (long s) reads as "s" on APFS: these replace the files main has.
+branch_with "$S102l" overwrite 'AGENT\305\277.md' '.mcp.j\305\277on' \
+  '.agent\305\277/monorepo-agents-harness/x.sh' 'docs/\303\247.md'
+wt "$S102l" create q-overwrite --branch overwrite
+is    "#102 review: create exits 0" "$RC" 0
+for n in '"AGENT\305\277.md"' '".mcp.j\305\277on"' '".agent\305\277/monorepo-agents-harness/x.sh"'; do
+  check "#102 review: names $n" agent_line "$n"
+done
+saysn "#102 review: another non-ASCII name is not listed" "$ERR" '\303\247'
+# Every letter whose Unicode case folding is ASCII, then every character HFS+ ignores in a name.
+FOLDS='\303\237 \305\277 \341\272\236 \342\204\252 \357\254\200 \357\254\201 \357\254\202 \357\254\203
+\357\254\204 \357\254\205 \357\254\206'
+IGNORED='\342\200\214 \342\200\215 \342\200\216 \342\200\217 \342\200\252 \342\200\253 \342\200\254
+\342\200\255 \342\200\256 \342\201\252 \342\201\253 \342\201\254 \342\201\255 \342\201\256 \342\201\257
+\357\273\277'
+names=(); for e in $FOLDS; do names[${#names[@]}]="w${e}x"; done
+branch_with "$S102l" folds "${names[@]}"
+wt "$S102l" create q-folds --branch folds
+for e in $FOLDS; do check "#102 review: a folding letter $e is listed" agent_line "\"w${e}x\""; done
+names=(); for e in $IGNORED; do names[${#names[@]}]="h${e}x/f"; done
+branch_with "$S102l" ignored "${names[@]}"
+wt "$S102l" create q-ignored --branch ignored
+for e in $IGNORED; do check "#102 review: an ignored character $e is listed (in a folder name)" agent_line "\"h${e}x/f\""; done
+
+echo "Issue #102 review — AGENTS.override.md and CLAUDE.local.md"
+branch_with "$S102l" locals AGENTS.override.md CLAUDE.local.md apps/web/agents.override.md apps/web/Claude.local.md
+wt "$S102l" create q-locals --branch locals
+for n in AGENTS.override.md CLAUDE.local.md apps/web/agents.override.md apps/web/Claude.local.md; do
+  check "#102 review: names $n" agent_line "$n"
+done
+
+echo "Issue #102 review — the caller's GIT_DIR does not silence the note"
+ENVX=(GIT_DIR="$S102P/.git"); wt "$S102" create q-agents --branch agents; ENVX=()
+is    "#102 review: a re-run with GIT_DIR exits 0" "$RC" 0
+check "#102 review: GIT_DIR on a re-run" agent_line AGENTS.md
+git -C "$S102" branch agents-copy agents
+ENVX=(GIT_DIR="$S102P/.git"); wt "$S102" create q-gitdir --branch agents-copy; ENVX=()
+is    "#102 review: create with GIT_DIR exits 0" "$RC" 0
+check "#102 review: GIT_DIR on a new worktree" agent_line AGENTS.md
+ENVX=(GIT_DIR="$S102P/.git"); wt "$S102" create q-same --branch same; ENVX=()
+saysn "#102 review: GIT_DIR adds no note for the same agent files" "$ERR" "agent files"
+# A shell alias run in a linked checkout exports that checkout's GIT_DIR.
+git -C "$S102" worktree add -q -b mine "$TMP/q/mine" main
+ENVX=(GIT_DIR="$S102P/.git/worktrees/mine"); wt "$TMP/q/mine" create q-agents --branch agents; ENVX=()
+says  "#102 review: a linked checkout's GIT_DIR still compares with the main checkout" "$ERR" "$DIFFER $S102P."
+check "#102 review: and names the files" agent_line AGENTS.md
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
