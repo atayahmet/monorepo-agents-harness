@@ -13,7 +13,8 @@
 # has 3_memory.md is skipped (nothing left to arm), a plan is armed only when the written path is
 # inside that plan's own workspace, and the hook will not arm a second task if there is already a
 # build in flight in that workspace. Arming is also bounded to today or yesterday to avoid arming
-# abandoned plans from months ago (cross-midnight builds still work).
+# abandoned plans from months ago (cross-midnight builds still work). A write into another checkout
+# of the same repository (a worktree) is judged in that checkout, whatever directory the session is in.
 #
 # Wiring: an agent's PreToolUse hook for Write/Edit/MultiEdit, whose command runs this script. It is
 # the arming half of ADR 0001 and depends on nothing but coreutils; the JSON on stdin is read with jq
@@ -128,6 +129,32 @@ for root_prefix in "$ROOT" "$PWD"; do
   esac
 done
 
+# --- the checkout the path belongs to ------------------------------------------------------------
+# A session in one checkout can edit another checkout of the same repository (`--add-dir`, issue #91).
+# The walk below then belongs to THAT checkout: its task dirs are the ones above the write. Only shell
+# tests run until a `.git` other than this checkout's is found, so an ordinary write costs no git
+# call. A repository that is not a checkout of this one (a submodule, a nested clone) changes nothing.
+# TASK_STATE stays the session's own bundle.
+if declare -F harness_worktree_roots >/dev/null 2>&1; then
+  dir="$canon_target"
+  checkouts=""
+  while [ "${dir%/*}" != "$dir" ]; do
+    dir="${dir%/*}"
+    [ -n "$dir" ] && [ -e "$dir/.git" ] || continue
+    [ ! "$dir" -ef "$ROOT" ] || break
+    [ -n "$checkouts" ] || checkouts="$(harness_worktree_roots "$ROOT")"
+    found=0
+    while IFS= read -r checkout; do
+      if [ -n "$checkout" ] && [ "$checkout" -ef "$dir" ]; then found=1; break; fi
+    done <<< "$checkouts"
+    if [ "$found" -eq 1 ]; then
+      ROOT="$dir"
+      rel_target=""   # it was relative to the session's checkout, not to this one
+      break
+    fi
+  done
+fi
+
 [ -f "$TASK_STATE" ] || exit 0
 
 # --- the plan to arm ----------------------------------------------------------------------------
@@ -136,8 +163,8 @@ done
 # the repo root: a walk, not a scan. It needs no workspace detection, it is correct in any layout, and
 # it is cheap enough to run before every write. A change in apps/docs never reaches the apps/api plan.
 #
-# Both spellings are walked (see above). A path outside the repo has no ancestors here, so a hook that
-# cannot place the write arms nothing.
+# Both spellings are walked (see above). A path outside the checkout has no ancestors here, so a hook
+# that cannot place the write arms nothing.
 ancestor_task_dirs() { # ancestor_task_dirs <absolute path>
   local dir="$1" d
   case "$dir" in "$ROOT"/*) ;; *) return 0 ;; esac

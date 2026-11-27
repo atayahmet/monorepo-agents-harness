@@ -17,6 +17,32 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.47] - 2026-11-27
+
+### Fixed
+
+- **A session outside a worktree no longer switches its gates off silently** (issue #91). Both gate
+  scripts read only the checkout of the session's working directory, so a main-checkout session that
+  edited a worktree (`claude --add-dir ~/.harness-worktrees`) never armed the build and never reported
+  the missing memory.
+  - `hook-arm-build.sh` arms the plan in the checkout that holds the written file, for checkouts of the
+    same repository. A write into a checkout nested inside the session's checkout no longer arms the
+    outer checkout's plan.
+  - `memory-gate.sh` warns about a build-stage task in another checkout that is missing `3_memory.md` or
+    a required `4_verify.md`: on stderr by default, as `systemMessage` in `--json` mode. It never blocks
+    for another checkout; the commit gate and a session inside that worktree block as before.
+  - New `harness_worktree_roots` in `harness-common.sh`, shared by both.
+- The Codex `Stop` hook command now passes a warning-only `systemMessage` through.
+- `docs/worktrees.md` has a new "Gates and other checkouts" section, and the `agent-workflow` skill says
+  to run the spec, plan and build stages from a session inside the worktree.
+
+### Upgrade Notes
+
+- Codex projects: change one command in `.codex/hooks.json` yourself, or the new warnings stay hidden at
+  stop. An update never rewrites that file. See `changelogs/version-0.4.0-rc.47.md`.
+- A worktree that already holds an unfinished build-stage task now produces a warning at each stop and
+  commit until you finish that task or remove the worktree.
+
 ## [0.4.0-rc.46] - 2026-11-27
 
 ### Fixed

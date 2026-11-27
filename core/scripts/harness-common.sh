@@ -168,6 +168,21 @@ harness_sort_task_dirs() {
   done | LC_ALL=C sort -t$'\t' -k1,1r -k2,2nr | cut -f3- | awk '!seen[$0]++'
 }
 
+# harness_worktree_roots <dir> — every checkout of the repository <dir> is in (main and linked, whoever
+# made it), one physical path per line. A bare repository's entry and a folder that is gone are left
+# out. Git's repository variables are unset first: a pre-commit hook has GIT_DIR and GIT_INDEX_FILE
+# set, and they answer for the committing checkout whatever <dir> is.
+harness_worktree_roots() {
+  ( unset $(git rev-parse --local-env-vars 2>/dev/null)
+    git -C "$1" worktree list --porcelain 2>/dev/null \
+      | LC_ALL=C awk '/^worktree / { p = substr($0, 10) } /^bare$/ { p = "" }
+                      /^$/ { if (p != "") print p; p = "" } END { if (p != "") print p }' \
+      | while IFS= read -r wt; do
+          (cd "$wt" 2>/dev/null && pwd -P) || true
+        done
+    true )
+}
+
 # harness_scan_task_dirs <root> — every task dir git can see under <root>, absolute, one per line, no
 # order. It does not need to know the workspaces, so a task is found wherever it lives.
 #

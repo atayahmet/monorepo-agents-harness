@@ -73,7 +73,8 @@ setup script prints go to stderr. The script never fetches or pushes.
 
 ## After `create`
 
-Open a new agent session in the printed path (the current session stays where it is).
+Open a new agent session in the printed path (the current session stays where it is), and run the
+task's stages there (see [Gates and other checkouts](#gates-and-other-checkouts)).
 
 Git checks out **tracked files only**. Ignored files are not copied by git: `node_modules`, `.env`,
 build output and the `.turbo` cache are not in the new worktree. Two optional files let the project
@@ -329,6 +330,33 @@ bash "$wt" setup <slug>     # the copy list and setup script: only on a branch y
   `list --all` shows it as `missing`. `git worktree prune` drops it, together with every other
   record whose folder is gone (`git worktree prune -n -v` shows them first). Its branch stays.
 
+## Gates and other checkouts
+
+The stop gate and the commit gate block only for one checkout: the one the session's working directory
+is in. A session can still edit another checkout of the same repository (Claude Code `--add-dir` or
+`/add-dir`, Codex `--add-dir`). Then (issue #91):
+
+- **Arming.** Claude Code's write hook arms the plan in the checkout that holds the file, when that is a
+  checkout of the same repository (`git worktree list`). An unrelated repository or a submodule counts as
+  before. The other arming rules do not change: only today's or yesterday's plan, one build per
+  workspace.
+- **Another checkout is a warning.** The stop gate and the commit gate name each build-stage task in
+  another checkout that is missing `3_memory.md` or a required `4_verify.md`. The warning never blocks,
+  because another session may own that checkout. A task your checkout has already recorded is not
+  repeated. The stop hook shows the warning as a `systemMessage`; the retry after a block
+  (`stop_hook_active`) stays silent. `git commit` and CI print it on stderr.
+- **The block stays with the work.** `git commit` in that worktree blocks as usual (the shared
+  pre-commit hook runs there), and so does the stop gate of a Claude Code session whose working
+  directory is that worktree.
+
+So run the spec, plan and build stages from a session inside the worktree. A main-checkout session with
+`--add-dir` can edit the worktree and still end with only a warning.
+
+Codex and OpenCode have no write hook, so the build is armed by `task-state.sh mark-build` there.
+OpenCode has no stop hook, so only the commit gate speaks. Codex's `Stop` hook shows the warning only
+when its command in your `.codex/hooks.json` passes `systemMessage` through: compare it with the bundle's
+`.agents/monorepo-agents-harness/adapters/codex/.codex/hooks.json` (an upgrade never rewrites your file).
+
 ## Per-adapter notes
 
 Checked on Claude Code 2.1.332, Codex 0.149.0 and OpenCode 2.1.4 (2026-11-26). Later versions may
@@ -339,7 +367,8 @@ change these rules.
 - **Claude Code**: the trust prompt defaults to "No, exit" when the folder declares hooks; choose
   "Yes". To edit a worktree from a session in the main checkout, give the session the root:
   `claude --add-dir ~/.harness-worktrees`, `/add-dir`, or `permissions.additionalDirectories` in your
-  own `.claude/settings.local.json`.
+  own `.claude/settings.local.json`. Such a session only gets a warning for the worktree's unfinished
+  task (see [Gates and other checkouts](#gates-and-other-checkouts)).
 - **Codex**: the default sandbox blocks writes to `.git` in every checkout, the main one too, so
   `git commit` needs `--add-dir "$(git rev-parse --git-common-dir)"` or an approved escalation. The
   harness hooks need one review ("Trust all") in the main checkout; after that they run in every

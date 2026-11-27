@@ -163,5 +163,17 @@ says  "root AGENTS.md: lessons.md is tracked with merge=union" \
 says  "root AGENTS.md: session-log.md is git-ignored per checkout" \
       "$(norm < "$REPO/core/root-AGENTS.md")" "session-log.md"
 
+# Issue #91: what each gate sees from another checkout, and where to run the stages.
+gates="$(awk '/^## Gates and other checkouts/ {on=1; next} on && /^## / {exit} on {print}' "$DOC" | norm)"
+for w in "session's working directory" "arms the plan in the checkout that holds the file" "warning" \
+         "never blocks" "inside the worktree" "--add-dir" "Codex" "OpenCode" "no write hook" \
+         "git commit" "stop_hook_active"; do
+  says "docs Gates and other checkouts: $w" "$gates" "$w"
+done
+says "agent-workflow Edge cases: run the stages inside the worktree" "$edge" \
+     "Run the spec, plan and build stages from a session inside the worktree"
+says "PORTABILITY memory-gate row: other checkouts are a warning" \
+     "$(grep '^| \*\*Memory-gate\*\*' "$REPO/PORTABILITY.md")" "another checkout"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

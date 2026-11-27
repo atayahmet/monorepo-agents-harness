@@ -16,15 +16,20 @@
 #                                   its spec (1_spec.md, or legacy 2_spec.md), 3_memory.md, or
 #                                   (when required) 4_verify.md. Works with ANY agent — or none.
 #   --json (Claude Code Stop hook): print a {"decision":"block",...} JSON object under those same
-#                                   conditions; silent exit 0 otherwise. Reads the hook's own input
-#                                   and stands down silently when `stop_hook_active` is true, so a
-#                                   block can never repeat itself.
+#                                   conditions (plus any `systemMessage` warning); with only a
+#                                   warning, a `systemMessage` alone; silent exit 0 otherwise.
+#                                   Reads the hook's own input and stands down silently when
+#                                   `stop_hook_active` is true, so a block can never repeat itself.
 #
 # The gate only asks about tasks that REACHED THE BUILD STAGE. `/monorepo-harness-spec` and
 # `/monorepo-harness-plan` stop at a stage boundary by design, so a spec-only or plan-only task is
 # not "missing memory" — it is not finished being built. The stage is read from one place
 # (task-state.sh stage), which answers `build` exactly when the task's plan carries the
 # `build_started` field that `/monorepo-harness-build` writes before it implements anything.
+#
+# Other checkouts of the repository (issue #91): a build-stage task there that is missing memory or
+# verify is a WARNING, never a block — another session may own that checkout, and its own commit and
+# stop gates block there. It goes to stderr by default, and to `systemMessage` in --json mode.
 #
 # 4_verify.md (Feedback Loop enforcement) is only required when the spec's "## Test /
 # verification plan" section is not N/A — mirrors the existing research-only exemption for
@@ -98,7 +103,6 @@ done < <(if declare -F harness_sort_task_dirs >/dev/null 2>&1; then
          else
            list_task_dirs
          fi)
-[ "${#CANDIDATE_DIRS[@]}" -eq 0 ] && exit 0   # no task dirs → nothing to enforce
 
 # The stage reader is task-state.sh, and it is the only implementation of "which stage is this
 # task in" — the gate asks, it never re-reads the plan itself.
@@ -110,7 +114,7 @@ TASK_STATE="${TASK_STATE:-$RUNTIME_DIR/core/scripts/task-state.sh}"
 # later from moving the gate's attention off a build that is still owed memory.
 build_dirs=()
 stage_readable=1
-for d in "${CANDIDATE_DIRS[@]}"; do
+for d in ${CANDIDATE_DIRS[@]+"${CANDIDATE_DIRS[@]}"}; do
   s=""
   if [ -f "$TASK_STATE" ]; then
     s="$(bash "$TASK_STATE" stage "$d" 2>/dev/null || true)"
@@ -127,9 +131,8 @@ if [ "$stage_readable" -eq 0 ]; then
   # must not decide there is nothing to enforce.
   build_dirs=("${CANDIDATE_DIRS[@]:0:1}")
 fi
-# No build in flight today → the day is a spec, a plan or a research task, and there is nothing
-# to enforce. This is the case issue #17 is about: a spec-only task must be allowed to end.
-[ "${#build_dirs[@]}" -eq 0 ] && exit 0
+# No build in flight → the day is a spec, a plan or a research task, and there is nothing to enforce
+# here (issue #17: a spec-only task must be allowed to end). Other checkouts are still reported.
 
 # 4_verify.md is only required when the spec's "## Test / verification plan" section (resolved from
 # 1_spec.md, or legacy 2_spec.md via resolve_spec) says something other than N/A. No spec → nothing
@@ -174,6 +177,36 @@ stop_hook_active() {
   printf '%s' "$input" | jq -e '.stop_hook_active == true' >/dev/null 2>&1
 }
 
+# One warning line per unfinished build-stage task in another checkout of this repository. A task this
+# checkout has recorded (the other copy is behind), or already enforces itself, is not repeated. The
+# stage is only read for a dir that misses a file, so finished history costs no process. Without the
+# library or the stage reader there is no warning: this report never decides anything.
+other_checkout_warnings() {
+  declare -F harness_worktree_roots >/dev/null 2>&1 || return 0
+  declare -F harness_scan_task_dirs >/dev/null 2>&1 || return 0
+  [ -f "$TASK_STATE" ] || return 0
+  local wt dir rel missing
+  while IFS= read -r wt; do
+    [ -n "$wt" ] && [ ! "$wt" -ef "$ROOT" ] || continue
+    while IFS= read -r dir; do
+      missing=""
+      [ -f "$dir/3_memory.md" ] || missing="3_memory.md"
+      if [ ! -f "$dir/4_verify.md" ] && verify_required "$dir"; then
+        missing="${missing:+$missing }4_verify.md"
+      fi
+      [ -n "$missing" ] || continue
+      [ "$(bash "$TASK_STATE" stage "$dir" 2>/dev/null || true)" = "build" ] || continue
+      rel="${dir#"$wt"/}"
+      [ ! -f "$ROOT/$rel/3_memory.md" ] || continue
+      [ "$(bash "$TASK_STATE" stage "$ROOT/$rel" 2>/dev/null || true)" != "build" ] || continue
+      printf 'agent-workflow gate: warning: in the checkout %s, %s is missing: %s. Finish it from a session in that checkout.\n' \
+        "$wt" "$rel" "$missing"
+    done < <( ( unset $(git rev-parse --local-env-vars 2>/dev/null)
+                harness_scan_task_dirs "$wt" ) | harness_sort_task_dirs )
+  done < <(harness_worktree_roots "$ROOT")
+  return 0
+}
+
 if [ "$JSON_MODE" -eq 1 ]; then
   # The agent has already been told to finish the task once. Say nothing and let it stop.
   if stop_hook_active; then
@@ -181,25 +214,33 @@ if [ "$JSON_MODE" -eq 1 ]; then
   fi
   # Stop-hook mode: gates on 3_memory.md, and on 4_verify.md whenever required (the spec itself is
   # not re-checked here — a build-stage dir always has one, and default mode reports a missing one).
-  for dir in "${build_dirs[@]}"; do
+  reason=""
+  for dir in ${build_dirs[@]+"${build_dirs[@]}"}; do
     json_missing=()
     [ -f "$dir/3_memory.md" ] || json_missing+=("3_memory.md")
     if verify_required "$dir" && [ ! -f "$dir/4_verify.md" ]; then
       json_missing+=("4_verify.md")
     fi
     [ "${#json_missing[@]}" -eq 0 ] && continue
-    command -v jq >/dev/null 2>&1 || exit 0   # fail-open without jq
-    # `|| exit 0` covers a jq that is present but unusable: a Stop hook must never exit non-zero
-    # from here, or the agent reports a hook failure instead of a missing artifact.
-    jq -n --arg dir "${dir#"$ROOT"/}" --arg files "${json_missing[*]}" '{"decision":"block","reason":("agent-workflow: Task is ending but " + $dir + " is missing: " + $files + ". Write the missing artifact(s) following the agent-workflow skill templates, then you may stop.")}' || exit 0
-    exit 0
+    reason="agent-workflow: Task is ending but ${dir#"$ROOT"/} is missing: ${json_missing[*]}. Write the missing artifact(s) following the agent-workflow skill templates, then you may stop."
+    break
   done
+  warnings="$(other_checkout_warnings)" || warnings=""
+  [ -n "$reason$warnings" ] || exit 0
+  command -v jq >/dev/null 2>&1 || exit 0   # fail-open without jq
+  # `|| exit 0` covers a jq that is present but unusable: a Stop hook must never exit non-zero
+  # from here, or the agent reports a hook failure instead of a missing artifact.
+  jq -n --arg reason "$reason" --arg warnings "$warnings" '
+    (if $reason != "" then {decision: "block", reason: $reason} else {} end)
+    + (if $warnings != "" then {systemMessage: $warnings} else {} end)' || exit 0
   exit 0
 fi
 
 # Default mode, same stage check, same requirements — an agent that cannot block its own stop gets
 # the same answer at pre-commit and in CI.
-for dir in "${build_dirs[@]}"; do
+warnings="$(other_checkout_warnings)" || warnings=""
+[ -z "$warnings" ] || printf '%s\n' "$warnings" >&2
+for dir in ${build_dirs[@]+"${build_dirs[@]}"}; do
   rel="${dir#"$ROOT"/}"
   missing=()
   MISSING_SPEC="$(basename "$(resolve_spec "$dir")")"
