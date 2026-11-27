@@ -240,6 +240,12 @@ says  "docs setup environment: no caller repository variables" "$setup104" \
 says  "--help: the caller's repository variables are dropped" \
       "$(bash "$SCRIPT" --help 2>/dev/null | sed 's/^#//' | norm)" \
       "The caller's git repository variables (GIT_DIR and the others) are dropped at start"
+# Review of e54c4ed: the exception is part of the first sentence, and another repository's GIT_DIR is
+# said to be ignored.
+for w in "except \`GIT_CONFIG_PARAMETERS\` and \`GIT_CONFIG_COUNT\`" \
+         "a \`GIT_DIR\` or \`git --git-dir\` that names another one is ignored"; do
+  says "docs git environment (review): $w" "$all104" "$w"
+done
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

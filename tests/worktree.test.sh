@@ -1572,5 +1572,26 @@ echo "Issue #104 — a repository reachable only through GIT_DIR"
 ENVX=(GIT_DIR="$S104P/.git"); wt "$TMP/norepo" path x; ENVX=()
 is    "#104: is an environment error" "$RC" 3
 
+echo "Issue #104 review — the setup script keeps the caller's own variables"
+cat > "$S104/.agents/worktree-setup.sh" <<EOF
+#!/bin/sh
+printf 'v=%s c=%s\n' "\${v-unset}" "\${c-unset}" > "$TMP/r/setup-vars"
+EOF
+chmod +x "$S104/.agents/worktree-setup.sh"
+ENVX=(v=1.2.3 c=keep); wt "$S104" create e-vars --setup; ENVX=()
+is    "#104 review: create --setup exits 0" "$RC" 0
+is    "#104 review: v and c reach the setup script" "$(cat "$TMP/r/setup-vars" 2>/dev/null)" "v=1.2.3 c=keep"
+rm -f "$S104/.agents/worktree-setup.sh"
+
+# BSD grep still reads GREP_OPTIONS, so the cleanup must not pass the names through grep.
+echo "Issue #104 review — GREP_OPTIONS does not switch the cleanup off (guard)"
+ENVX=(GREP_OPTIONS=-n GIT_DIR="$S104P/.git"); wt "$TMP/norepo" path x; ENVX=()
+is    "#104 review: GIT_DIR is still dropped" "$RC" 3
+
+echo "Issue #104 review — a GIT_DIR naming another repository is ignored (guard)"
+ENVX=(GIT_DIR="$R1P/.git"); wt "$S104" path x; ENVX=()
+is    "#104 review: path answers for the current folder's repository" \
+      "$OUT" "$ROOTP/$(repo_id "$S104")/x"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

@@ -65,11 +65,15 @@ CALLER_GOL="${GIT_OPTIONAL_LOCKS-}"; CALLER_GOL_SET="${GIT_OPTIONAL_LOCKS+1}"
 # git sets repository variables for a hook and for a shell alias run in a linked worktree, and they
 # beat `git -C <dir>`: a read would answer for the caller, and a checkout could write the caller's
 # index (issue #104). They are dropped once, here, for the setup script too. The two that carry
-# `git -c` and CI settings stay.
-for v in $(git rev-parse --local-env-vars 2>/dev/null); do
-  case "$v" in GIT_CONFIG_PARAMETERS|GIT_CONFIG_COUNT) ;; *) unset "$v" ;; esac
-done
-unset v
+# `git -c` and CI settings stay. A function, so the loop variable is local and a caller's own `v`
+# reaches the setup script; not grep, which a caller's GREP_OPTIONS can change.
+drop_repo_env() {
+  local v
+  for v in $(git rev-parse --local-env-vars 2>/dev/null); do
+    case "$v" in GIT_CONFIG_PARAMETERS|GIT_CONFIG_COUNT) ;; *) unset "$v" ;; esac
+  done
+}
+drop_repo_env
 # GIT_OPTIONAL_LOCKS=0: `git status` never takes index.lock, so a scan cannot make a concurrent
 # git command in that worktree fail.
 export LC_ALL=C GIT_OPTIONAL_LOCKS=0
@@ -97,16 +101,19 @@ AGENT_PATHS=(
 # character is listed, wherever it is. First the letters whose Unicode case folding is ASCII (sharp s
 # twice, long s, Kelvin sign, the ff, fi, fl, ffi, ffl and st ligatures), then the invisible characters
 # HFS+ ignores in a name (U+200C-200F, U+202A-202E, U+206A-206F, U+FEFF). Written as bytes.
-for c in $'\303\237' $'\341\272\236' $'\305\277' $'\342\204\252' $'\357\254\200' $'\357\254\201' \
-         $'\357\254\202' $'\357\254\203' $'\357\254\204' $'\357\254\205' $'\357\254\206' \
-         $'\342\200\214' $'\342\200\215' $'\342\200\216' $'\342\200\217' $'\342\200\252' \
-         $'\342\200\253' $'\342\200\254' $'\342\200\255' $'\342\200\256' $'\342\201\252' \
-         $'\342\201\253' $'\342\201\254' $'\342\201\255' $'\342\201\256' $'\342\201\257' \
-         $'\357\273\277'; do
-  AGENT_PATHS[${#AGENT_PATHS[@]}]=":(glob)**/*$c*"
-  AGENT_PATHS[${#AGENT_PATHS[@]}]=":(glob)**/*$c*/**"
-done
-unset c
+add_lookalike_paths() {
+  local c
+  for c in $'\303\237' $'\341\272\236' $'\305\277' $'\342\204\252' $'\357\254\200' $'\357\254\201' \
+           $'\357\254\202' $'\357\254\203' $'\357\254\204' $'\357\254\205' $'\357\254\206' \
+           $'\342\200\214' $'\342\200\215' $'\342\200\216' $'\342\200\217' $'\342\200\252' \
+           $'\342\200\253' $'\342\200\254' $'\342\200\255' $'\342\200\256' $'\342\201\252' \
+           $'\342\201\253' $'\342\201\254' $'\342\201\255' $'\342\201\256' $'\342\201\257' \
+           $'\357\273\277'; do
+    AGENT_PATHS[${#AGENT_PATHS[@]}]=":(glob)**/*$c*"
+    AGENT_PATHS[${#AGENT_PATHS[@]}]=":(glob)**/*$c*/**"
+  done
+}
+add_lookalike_paths
 
 # Ignored files that can be rebuilt, or that are per-checkout scratch, so `remove` may lose them
 # (docs/worktrees.md, "Junk list"). An entry matches the name of the ignored file or directory itself

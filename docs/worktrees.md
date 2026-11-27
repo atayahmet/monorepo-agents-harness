@@ -58,12 +58,15 @@ when you ask for it. A session that needs no worktree does nothing new, and the 
 stdout carries only the result (a path or a table); notes, refusals and everything the project's
 setup script prints go to stderr. The script never fetches or pushes.
 
-The script drops the caller's git repository variables when it starts (every name
-`git rev-parse --local-env-vars` lists: `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE` and so on). git
-sets them for a hook and for a shell alias run in a linked worktree, and they beat `git -C`, so the
-script would read and write the caller's checkout instead of the folder it names (issue #104).
-`GIT_CONFIG_PARAMETERS` and `GIT_CONFIG_COUNT` stay: they carry `git -c` and CI settings. Run the
-script from inside the repository: one reachable only through `GIT_DIR` exits 3.
+The script drops the caller's git repository variables when it starts: every name
+`git rev-parse --local-env-vars` lists (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE` and so on),
+except `GIT_CONFIG_PARAMETERS` and `GIT_CONFIG_COUNT`, which carry `git -c` and CI settings. git sets
+such variables for a hook and for a shell alias run in a linked worktree, and they beat `git -C`, so
+the script would read and write the caller's checkout instead of the folder it names (issue #104).
+
+Run the script from inside the repository. It works on the repository of the current folder: a
+`GIT_DIR` or `git --git-dir` that names another one is ignored. A repository reachable only through
+`GIT_DIR` exits 3.
 
 | Exit code | Meaning |
 | --- | --- |

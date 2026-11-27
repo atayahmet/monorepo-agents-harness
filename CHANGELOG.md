@@ -39,7 +39,10 @@ Release procedure (harness maintainers):
 ### Upgrade Notes
 
 - The project's `.agents/worktree-setup.sh` no longer gets the caller's git repository variables.
-- `worktree.sh` must run from inside the repository: one reachable only through `GIT_DIR` now exits 3.
+- `worktree.sh` works on the repository of the current folder. A `GIT_DIR` or `git --git-dir` that
+  names another repository is now ignored; one reachable only through `GIT_DIR` exits 3. Check a CI
+  job, hook or alias that points the script at another repository this way, above all one that runs
+  `remove` or `prune --yes`.
 - Start commits recorded before this release are not corrected. See
   `changelogs/version-0.4.0-rc.50.md`.
 

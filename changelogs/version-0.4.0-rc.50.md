@@ -15,6 +15,8 @@ for a hook and for a shell alias run in a linked worktree (issue #104).
 - `worktree.sh` drops those variables when it starts. `git -c` and CI settings stay.
 - `.agents/worktree-setup.sh` gets the same environment: a git command in it answers for the new
   worktree.
+- The script works on the repository of the current folder. A `GIT_DIR` or `git --git-dir` that
+  names another repository is now ignored, without a warning.
 - A repository reachable only through `GIT_DIR` now exits 3. Run the script from inside the
   repository.
 
@@ -29,7 +31,7 @@ for a hook and for a shell alias run in a linked worktree (issue #104).
   pass `--yes`. To keep a listed worktree, run `git worktree lock <path>`.
 - If the project's `.agents/worktree-setup.sh`, or a hook or alias that calls `worktree.sh`, relied on
   the caller's `GIT_DIR`, `GIT_WORK_TREE` or `GIT_INDEX_FILE`, change it to name the repository
-  itself.
+  itself. For another repository, run it from a folder of that repository (`git -C <dir> <alias>`).
 
 ## Release summary
 
