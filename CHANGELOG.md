@@ -26,8 +26,10 @@ Release procedure (harness maintainers):
   worktree on a branch nobody reviewed, that branch could add `.env` to its own list. `remove` then
   deleted an edited `.env` in another worktree without `--force`, and `prune --yes` removed such
   worktrees. The junk list now follows the copy list and the setup script (issue #88): the main
-  checkout's copy is the only one read, or in a bare repository the checkout you run the script in.
-  When the current checkout's own copy differs, stderr says the main checkout's list is used.
+  checkout's copy is the only one read. When the current checkout's own copy differs, stderr says
+  the main checkout's list is used. A bare repository has no main checkout, so the checkout you run
+  the script in stands in, except a harness worktree: run from one, only the default list applies,
+  and stderr says so (review round 1).
 - `docs/worktrees.md` "Junk list" and the note in "After `create`" now say where the list is read
   from.
 

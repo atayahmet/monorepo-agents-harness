@@ -959,5 +959,24 @@ is    "#93 AC5: in a bare repository the current checkout's list applies" "$RC" 
 check "#93 AC5: the worktree is gone" test ! -e "$PX"
 saysn "#93 AC5: no note in a bare repository" "$ERR" "worktree-junk.txt differs"
 
+echo "Issue #93 review round 1 — a bare repository never reads a harness worktree's list"
+# A bare repository has no main checkout. A harness worktree is where an unreviewed branch lands
+# (create --branch), so run from one, only the default list applies.
+PY="$(mkwt "$BC" b-y)"
+if put "$PY" .agents/worktree-junk.txt ".env"; then git -C "$PY" add -A && git -C "$PY" commit -qm "junk: .env"; fi
+PZ="$(mkwt "$BC" b-z)"; put "$PZ" .env "EDITED=z"
+wt "$PY" remove b-z
+is    "#93 R1: bare repo, run from a harness worktree: its own list is not used" "$RC" 1
+check "#93 R1: the edited .env stays" test -f "$PZ/.env"
+says  "#93 R1: the note says only the default list applies" "$ERR" "in a harness worktree only the default list applies"
+PW="$(mkwt "$BC" b-w)"
+wt "$PW" remove b-z
+is    "#93 R1: also from a harness worktree without a list of its own" "$RC" 1
+says  "#93 R1: the note appears there too" "$ERR" "in a harness worktree only the default list applies"
+wt "$BC" remove b-z
+is    "#93 R1: the bare repository's own checkout still uses its list" "$RC" 0
+check "#93 R1: that worktree is gone" test ! -e "$PZ"
+saysn "#93 R1: no harness note from that checkout" "$ERR" "only the default list applies"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

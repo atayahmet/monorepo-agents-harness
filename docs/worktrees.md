@@ -233,11 +233,16 @@ line, `#` comments). The file can only add entries, and the harness never writes
 *.pem.cache
 ```
 
-`remove` and `prune` read it from the main checkout (in a bare repository, the current checkout),
-like the copy list and the setup script. A worktree's own copy is never read, so a branch nobody
-reviewed cannot add `.env` to the list and have `remove` delete an `.env` without `--force`. When you
-run the script from a worktree whose own copy differs, stderr says the main checkout's list is used.
-To change the list, edit the main checkout's file.
+`remove` and `prune` read it from the main checkout, like the copy list and the setup script. A
+worktree's own copy is never used, so a branch nobody reviewed cannot add `.env` to the list and
+have `remove` delete an `.env` without `--force`. When you run the script from a worktree whose own
+copy differs, stderr says the main checkout's list is used. To change the list, edit the main
+checkout's file.
+
+A bare repository has no main checkout, so the current checkout stands in, except in a harness
+worktree, where only the default list applies: that is where `create --branch` puts a branch you
+may not have reviewed. stderr says so. Run `remove` and `prune` from your own checkout to use the
+project's list.
 
 ## Per-adapter notes
 

@@ -67,7 +67,10 @@ done
 # the script's --help). Whitespace is normalized so a line wrap cannot hide a phrase.
 norm() { tr '\n' ' ' | tr -s ' '; }
 junk="$(awk '/^### Junk list/ {on=1; next} on && /^##/ {exit} on {print}' "$DOC" | norm)"
-says  "Junk list section: read from the main checkout" "$junk" "read it from the main checkout (in a bare repository, the current checkout)"
+says  "Junk list section: read from the main checkout" "$junk" "read it from the main checkout, like the copy list and the setup script"
+says  "Junk list section: a worktree's own copy is never used" "$junk" "A worktree's own copy is never used"
+# Review round 1: in a bare repository a harness worktree never supplies the list.
+says  "Junk list section: bare repository, harness worktree" "$junk" "except in a harness worktree, where only the default list applies"
 saysn "Junk list section: not read from the current checkout" "$junk" "the checkout you run the script in"
 saysn "docs: no 'is read from the checkout you run the script in'" "$(norm < "$DOC")" "is read from the checkout you run the script in"
 says  "--help: worktree-junk.txt is read from the main checkout" \

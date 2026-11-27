@@ -18,7 +18,8 @@ main checkout (issue #93).
   an `.env` in another worktree without `--force`.
 - When you run the script from a worktree whose own list differs, stderr says the main checkout's
   list is used.
-- In a bare repository, the checkout you run the script in is still used.
+- A bare repository has no main checkout, so the checkout you run the script in stands in. The
+  exception is a harness worktree: run from one, only the default list applies, and stderr says so.
 
 ## Commands to run
 
@@ -29,7 +30,8 @@ main checkout (issue #93).
 
 - Optional: if the project uses `.agents/worktree-junk.txt`, check that the main checkout's copy has
   every entry you rely on. A list that exists only on another branch no longer counts. `remove`
-  then refuses the files it used to treat as junk, and `prune` keeps those worktrees.
+  then refuses the files it used to treat as junk, and `prune` keeps those worktrees. In a bare
+  repository, run `remove` and `prune` from your own checkout, not from a harness worktree.
 
 ## Release summary
 

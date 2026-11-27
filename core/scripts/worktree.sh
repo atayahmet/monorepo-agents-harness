@@ -293,13 +293,19 @@ read_list() {
 # load_junk - the default junk list plus the main checkout's .agents/worktree-junk.txt (read-only).
 # The list decides what remove may delete without --force, so a branch never extends it: run from
 # another checkout, that checkout's own copy is only compared (regular files only: cmp blocks on a
-# FIFO), and a difference is a note.
+# FIFO), and a difference is a note. A bare repository has no main checkout and the current one
+# stands in, except a harness worktree (where an unreviewed branch lands): there only the default
+# list applies. Needs load_repo and resolve_root.
 load_junk() {
   local e i=0
   JUNK=()
   set -f
   for e in $JUNK_DEFAULT; do JUNK[${#JUNK[@]}]="$e"; done
   set +f
+  if [ "${WT_BARE[0]:-0}" = 1 ] && [ "${TOP%/*}" = "$BASE_DIR" ]; then
+    note "junk list: a bare repository has no main checkout, so in a harness worktree only the default list applies (run from another checkout to use the project's $JUNK_LIST)"
+    return 0
+  fi
   if [ "$TOP" != "$MAIN" ] && [ -f "$TOP/$JUNK_LIST" ] \
      && { [ ! -f "$MAIN/$JUNK_LIST" ] || ! cmp -s "$MAIN/$JUNK_LIST" "$TOP/$JUNK_LIST"; }; then
     note "junk list: this checkout's own $JUNK_LIST differs; the main checkout's list is used"
