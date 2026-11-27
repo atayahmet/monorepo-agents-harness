@@ -1020,12 +1020,14 @@ echo "Issue #89 AC5 — prune keeps a harness worktree with no create record"
 case "$ADR" in "$ROOTP"/*) rm -rf "${ADR:?}/a-gone" ;; esac
 git -C "$AD" worktree add -q --detach "$ADR/a-det"
 P="$(mkwt "$AD" a-made)"; commit "$P" am.txt "am work" && git -C "$AD" merge -q --no-ff -m "merge a-made" a-made
+# Review round 2: a create-made worktree switched to another branch has no record for that branch.
+P="$(mkwt "$AD" a-sw)"; fixture_dir "$P" && git -C "$P" switch -q -c a-sw2
 wt "$AD" prune
 is     "#89 AC5: prune exits 0" "$RC" 0
-for s in a-fresh a-done a-det; do
+for s in a-fresh a-done a-det a-sw; do
   is   "#89 AC5: prune does not list $s" "$(row "$s")" ""
   says "#89 AC5: prune says $s has no create record" "$ERR" \
-       "kept $s: no create record (adopted or made by hand), so it may still be in use ('worktree.sh remove $s' removes it)"
+       "kept $s: no create record (adopted, made by hand, or not on the branch create made), so it may still be in use ('worktree.sh remove $s' removes it)"
 done
 is     "#89 AC5: prune does not list a-wip" "$(row a-wip)" ""
 says   "#89 AC5: the first reason still wins (a-wip is dirty)" "$ERR" "kept a-wip: uncommitted changes"

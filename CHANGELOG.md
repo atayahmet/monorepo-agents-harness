@@ -44,7 +44,8 @@ Release procedure (harness maintainers):
   adopted with `git worktree move` has no `branch.<b>.harnessStart`, so `prune` listed a fresh one
   while a `create`-made worktree in the same state was kept ("may still be in use"). Now a worktree
   on a branch with no `harnessStart`, or a detached one, is kept with `kept <slug>: no create record
-  (adopted or made by hand), so it may still be in use ('worktree.sh remove <slug>' removes it)`.
+  (adopted, made by hand, or not on the branch create made), so it may still be in use
+  ('worktree.sh remove <slug>' removes it)`.
   A detached harness worktree that `prune` used to remove is now kept too. A missing worktree is
   still pruned, and `remove <slug>` still removes either kind after its checks.
 - `docs/worktrees.md` no longer says the installer makes no `AGENTS.md` change; its `prune` row and

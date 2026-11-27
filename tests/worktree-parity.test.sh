@@ -113,14 +113,22 @@ for w in ".claude/worktrees" ".worktrees/"; do saysn "entry body names no in-rep
 saysn "docs: no 'the installer writes no ... AGENTS.md change'" "$(norm < "$DOC")" \
       "the installer writes no \`.gitignore\` line, setting or \`AGENTS.md\` change"
 says  "docs: the intro names the AGENTS.md rule" "$(norm < "$DOC")" \
-      "The installed root \`AGENTS.md\` has one rule for agents"
+      "The root \`AGENTS.md\` template has one rule for agents"
+# Review round 2: an update only offers the rule (the merge can be declined); a tool's own worktree
+# moves only once that tool is done with it.
+says  "docs: the intro says the merge can be declined" "$(norm < "$DOC")" "which you can decline"
+says  "docs: move a tool's worktree only once the tool is done" "$(norm < "$DOC")" \
+      "once the tool that made it no longer uses it"
 adopt="$(awk '/^## Adopting a worktree made elsewhere/ {on=1; next} on && /^## / {exit} on {print}' "$DOC" | norm)"
 for w in "list --all" "dest=\"\$(bash \"\$wt\" path <slug>)\"; mkdir -p \"\${dest%/*}\"" \
          "git worktree move <old-path> \"\$dest\"" "bash \"\$wt\" setup <slug>" \
          "remove <slug> [--delete-branch]" "git worktree unlock" "another disk" \
-         "git worktree prune" "Close every agent session" "no create record"; do
+         "git worktree prune" "Close every agent session" "no create record" \
+         "git stash -u" "git stash pop" "git worktree remove --force <old-path>" \
+         "run \`git status\` there first" "only on a branch you trust"; do
   says "docs adoption section: $w" "$adopt" "$w"
 done
+saysn "docs adoption section: create does not pick the slug" "$adopt" "Pick the slug as \`create\` would"
 prow="$(grep '^| `prune \[--yes\]`' "$DOC" | norm)"
 says  "docs prune row: no create record is kept" "$prow" "a create record"
 safety="$(awk '/^## Removal safety/ {on=1; next} on && /^## / {exit} on {print}' "$DOC" | norm)"

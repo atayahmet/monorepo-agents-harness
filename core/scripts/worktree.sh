@@ -865,8 +865,8 @@ cmd_remove() {
 # prune_why <i> - assess, then WHY: the reason prune keeps worktree i, or empty for a candidate.
 # Beyond remove's checks, prune keeps a present worktree that shows no commit since create: it may
 # still be in use by another session (an explicit remove still removes it). With no create record
-# (no harnessStart on its branch, or detached: adopted with `git worktree move` or made by hand)
-# there is no such evidence, so it is kept too.
+# (no harnessStart on its branch, or detached: adopted with `git worktree move`, made by hand, or
+# switched off the branch create made) there is no such evidence, so it is kept too.
 prune_why() {
   local i="$1" start
   assess "$i"
@@ -883,7 +883,7 @@ prune_why() {
     [ -z "${WT_BRANCH[i]}" ] \
       || start="$(git -C "$TOP" config --get "branch.${WT_BRANCH[i]}.harnessStart" 2>/dev/null)"
     if [ -z "$start" ]; then
-      WHY="no create record (adopted or made by hand), so it may still be in use ('worktree.sh remove $R_SLUG' removes it)"
+      WHY="no create record (adopted, made by hand, or not on the branch create made), so it may still be in use ('worktree.sh remove $R_SLUG' removes it)"
     elif [ "$start" = "${WT_HEAD[i]}" ]; then
       WHY="no commit since create, so it may still be in use ('worktree.sh remove $R_SLUG' removes it)"
     fi
