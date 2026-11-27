@@ -417,5 +417,6 @@ review without the developer's choice. The reviews are report-only unless the de
   `--setup`, or run `setup <slug>`, only when the developer asks for it. Never run
   `git worktree add` yourself, never use an agent tool's own worktree option, and never put a
   worktree inside the repository or in a temp directory. Run the spec, plan and build stages from a
-  session inside the worktree: the stop and commit gates block only for the checkout the session is in,
-  and only warn about another one. Details: `<bundle>/docs/worktrees.md`.
+  session inside the worktree: the stop gate blocks only for the checkout the session is in, and only
+  warns about another one. The commit gate blocks for the checkout being committed. Details:
+  `<bundle>/docs/worktrees.md`.

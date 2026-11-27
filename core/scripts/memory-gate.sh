@@ -178,9 +178,13 @@ stop_hook_active() {
 }
 
 # One warning line per unfinished build-stage task in another checkout of this repository. A task this
-# checkout has recorded (the other copy is behind), or already enforces itself, is not repeated. The
-# stage is only read for a dir that misses a file, so finished history costs no process. Without the
-# library or the stage reader there is no warning: this report never decides anything.
+# checkout has recorded (the other copy is behind), or already enforces itself, is not repeated.
+# Without the library or the stage reader there is no warning: this report never decides anything.
+#
+# This runs at every stop and commit, over every task dir of every other checkout, so keep the cost per
+# dir low: finished history stops at the file tests, a spec is read only for a build-stage task, and the
+# dirs are not sorted (harness_sort_task_dirs starts several processes per dir, and the order of
+# warning lines does not matter; the scan already lists each dir once).
 other_checkout_warnings() {
   declare -F harness_worktree_roots >/dev/null 2>&1 || return 0
   declare -F harness_scan_task_dirs >/dev/null 2>&1 || return 0
@@ -189,20 +193,22 @@ other_checkout_warnings() {
   while IFS= read -r wt; do
     [ -n "$wt" ] && [ ! "$wt" -ef "$ROOT" ] || continue
     while IFS= read -r dir; do
+      [ -n "$dir" ] || continue
+      if [ -f "$dir/3_memory.md" ] && [ -f "$dir/4_verify.md" ]; then continue; fi
+      rel="${dir#"$wt"/}"
+      [ ! -f "$ROOT/$rel/3_memory.md" ] || continue
+      [ "$(bash "$TASK_STATE" stage "$dir" 2>/dev/null || true)" = "build" ] || continue
       missing=""
       [ -f "$dir/3_memory.md" ] || missing="3_memory.md"
       if [ ! -f "$dir/4_verify.md" ] && verify_required "$dir"; then
         missing="${missing:+$missing }4_verify.md"
       fi
       [ -n "$missing" ] || continue
-      [ "$(bash "$TASK_STATE" stage "$dir" 2>/dev/null || true)" = "build" ] || continue
-      rel="${dir#"$wt"/}"
-      [ ! -f "$ROOT/$rel/3_memory.md" ] || continue
       [ "$(bash "$TASK_STATE" stage "$ROOT/$rel" 2>/dev/null || true)" != "build" ] || continue
       printf 'agent-workflow gate: warning: in the checkout %s, %s is missing: %s. Finish it from a session in that checkout.\n' \
         "$wt" "$rel" "$missing"
-    done < <( ( unset $(git rev-parse --local-env-vars 2>/dev/null)
-                harness_scan_task_dirs "$wt" ) | harness_sort_task_dirs )
+    done < <( unset $(git rev-parse --local-env-vars 2>/dev/null)
+              harness_scan_task_dirs "$wt" )
   done < <(harness_worktree_roots "$ROOT")
   return 0
 }

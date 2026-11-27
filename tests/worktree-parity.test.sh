@@ -175,5 +175,12 @@ says "agent-workflow Edge cases: run the stages inside the worktree" "$edge" \
 says "PORTABILITY memory-gate row: other checkouts are a warning" \
      "$(grep '^| \*\*Memory-gate\*\*' "$REPO/PORTABILITY.md")" "another checkout"
 
+# Review of 14ce8a4: the commit gate blocks for the checkout being committed, not the session's.
+says  "docs Gates: the commit gate blocks for the committed checkout" "$gates" \
+      "The commit gate blocks for the checkout being committed"
+says  "agent-workflow Edge cases: the same" "$edge" "The commit gate blocks for the checkout being committed"
+saysn "docs Gates: no 'commit gate ... session's working directory' claim" "$gates" \
+      "The stop gate and the commit gate block only for one checkout"
+saysn "agent-workflow Edge cases: no 'stop and commit gates ... session'" "$edge" "the stop and commit gates"
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

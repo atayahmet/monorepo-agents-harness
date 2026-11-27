@@ -332,9 +332,10 @@ bash "$wt" setup <slug>     # the copy list and setup script: only on a branch y
 
 ## Gates and other checkouts
 
-The stop gate and the commit gate block only for one checkout: the one the session's working directory
-is in. A session can still edit another checkout of the same repository (Claude Code `--add-dir` or
-`/add-dir`, Codex `--add-dir`). Then (issue #91):
+Each gate blocks for one checkout only. The stop gate blocks for the checkout of the session's working
+directory. The commit gate blocks for the checkout being committed, wherever the session is. A session
+can still edit another checkout of the same repository (Claude Code `--add-dir` or `/add-dir`, Codex
+`--add-dir`). Then (issue #91):
 
 - **Arming.** Claude Code's write hook arms the plan in the checkout that holds the file, when that is a
   checkout of the same repository (`git worktree list`). An unrelated repository or a submodule counts as

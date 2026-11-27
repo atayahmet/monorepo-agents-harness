@@ -521,5 +521,21 @@ is "#91 AC8 a block reason is still shown" "$(codex '{"decision":"block","reason
 is "#91 AC8 a block and a warning are both shown" "$(codex '{"decision":"block","reason":"r","systemMessage":"w"}')" '{"systemMessage":"r\nw"}'
 silent "#91 AC8 no gate output stays silent" "$(codex '')"
 
+# Review of 14ce8a4: the other-checkout report runs at every stop and commit, so its cost per task dir
+# matters. Shims record the arguments `stat` and `awk` get: no sorting (a `stat` per dir) of another
+# checkout's dirs, and no spec read for a task that is not in the build stage.
+new_worktree_fixture; planned "$(wt_task_dir cost_waiting)"
+d="$(wt_task_dir cost_done)"; building "$d"; write_memory "$d"; write_verify "$d"
+building "$(wt_task_dir cost_owed)"
+SHIM="$WTS/shim"; mkdir -p "$SHIM"
+for tool in stat awk; do
+  printf '#!/bin/sh\nprintf "%%s\\n" "$@" >> "%s/%s.log"\nexec "%s" "$@"\n' "$WTS" "$tool" "$(command -v "$tool")" > "$SHIM/$tool"
+  chmod +x "$SHIM/$tool"
+done
+out="$( cd "$FIXTURE" && PATH="$SHIM:$PATH" $S/memory-gate.sh 2>&1 </dev/null )"
+says  "#91 cost: the warning is still there" "$out" "task_${TODAY}_cost_owed"
+lacks "#91 cost: another checkout's dirs are not sorted" "$(cat "$WTS/stat.log" 2>/dev/null)" "$WT/"
+lacks "#91 cost: a waiting task's spec is not read" "$(cat "$WTS/awk.log" 2>/dev/null)" "cost_waiting/1_spec.md"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
