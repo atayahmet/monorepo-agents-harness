@@ -17,6 +17,26 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.44] - 2026-11-27
+
+### Fixed
+
+- **`/monorepo-harness-worktree remove` and `prune` read `.agents/worktree-junk.txt` from the main
+  checkout** (issue #93). They used to read it from the checkout the script ran in. Run from a
+  worktree on a branch nobody reviewed, that branch could add `.env` to its own list. `remove` then
+  deleted an edited `.env` in another worktree without `--force`, and `prune --yes` removed such
+  worktrees. The junk list now follows the copy list and the setup script (issue #88): the main
+  checkout's copy is the only one read, or in a bare repository the checkout you run the script in.
+  When the current checkout's own copy differs, stderr says the main checkout's list is used.
+- `docs/worktrees.md` "Junk list" and the note in "After `create`" now say where the list is read
+  from.
+
+### Upgrade Notes
+
+- Nothing to run. A normal sync re-copies `core/scripts/worktree.sh` and `docs/worktrees.md`. See
+  `changelogs/version-0.4.0-rc.44.md` for one optional check: entries that exist only in a
+  worktree's own list no longer count, so make sure the main checkout's list has them.
+
 ## [0.4.0-rc.43] - 2026-11-27
 
 ### Added
