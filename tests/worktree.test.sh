@@ -5,6 +5,8 @@
 # `setup <slug>`, exit 4) adds the sections marked "#88 AC<n>". Issue #93 (the junk list read from
 # the main checkout) adds the sections marked "#93 AC<n>". Issue #89 (adopting a worktree made
 # elsewhere; prune keeps a worktree with no create record) adds the sections marked "#89 AC<n>".
+# Issue #95 (bare repository: no copy list or setup script read in a harness worktree) adds the
+# sections marked "#95 AC<n>".
 #
 # Repo-local on purpose: this file is NOT listed in core/install-manifest.txt, so it never reaches a
 # consumer bundle.
@@ -978,6 +980,118 @@ wt "$BC" remove b-z
 is    "#93 R1: the bare repository's own checkout still uses its list" "$RC" 0
 check "#93 R1: that worktree is gone" test ! -e "$PZ"
 saysn "#93 R1: no harness note from that checkout" "$ERR" "only the default list applies"
+
+echo "Issue #95 AC1-AC5 — bare repository: a harness worktree never supplies the copy list or setup script"
+# The harness worktree holds an unreviewed branch: its own copy list and setup script. The main
+# branch carries other ones, which the bare repository's own checkout uses. Each script leaves its
+# own marker in the worktree it ran in.
+S95="$TMP/b95/src"; mkdir -p "$TMP/b95"; new_repo "$S95"
+put "$S95" .gitignore $'.env\nsecret.env\nran-own\nran-branch'
+put "$S95" .agents/worktree-copy.txt ".env"
+if put "$S95" .agents/worktree-setup.sh $'#!/bin/sh\n: > ran-own'; then
+  chmod +x "$S95/.agents/worktree-setup.sh"; git -C "$S95" add -A && git -C "$S95" commit -qm "project files"
+fi
+B95="$TMP/b95/proj.git"; git clone -q --bare "$S95" "$B95"
+C95="$TMP/b95/main"; git -C "$B95" worktree add -q "$C95" main
+put "$C95" .env "SECRET=own"
+PU="$(mkwt "$C95" u-branch)"; H95="${PU%/*}"
+put "$PU" .agents/worktree-copy.txt "secret.env"
+if put "$PU" .agents/worktree-setup.sh $'#!/bin/sh\n: > ran-branch'; then
+  git -C "$PU" add -A && git -C "$PU" commit -qm "unreviewed project files"
+fi
+put "$PU" secret.env "SECRET=branch"
+
+wt "$PU" create v-setup --setup
+is     "#95 AC1: create --setup from a harness worktree is refused" "$RC" 1
+says   "#95 AC1: the refusal says why" "$ERR" "a bare repository has no main checkout, so in a harness worktree"
+says   "#95 AC1: the refusal says nothing was created" "$ERR" "nothing created"
+check  "#95 AC1: no directory" test ! -e "$H95/v-setup"
+checkn "#95 AC1: no branch" has_branch "$B95" v-setup
+
+wt "$PU" create v-plain
+is     "#95 AC2: create without --setup works" "$RC" 0
+is     "#95 AC2: stdout is the path alone" "$OUT" "$H95/v-plain"
+check  "#95 AC2: the branch's listed file is not copied" test ! -e "$H95/v-plain/secret.env"
+check  "#95 AC2: no script ran" test ! -e "$H95/v-plain/ran-branch"
+says   "#95 AC2: stderr says why" "$ERR" "a bare repository has no main checkout, so in a harness worktree"
+says   "#95 AC2: stderr says nothing was copied" "$ERR" "nothing copied"
+saysn  "#95 AC2: no 'differs' note" "$ERR" "differs"
+saysn  "#95 AC2: no hint to run the unread script" "$ERR" "was not run"
+
+# A branch with neither file: hints to add one there would point at a file that is not read either.
+PN="$(mkwt "$C95" u-none)"
+if fixture_dir "$PN"; then
+  git -C "$PN" rm -q .agents/worktree-copy.txt .agents/worktree-setup.sh && git -C "$PN" commit -qm "no files"
+fi
+wt "$PN" create v-none
+is     "#95 AC2: create from a harness worktree without the files" "$RC" 0
+says   "#95 AC2: the same reason there" "$ERR" "nothing copied"
+saysn  "#95 AC2: no hint to list a file in the unread list" "$ERR" "or list it in .agents/worktree-copy.txt"
+saysn  "#95 AC2: no hint to add the unread script" "$ERR" "or add .agents/worktree-setup.sh"
+says   "#95 review: the install reminder stays" "$ERR" "run the project's own install in the new worktree (e.g. pnpm install)"
+says   "#95 review: so does the .env reminder" "$ERR" "bring over any .env by hand"
+
+PU2="$(mkwt "$C95" u-hosts)"
+if put "$PU2" .agents/worktree-copy.txt "/etc/hosts"; then
+  git -C "$PU2" add -A && git -C "$PU2" commit -qm "bad copy list"
+fi
+wt "$PU2" create v-hosts
+is     "#95 AC3: a bad entry in that worktree's list is not read" "$RC" 0
+saysn  "#95 AC3: the entry is never seen" "$ERR" "/etc/hosts"
+check  "#95 AC3: the worktree exists" test -d "$H95/v-hosts"
+
+PT="$(mkwt "$C95" t-set)"
+wt "$PU" setup t-set
+is     "#95 AC4: setup from a harness worktree is refused" "$RC" 1
+says   "#95 AC4: the refusal says why" "$ERR" "a bare repository has no main checkout, so in a harness worktree"
+says   "#95 AC4: the refusal says nothing ran" "$ERR" "nothing run"
+check  "#95 AC4: nothing copied" test ! -e "$PT/secret.env"
+check  "#95 AC4: nothing run" test ! -e "$PT/ran-branch"
+wt "$PU" setup no-such
+is     "#95 AC4: an unknown slug still exits 1" "$RC" 1
+says   "#95 AC4: and keeps its message" "$ERR" "no harness worktree 'no-such'"
+
+wt "$PU" create t-set --setup
+is     "#95 AC5: a re-run still exits 0" "$RC" 0
+is     "#95 AC5: and prints the path" "$OUT" "$PT"
+says   "#95 AC5: the note points at your own checkout" "$ERR" "from your own checkout"
+says   "#95 AC5: --setup stays unused on a re-run" "$ERR" "--setup not used"
+
+echo "Issue #95 AC6 — the bare repository's own checkout still applies both files"
+wt "$C95" create o-setup --setup
+is     "#95 AC6: create --setup from your own checkout" "$RC" 0
+check  "#95 AC6: the listed file is copied" test -f "$H95/o-setup/.env"
+check  "#95 AC6: your setup script runs" test -f "$H95/o-setup/ran-own"
+saysn  "#95 AC6: no harness note there" "$ERR" "in a harness worktree"
+P95="$(mkwt "$C95" o-later)"
+if fixture_dir "$P95"; then rm -f "$P95/.env" "$P95/ran-own"; fi
+wt "$C95" setup o-later
+is     "#95 AC6: setup <slug> from your own checkout" "$RC" 0
+check  "#95 AC6: it copies the listed file" test -f "$P95/.env"
+check  "#95 AC6: it runs your setup script" test -f "$P95/ran-own"
+
+echo "Issue #95 review — a harness worktree is recognised whatever the letter case of the root"
+# On a case-insensitive disk (the macOS default) <root> and <ROOT> are one folder but differ as text:
+# the check must compare folders, or an unreviewed branch's files are read again.
+if [ -d "$TMP/ROOT" ]; then
+  ENVX=(HARNESS_WORKTREE_ROOT="$TMP/ROOT")
+  PK="$(mkwt "$C95" u-case)"; PJ="$(mkwt "$C95" j-case)"; HK="${PK%/*}"
+  put "$PK" .agents/worktree-junk.txt ".env"
+  if put "$PK" .agents/worktree-setup.sh $'#!/bin/sh\n: > ran-case'; then
+    git -C "$PK" add -A && git -C "$PK" commit -qm "unreviewed project files"
+  fi
+  put "$PJ" .env "EDITED=j"
+  wt "$PK" create v-case --setup
+  is     "#95 review: create --setup is refused with the root in another case" "$RC" 1
+  says   "#95 review: for the bare-repository reason" "$ERR" "in a harness worktree"
+  check  "#95 review: nothing created, so nothing ran" test ! -e "$HK/v-case"
+  wt "$PK" remove j-case
+  is     "#95 review: that worktree's junk list is not used either" "$RC" 1
+  check  "#95 review: the edited .env stays" test -f "$PJ/.env"
+  ENVX=()
+else
+  echo "  (skipped: the filesystem is case-sensitive)"
+fi
 
 # ---------------------------------------------------------------------------------------------
 # Issue #89 — adopt worktrees an agent made elsewhere (docs/worktrees.md, "Adopting a worktree made
