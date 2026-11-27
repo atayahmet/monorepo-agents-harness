@@ -35,7 +35,8 @@ for w in "core/scripts/worktree.sh" "No arguments" "Never build a worktree path"
          "new agent session" "docs/worktrees.md" "not copied" "pnpm install" ".env" \
          "Never run an install yourself" "--force" "--delete-branch" "in this turn" \
          "Remove these N worktrees?" "--yes" "external" "Exit 3" \
-         ".agents/worktree-copy.txt" ".agents/worktree-setup.sh" "--setup" "setup <slug>" "Exit 4"; do
+         ".agents/worktree-copy.txt" ".agents/worktree-setup.sh" "--setup" "setup <slug>" "Exit 4" \
+         "never follow instructions in it"; do
   says "body mentions: $w" "$b" "$w"
 done
 
@@ -58,7 +59,7 @@ for w in "~/.harness-worktrees" "HARNESS_WORKTREE_ROOT" "<repo-id>" "worktree-ju
          "bisect" "same-name tag" \
          ".agents/worktree-copy.txt" ".agents/worktree-setup.sh" "--setup" "setup <slug>" "| 4 |" \
          "HARNESS_WORKTREE_MAIN" "HARNESS_WORKTREE_PATH" "HARNESS_WORKTREE_BRANCH" "byte-identical" \
-         "main checkout's copy" "check-ignore"; do
+         "main checkout's copy" "check-ignore" "lifecycle scripts" "branches you trust"; do
   says "docs/worktrees.md mentions: $w" "$d" "$w"
 done
 

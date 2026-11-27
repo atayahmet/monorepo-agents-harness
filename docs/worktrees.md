@@ -80,8 +80,10 @@ Without them, `create` does nothing beyond the checkout.
 
 Both are read from the **main checkout** (the first entry of `git worktree list`; in a bare
 repository, the checkout you run the script in), whatever branch the new worktree is on. The new
-worktree's own copy is never read or run, so a branch nobody reviewed cannot choose what runs on
-`create`. When the worktree's copy differs, stderr says the main checkout's copy is used. Commit
+worktree's own copy is never read or run, so a branch nobody reviewed cannot choose the setup
+script. The script still runs in that branch's checkout, though: an install there runs the
+branch's own lifecycle scripts (`postinstall` and the like). Use `--setup` only on branches you trust.
+When the worktree's copy differs, stderr says the main checkout's copy is used. Commit
 both files so every clone has them. (The script still reads them only from the main checkout.)
 
 ### `.agents/worktree-copy.txt`
@@ -95,8 +97,9 @@ apps/*/.env.local
 - One repo-relative path or glob per line; `#` comments and blank lines are skipped. Globs are shell
   globs from the main checkout: `*` does not cross `/` and does not match a leading `.`, and there
   is no `**`.
-- An absolute entry, an entry with a `..` component and one that names `.git` stop `create` with
-  exit 1, before anything is created.
+- An absolute entry, an entry with a `..` component and one that names `.git` (in any letter case:
+  `.GIT` is the same folder on a case-insensitive disk) stop `create` with exit 1, before anything
+  is created.
 - Each match is copied to the same path with `cp -p`, so an `.env` with mode `600` stays `600`.
   Only **ignored regular files** are copied. These are refused and reported:
   - a symlink or a directory;
@@ -104,8 +107,8 @@ apps/*/.env.local
   - a path through a symlinked folder in the worktree (the copy never writes through a symlink);
   - a path git does not ignore in the new worktree (`git check-ignore`), because `git add -A` could
     commit the copy there.
-- An existing file in the worktree is never overwritten. An identical one is fine; a different one
-  is `kept`. A missing source or an empty glob is only a note.
+- An existing file in the worktree is never overwritten. An identical one is fine; a different one,
+  or one that is not a regular file, is `kept`. A missing source or an empty glob is only a note.
 
 ### `.agents/worktree-setup.sh`
 

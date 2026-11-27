@@ -867,5 +867,42 @@ check "#88 AC9: prune lists a merged worktree with an identical .env" test -n "$
 is    "#88 AC9: prune keeps a merged worktree with an edited .env" "$(row s-pedit)" ""
 says  "#88 AC9: prune says why" "$ERR" "kept s-pedit: ignored files"
 
+echo "Issue #88 — security review round 1"
+# wt_bounded <secs> <fifo> <dir> <args...> - wt in the background. When it still runs after <secs>,
+# set HUNG=1 and open <fifo> for writing once, which releases a reader blocked on it.
+wt_bounded() {
+  local secs="$1" fifo="$2" d="$3" pid n=0; shift 3
+  HUNG=0
+  ( wt "$d" "$@"; printf '%s' "$RC" > "$TMP/.b.rc"; printf '%s' "$OUT" > "$TMP/.b.out"; printf '%s' "$ERR" > "$TMP/.b.err" ) &
+  pid=$!
+  while kill -0 "$pid" 2>/dev/null && [ "$n" -lt $((secs * 5)) ]; do sleep 0.2; n=$((n+1)); done
+  if kill -0 "$pid" 2>/dev/null; then HUNG=1; ( : > "$fifo" ) & fi
+  wait "$pid"
+  RC="$(cat "$TMP/.b.rc")"; OUT="$(cat "$TMP/.b.out")"; ERR="$(cat "$TMP/.b.err")"
+}
+copylist .env
+P="$(mkwt "$S" s-fifo)"
+if fixture_dir "$P"; then rm -f "$P/.env"; mkfifo "$P/.env"; fi
+wt_bounded 5 "$P/.env" "$S" setup s-fifo
+is    "#88 R1: a FIFO destination does not hang setup" "$HUNG" 0
+is    "#88 R1: setup with a FIFO destination exits 0" "$RC" 0
+says  "#88 R1: a non-regular destination is kept" "$ERR" "kept .env (not a regular file"
+check "#88 R1: the FIFO is left as it is" test -p "$P/.env"
+if fixture_dir "$P"; then rm -f "$P/.env"; mkdir -p "$P/.agents"; mkfifo "$P/.agents/worktree-setup.sh"; fi
+wt_bounded 5 "$P/.agents/worktree-setup.sh" "$S" setup s-fifo
+is    "#88 R1: a FIFO as the worktree's setup script does not hang setup" "$HUNG" 0
+is    "#88 R1: setup still runs the main checkout's script" "$RC" 0
+if fixture_dir "$P"; then rm -f "$P/.agents/worktree-setup.sh"; fi
+# .git in any letter case names the git dir on a case-insensitive filesystem (macOS default).
+n=0
+for e in .GIT/config 'sub/.Git/hooks/x'; do
+  n=$((n+1)); copylist .env "$e"
+  wt "$S" create "s-case$n"
+  is     "#88 R1: '$e' is refused" "$RC" 1
+  says   "#88 R1: the refusal for '$e' names .git" "$ERR" "names .git"
+  checkn "#88 R1: '$e' creates no branch" has_branch "$S" "s-case$n"
+done
+copylist .env
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

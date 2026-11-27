@@ -428,9 +428,13 @@ indent() { printf '%s\n' "$1" | sed 's/^/    /' >&2; }
 
 # --- The post-create steps (issue #88; docs/worktrees.md, "After create") ---------------------
 
+# lower <text> - ASCII lower case. `.git` is matched in any letter case: on a case-insensitive
+# filesystem (the macOS default) `.GIT/config` is the git dir's config.
+lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+
 # load_copy_list - COPY / COPY_LINE: the main checkout's copy list, a leading ./ dropped. An entry
-# that leaves the repository (absolute, a .. component) or names .git is refused here, before
-# anything changes: exit 1.
+# that leaves the repository (absolute, a .. component) or names .git (any letter case) is refused
+# here, before anything changes: exit 1.
 load_copy_list() {
   local i=0 e
   read_list "$MAIN/$COPY_LIST"
@@ -443,7 +447,9 @@ load_copy_list() {
       /*)  die 1 "refused: $COPY_LIST line ${LIST_LINE[i]}: $e leaves the repository (absolute path); nothing created" ;;
     esac
     case "/$e/" in
-      */../*)  die 1 "refused: $COPY_LIST line ${LIST_LINE[i]}: $e leaves the repository (a .. component); nothing created" ;;
+      */../*) die 1 "refused: $COPY_LIST line ${LIST_LINE[i]}: $e leaves the repository (a .. component); nothing created" ;;
+    esac
+    case "/$(lower "$e")/" in
       */.git/*) die 1 "refused: $COPY_LIST line ${LIST_LINE[i]}: $e names .git; nothing created" ;;
     esac
     COPY[${#COPY[@]}]="$e"; COPY_LINE[${#COPY_LINE[@]}]="${LIST_LINE[i]}"
@@ -476,10 +482,8 @@ copy_step() {
       n=$((n+1)); why=""
       src="$MAIN/$rel"; dst="$wt/$rel"
       # A glob such as .*/x can match .. or .git itself: check every match again.
-      case "/$rel/" in
-        */../*)   why="it leaves the repository" ;;
-        */.git/*) why="it is inside .git" ;;
-      esac
+      case "/$rel/" in */../*) why="it leaves the repository" ;; esac
+      case "/$(lower "$rel")/" in */.git/*) why="it is inside .git" ;; esac
       if [ -z "$why" ]; then
         if [ -L "$src" ]; then why="it is a symlink"
         elif [ ! -f "$src" ]; then why="it is not a regular file"
@@ -507,9 +511,13 @@ copy_step() {
         esac
       fi
       if [ -n "$why" ]; then note "copy: refused $rel: $why"; POST_FAIL=1; continue; fi
+      # Compare only a regular file: cmp would block on a FIFO.
       if [ -e "$dst" ]; then
-        cmp -s "$src" "$dst" \
-          || note "copy: kept $rel (differs from the main checkout's; never overwritten)"
+        if [ ! -f "$dst" ]; then
+          note "copy: kept $rel (not a regular file in the worktree; never overwritten)"
+        elif ! cmp -s "$src" "$dst"; then
+          note "copy: kept $rel (differs from the main checkout's; never overwritten)"
+        fi
         continue
       fi
       if mkdir -p "$(dirname "$dst")" && cp -p "$src" "$dst"; then note "copy: $rel"
@@ -536,7 +544,7 @@ setup_step() {
     note "setup: $SETUP_SCRIPT in the main checkout is not executable (chmod +x it)"; POST_FAIL=1; return 0
   fi
   note "setup: running $SETUP_SCRIPT from the main checkout in $wt"
-  if [ -e "$wt/$SETUP_SCRIPT" ] && ! cmp -s "$s" "$wt/$SETUP_SCRIPT"; then
+  if [ -f "$wt/$SETUP_SCRIPT" ] && ! cmp -s "$s" "$wt/$SETUP_SCRIPT"; then
     note "setup: this worktree's own $SETUP_SCRIPT differs; the main checkout's copy runs"
   fi
   (

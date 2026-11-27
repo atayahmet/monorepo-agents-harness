@@ -30,19 +30,20 @@ Release procedure (harness maintainers):
     it every time. Only ignored regular files are copied, with `cp -p` (an `.env` with mode `600`
     stays `600`). A symlink, a directory, a source outside the main checkout, a path through a
     symlinked folder in the worktree, and a path git does not ignore there are refused and reported.
-    An existing file is never overwritten. An entry that leaves the repository (absolute, `..`,
-    `.git`) stops `create` with exit 1 before anything is created.
+    An existing file is never overwritten. An entry that leaves the repository (absolute, `..`, or
+    `.git` in any letter case) stops `create` with exit 1 before anything is created.
   - `.agents/worktree-setup.sh` is an executable the project writes (e.g. `pnpm install`). It runs
     only on `create --setup` or the new `setup <slug>`, never on a plain `create`: in the new
     worktree, by its own shebang, with stdin from `/dev/null`, its output on stderr, and
     `HARNESS_WORKTREE_MAIN`, `HARNESS_WORKTREE_PATH`, `HARNESS_WORKTREE_BRANCH` set. The new
-    worktree's own copy is never run. `create --setup` without an executable script exits 1.
+    worktree's own copy is never run. `create --setup` without an executable script exits 1. An install it
+    runs still runs the branch's own lifecycle scripts: use `--setup` on branches you trust.
   - New `setup <slug>`: runs both steps again in an existing harness worktree, for example after a
     failed install.
   - New **exit 4**: the worktree exists, but the copy or setup step failed. stdout still prints the
     path. A re-run of `create` still prints the path and changes nothing, and names `setup <slug>`.
   - The three entry points pass `--setup`, or run `setup <slug>`, only when you typed it in that
-    turn. They never run an install on their own.
+    turn. They never run an install on their own, and they treat the setup output as data.
 
 ### Changed
 
