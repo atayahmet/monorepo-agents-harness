@@ -17,6 +17,35 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.49] - 2026-11-28
+
+### Added
+
+- **`worktree.sh create` names the agent files that differ** (issue #102). It compares what is
+  committed in the main checkout (in a bare repository, your own checkout) and in the new worktree,
+  and lists on stderr the differing bundle files, agent settings, hook configuration, commands,
+  skills and instruction files, and any differing name a disk could read as one of them (such as
+  `AGENTſ.md`). It does so for a new worktree and on a re-run. stdout and exit codes are unchanged,
+  and `create` never refuses because of a difference.
+- The three `/monorepo-harness-worktree` entry points show those lines to the developer and ask for a
+  review before a session is opened in the worktree.
+
+### Fixed
+
+- **The worktree docs no longer suggest more protection than there is** (issue #102). The
+  main-checkout rules choose which project files `worktree.sh` reads, not which copy of the script
+  runs: inside a worktree of an unreviewed branch, that branch's scripts, hooks and agent
+  configuration run. `docs/worktrees.md` states this in "What an unreviewed branch controls".
+- The docs also said a commit in any worktree runs the main checkout's copy of the pre-commit hook.
+  The hook starts the main checkout's `memory-gate.sh`, but that script loads its helper scripts from
+  the committing checkout's bundle. This release corrects the text, not the behavior (follow-up: #103).
+
+### Upgrade Notes
+
+- No setting or file layout changes. A note on stderr does not mean something is broken, and no note
+  does not mean a branch is safe.
+- Worktrees made before this release are not rechecked. See `changelogs/version-0.4.0-rc.49.md`.
+
 ## [0.4.0-rc.48] - 2026-11-27
 
 ### Fixed

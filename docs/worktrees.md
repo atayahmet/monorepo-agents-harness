@@ -49,7 +49,7 @@ when you ask for it. A session that needs no worktree does nothing new, and the 
 | Subcommand | What it does |
 | --- | --- |
 | `path <slug>` | Prints the path. Writes nothing. |
-| `create <slug> [--base <ref>] [--branch <name>]` | Adds the worktree and prints its path. A new branch starts from `--base`, else the default branch (`origin/HEAD`, then `main`, then `master`), with no upstream. An existing branch is checked out: a local one, or one a remote has (as a local branch tracking it, by its full ref, so a same-name tag never wins); `--base` with it exits 2. A branch that several remotes have exits 2 unless `checkout.defaultRemote` names one of them, as in git. A branch already checked out in a harness worktree prints that path and changes nothing, so a re-run is safe; one checked out in the main checkout or an external worktree exits 1 and says where. Then it copies the files the project lists in `.agents/worktree-copy.txt`; `--setup` also runs the project's `.agents/worktree-setup.sh` (see [After `create`](#after-create)). |
+| `create <slug> [--base <ref>] [--branch <name>]` | Adds the worktree and prints its path. A new branch starts from `--base`, else the default branch (`origin/HEAD`, then `main`, then `master`), with no upstream. An existing branch is checked out: a local one, or one a remote has (as a local branch tracking it, by its full ref, so a same-name tag never wins); `--base` with it exits 2. A branch that several remotes have exits 2 unless `checkout.defaultRemote` names one of them, as in git. A branch already checked out in a harness worktree prints that path and changes nothing, so a re-run is safe; one checked out in the main checkout or an external worktree exits 1 and says where. Then it copies the files the project lists in `.agents/worktree-copy.txt`; `--setup` also runs the project's `.agents/worktree-setup.sh` (see [After `create`](#after-create)). stderr names the committed agent files that differ from the main checkout's (see [What an unreviewed branch controls](#what-an-unreviewed-branch-controls)). |
 | `setup <slug>` | Runs the copy step and the project's setup script again in an existing harness worktree (for example after a failed install) and prints its path. |
 | `list [--all]` | A tab-separated table: `kind slug branch state merged last_commit path`. `--all` adds `external` worktrees. |
 | `remove <slug> [--delete-branch] [--force]` | Removes one harness worktree after the safety checks below. |
@@ -74,7 +74,9 @@ setup script prints go to stderr. The script never fetches or pushes.
 ## After `create`
 
 Open a new agent session in the printed path (the current session stays where it is), and run the
-task's stages there (see [Gates and other checkouts](#gates-and-other-checkouts)).
+task's stages there (see [Gates and other checkouts](#gates-and-other-checkouts)). When `create`
+says agent files differ, review them first (see
+[What an unreviewed branch controls](#what-an-unreviewed-branch-controls)).
 
 Git checks out **tracked files only**. Ignored files are not copied by git: `node_modules`, `.env`,
 build output and the `.turbo` cache are not in the new worktree. Two optional files let the project
@@ -89,19 +91,23 @@ Without them, `create` copies only each workspace's session log (see
 
 Both are read from the **main checkout** (the first entry of `git worktree list`; for a bare
 repository see below), whatever branch the new worktree is on. The new
-worktree's own copy is never read or run, so a branch nobody reviewed cannot choose the setup
-script. The script still runs in that branch's checkout, though: an install there runs the
-branch's own lifecycle scripts (`postinstall` and the like). Use `--setup` only on branches you trust.
+worktree's own copy is never read or run: a `create` you run from a checkout you trust uses the main
+checkout's files, not the new branch's. That rule is about these files, not about the script you call
+(see [What an unreviewed branch controls](#what-an-unreviewed-branch-controls)). The setup script still
+runs in that branch's checkout, though: an install there runs the branch's own lifecycle scripts
+(`postinstall` and the like). Use `--setup` only on branches you trust.
 When the worktree's copy differs, stderr says the main checkout's copy is used. Commit
 both files so every clone has them. (The script still reads them only from the main checkout.)
 
 **In a bare repository.** A bare repository has no main checkout, so the checkout you run the script
 in stands in: your own checkout, a worktree you added yourself outside the harness root. A harness
 worktree never stands in, because it can hold a branch nobody reviewed: in a harness worktree neither
-file is read (issue #95). "Harness worktree" means one directly under the current harness root: one
+file is read (issue #95). The copy of the script in that worktree need not keep this rule (see
+[What an unreviewed branch controls](#what-an-unreviewed-branch-controls)). "Harness worktree" means one directly under the current harness root: one
 made under another `HARNESS_WORKTREE_ROOT` reads as your own checkout. Run from a harness worktree:
 
-- `create` makes the worktree, copies nothing and says why;
+- `create` makes the worktree, copies nothing and says why, and says the agent files were not
+  compared;
 - `create --setup` and `setup <slug>` exit 1: nothing is created, copied or run.
 
 Run these commands from your own checkout instead. If you have none, add one with
@@ -178,6 +184,72 @@ worktree; the main checkout keeps the original (see [Removal safety](#removal-sa
 
 The junk list, `.agents/worktree-junk.txt` (see [Junk list](#junk-list)), is read from the main
 checkout too.
+
+## What an unreviewed branch controls
+
+The rules for the copy list, the setup script and the junk list choose which project files
+`worktree.sh` reads, not which copy of the script runs. A bundle that is tracked in git is checked
+out with the branch, and so are the agent settings, hook configuration, plugins, commands, skills and
+instruction files. Inside a worktree of a branch nobody reviewed, the branch's copies are in use
+(issue #102).
+
+Read from the main checkout (in a bare repository, your own checkout), whatever the branch holds, as
+long as the `worktree.sh` you run comes from a checkout you trust:
+
+- the copy list and the setup script of `create` and `setup`;
+- the junk list of `remove` and `prune`.
+
+Taken from the checkout you work in, so the branch controls them:
+
+- `worktree.sh` itself. `/monorepo-harness-worktree` and the commands in these docs call
+  `.agents/monorepo-agents-harness/...` in the current checkout, and that copy can drop any rule
+  above;
+- the other bundle scripts, and the Claude Code and Codex hooks that call them there;
+- agent settings, hook configuration, plugins, commands, skills, MCP server configuration and
+  instruction files;
+- the helper scripts of the shared pre-commit hook. The hook starts the main checkout's
+  `memory-gate.sh`, which loads `harness-common.sh`, `task-state.sh` and
+  `detect-monorepo-framework.sh` from the committing checkout's bundle. So a `git commit` in the
+  worktree runs the branch's code.
+
+Review the branch, its bundle and its agent configuration before you run a command, a commit or an
+agent session in its worktree. Review from a checkout you trust, for example with
+`git diff main...<branch>` in the main checkout. Do not count on a trust prompt: Claude Code and
+Codex store folder trust under the main repository (see [Per-adapter notes](#per-adapter-notes)).
+
+### The note on `create`
+
+`create` compares what is committed (`HEAD`) in the main checkout and in the worktree. When some
+agent files differ, stderr says `agent files differ` and lists them. It does so for a new worktree
+and on a re-run, and ignores letter case. The paths:
+
+- `.agents/monorepo-agents-harness`, `.agents/skills` and `.agents/rules`, and `.agents` itself when
+  it is a file, a symlink or a submodule;
+- `.codex`, `.opencode`, `.mcp.json`, `opencode.json` and `opencode.jsonc` at the repository root;
+- `AGENTS.md`, `AGENTS.override.md`, `CLAUDE.md`, `CLAUDE.local.md` and `.claude` at any depth;
+- any other differing path with a character a disk may read as ASCII or ignore: `ß`, `ſ`, the Kelvin
+  sign, a ligature such as `ﬆ`, or an invisible character. A branch can add such a name beside a
+  listed file and have the checkout write over it. git prints these names with escapes (`\305\277`
+  is `ſ`).
+
+At most 20 paths are listed, then how many more and a `git diff` command that shows every differing
+file. It says `could not compare` when git cannot answer (for example, the main checkout is on a
+branch with no commit), and `not compared` in a harness worktree of a bare repository. stdout and the
+exit code do not change: the note is advice, and `create` never refuses because of a difference. A
+branch behind a harness upgrade lists many bundle files, because its older copy is what runs there.
+
+No note does not mean the branch is safe:
+
+- only the paths above are compared: package scripts and their lifecycle hooks, tracked git hooks and
+  `core.hooksPath` folders, build and tool configuration, and nested `.codex`, `.opencode` or
+  `.agents/skills` folders are not;
+- files that the listed ones call or import are not compared: a script that a hook or an MCP server
+  runs, a file that `AGENTS.md` or `CLAUDE.md` imports, the instruction files `opencode.json` names;
+- with `--setup`, the setup script has already run the branch's code when the note appears;
+- a symlink is compared as a link, not by what it points to;
+- files that are not committed, in either checkout, are not compared;
+- the note comes from the script you run, and a branch's own copy can drop it. It means something
+  only when you run `create` from a checkout you trust.
 
 ## Per-workspace state
 
@@ -290,10 +362,11 @@ line, `#` comments). The file can only add entries, and the harness never writes
 ```
 
 `remove` and `prune` read it from the main checkout, like the copy list and the setup script. A
-worktree's own copy is never used, so a branch nobody reviewed cannot add `.env` to the list and
-have `remove` delete an `.env` without `--force`. When you run the script from a worktree whose own
-copy differs, stderr says the main checkout's list is used. To change the list, edit the main
-checkout's file.
+worktree's own copy is never used: a branch that adds `.env` to its copy does not make `remove`, run
+from a checkout you trust, delete an `.env` without `--force`. When you run the script from a
+worktree whose own copy differs, stderr says the main checkout's list is used. To change the list,
+edit the main checkout's file. (What a branch's own copy of the script can do:
+[What an unreviewed branch controls](#what-an-unreviewed-branch-controls).)
 
 A bare repository has no main checkout, so the current checkout stands in, except in a harness
 worktree, where only the default list applies: that is where `create --branch` puts a branch you
@@ -390,8 +463,10 @@ change these rules.
   ~/.harness-worktrees` or `sandbox_workspace_write.writable_roots`.
 - **OpenCode**: no trust step. The default agent may edit outside the project unless your project
   sets `permission.external_directory`.
-- Git hooks live in the shared git directory, so a commit in any worktree runs the main checkout's
-  bundle copy of the pre-commit hook.
+- Git hooks live in the shared git directory, so a commit in any worktree starts the main checkout's
+  `memory-gate.sh` through the pre-commit hook. That script loads its helper scripts from the
+  committing checkout's bundle (see
+  [What an unreviewed branch controls](#what-an-unreviewed-branch-controls)).
 - The bundle reaches a worktree only through git. When `.agents/monorepo-agents-harness/` is not
   tracked, `create` warns: hooks and `/monorepo-harness-*` commands cannot run in that worktree until
   the bundle is committed or installed there.

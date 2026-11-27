@@ -6,7 +6,8 @@
 # the main checkout) adds the sections marked "#93 AC<n>". Issue #89 (adopting a worktree made
 # elsewhere; prune keeps a worktree with no create record) adds the sections marked "#89 AC<n>".
 # Issue #95 (bare repository: no copy list or setup script read in a harness worktree) adds the
-# sections marked "#95 AC<n>".
+# sections marked "#95 AC<n>". Issue #102 (create names the committed agent files that differ) adds the
+# sections marked "#102 AC<n>".
 #
 # Repo-local on purpose: this file is NOT listed in core/install-manifest.txt, so it never reaches a
 # consumer bundle.
@@ -1273,6 +1274,200 @@ commit "$NR" root-work.txt "r-root work"
 git -C "$S9g" merge -q --ff-only r-root
 wt "$S9g" remove r-root
 is    "#90 review control: remove discards the root .agents/todo.md (junk)" "$RC" 0
+
+echo "Issue #102 AC2 — create names the agent files that differ"
+# agent_line <path> - stderr has <path> as one indented line of its own.
+agent_line() { printf '%s\n' "$ERR" | grep -qxF "    $1"; }
+DIFFER="agent files differ from the ones committed in"
+S102="$TMP/q/agents"; new_repo "$S102"; S102P="$(cd "$S102" && pwd -P)"
+for f in .agents/monorepo-agents-harness/core/scripts/lib.sh .agents/skills/s/SKILL.md \
+         .claude/settings.json .claude/commands/x.md .mcp.json opencode.json AGENTS.md \
+         apps/web/AGENTS.md apps/web/code.js docs/notes.md .claude/commands/old.md; do
+  put "$S102" "$f"
+done
+git -C "$S102" add -A && git -C "$S102" commit -qm "tooling"
+git -C "$S102" checkout -qb same; commit "$S102" apps/web/code.js "app code only"
+git -C "$S102" checkout -q main; git -C "$S102" checkout -qb agents
+CHANGED=".agents/monorepo-agents-harness/core/scripts/lib.sh .agents/skills/s/SKILL.md
+.agents/rules/r.md .codex/hooks.json .opencode/plugins/p.js .mcp.json opencode.json opencode.jsonc
+AGENTS.md CLAUDE.md apps/web/AGENTS.md apps/web/CLAUDE.md apps/web/.claude/settings.json"
+for f in $CHANGED; do put "$S102" "$f" "changed on the branch"; done
+git -C "$S102" rm -q .claude/settings.json
+git -C "$S102" mv .claude/commands/x.md docs/x.md
+git -C "$S102" mv .claude/commands/old.md .claude/commands/new.md
+git -C "$S102" add -A && git -C "$S102" commit -qm "branch tooling"
+git -C "$S102" checkout -q main
+ID102="$(repo_id "$S102")"; Q1="$ROOTP/$ID102/q-agents"
+wt "$S102" create q-agents --branch agents
+is    "#102 AC2: create exits 0 when agent files differ" "$RC" 0
+is    "#102 AC2: stdout is the path alone" "$OUT" "$Q1"
+says  "#102 AC2: stderr says they differ from the main checkout" "$ERR" "$DIFFER $S102P."
+says  "#102 AC2: stderr names the worktree to review" "$ERR" "start an agent session in $Q1:"
+
+echo "Issue #102 AC4 — every listed path is caught"
+for f in $CHANGED; do check "#102 AC4: names $f" agent_line "$f"; done
+check "#102 AC4: names a deleted file" agent_line .claude/settings.json
+check "#102 AC4: names a file moved out of .claude/" agent_line .claude/commands/x.md
+check "#102 AC4: a rename inside the list: the old name" agent_line .claude/commands/old.md
+check "#102 AC4: a rename inside the list: the new name" agent_line .claude/commands/new.md
+saysn "#102 AC4: does not name the new path outside the list" "$ERR" "docs/x.md"
+
+echo "Issue #102 AC5 — a re-run of create says it again"
+wt "$S102" create q-agents --branch agents
+is    "#102 AC5: a re-run exits 0" "$RC" 0
+is    "#102 AC5: a re-run prints the path" "$OUT" "$Q1"
+says  "#102 AC5: a re-run has the note" "$ERR" "$DIFFER $S102P."
+check "#102 AC5: a re-run names the files" agent_line AGENTS.md
+
+echo "Issue #102 AC3 — no note when the agent files are the same"
+wt "$S102" create q-same --branch same
+is    "#102 AC3: create exits 0" "$RC" 0
+saysn "#102 AC3: no note when only app code differs" "$ERR" "agent files"
+wt "$S102" create q-new
+saysn "#102 AC3: no note for a new branch" "$ERR" "agent files"
+wt "$S102" create q-new
+saysn "#102 AC3: no note on its re-run" "$ERR" "agent files"
+
+echo "Issue #102 AC4 — variants: letter case, symlinks, a submodule, odd names, the caller's settings"
+S102v="$TMP/q/variants"; new_repo "$S102v"; commit "$S102v" docs/notes.md "docs"
+git -C "$S102v" checkout -qb variants
+if fixture_dir "$S102v"; then
+  mkdir -p "$S102v/apps/web"
+  ln -s docs "$S102v/.claude"; ln -s docs "$S102v/.agents"; ln -s ../../docs "$S102v/apps/web/.claude"
+  put "$S102v" .Codex/hooks.json; put "$S102v" x/agents.md; put "$S102v" x/Claude.md
+  put "$S102v" ".Codex/$(printf 'line\nbreak').md" odd
+  put "$S102v" ".Codex/$(printf '\303\247').md" odd
+  git -C "$S102v" add -A
+  git -C "$S102v" update-index --add --cacheinfo "160000,$(git -C "$S102v" rev-parse HEAD),.opencode"
+  git -C "$S102v" commit -qm variants
+fi
+git -C "$S102v" checkout -qf main
+git -C "$S102v" config diff.ignoreSubmodules all
+git -C "$S102v" config core.quotePath false
+wt "$S102v" create q-variants --branch variants
+is    "#102 AC4: create exits 0 for the variants" "$RC" 0
+check "#102 AC4: a case variant (.Codex/, main has no .codex/)" agent_line .Codex/hooks.json
+check "#102 AC4: a symlink named .claude" agent_line .claude
+check "#102 AC4: a nested symlink named .claude" agent_line apps/web/.claude
+check "#102 AC4: .agents itself replaced by a symlink" agent_line .agents
+check "#102 AC4: a submodule at .opencode, with diff.ignoreSubmodules=all" agent_line .opencode
+check "#102 AC4: a nested agents.md in another letter case" agent_line x/agents.md
+check "#102 AC4: a nested Claude.md" agent_line x/Claude.md
+check "#102 AC4: a newline in a name stays quoted on one line" agent_line '".Codex/line\nbreak.md"'
+check "#102 AC4: a non-ASCII name is quoted with core.quotePath=false" agent_line '".Codex/\303\247.md"'
+ENVX=(GIT_LITERAL_PATHSPECS=1); wt "$S102v" create q-variants --branch variants; ENVX=()
+check "#102 AC4: GIT_LITERAL_PATHSPECS=1 keeps a case variant" agent_line .Codex/hooks.json
+check "#102 AC4: GIT_LITERAL_PATHSPECS=1 keeps a nested file" agent_line x/agents.md
+
+echo "Issue #102 AC6 — a failed comparison is reported"
+S102u="$TMP/q/unborn"; new_repo "$S102u"; git -C "$S102u" branch other
+git -C "$S102u" checkout -q --orphan fresh
+wt "$S102u" create q-unborn --branch other
+is    "#102 AC6: create exits 0 with an unborn main HEAD" "$RC" 0
+says  "#102 AC6: says it could not compare" "$ERR" "agent files: could not compare"
+git -C "$S102" config diff.orderFile "$TMP/q/no-such-order-file"
+wt "$S102" create q-agents --branch agents
+git -C "$S102" config --unset diff.orderFile
+is    "#102 AC6: a failed git diff keeps exit 0" "$RC" 0
+says  "#102 AC6: a failed git diff is reported" "$ERR" "agent files: could not compare"
+
+echo "Issue #102 AC7 — bare repository"
+B102="$TMP/q/bare.git"; git clone -q --bare "$S102" "$B102"
+OWN="$TMP/q/own"; git -C "$B102" worktree add -q "$OWN" main 2>/dev/null
+OWNP="$(cd "$OWN" && pwd -P)"
+wt "$OWN" create q-bare --branch agents; H102="$OUT"
+is    "#102 AC7: create exits 0 from your own checkout" "$RC" 0
+says  "#102 AC7: your own checkout is compared" "$ERR" "$DIFFER $OWNP."
+check "#102 AC7: it names the files" agent_line AGENTS.md
+wt "$H102" create q-bare2 --branch same
+is    "#102 AC7: create exits 0 from a harness worktree" "$RC" 0
+says  "#102 AC7: a harness worktree says not compared" "$ERR" \
+      "agent files: not compared: a bare repository has no main checkout, so in a harness worktree"
+saysn "#102 AC7: and does not claim a difference" "$ERR" "$DIFFER"
+wt "$H102" create q-bare --branch agents
+says  "#102 AC7: a re-run there says not compared" "$ERR" "agent files: not compared"
+
+echo "Issue #102 AC8 — a long list stops at 20"
+git -C "$S102" checkout -qb many
+for i in $(seq -w 1 25); do put "$S102" ".claude/commands/m$i.md"; done
+git -C "$S102" add -A && git -C "$S102" commit -qm many
+git -C "$S102" checkout -q main; git -C "$S102" checkout -qb twenty
+for i in $(seq -w 1 20); do put "$S102" ".claude/commands/t$i.md"; done
+git -C "$S102" add -A && git -C "$S102" commit -qm twenty
+git -C "$S102" checkout -q main
+MAIN12="$(git -C "$S102" rev-parse main | cut -c1-12)"
+wt "$S102" create q-many --branch many
+is    "#102 AC8: exactly 20 paths are listed" "$(printf '%s\n' "$ERR" | grep -c '^    \.claude/commands/m')" 20
+says  "#102 AC8: says how many more" "$ERR" "5 more not shown"
+says  "#102 AC8: gives the git diff command" "$ERR" "git -C $ROOTP/$ID102/q-many diff --name-only --no-renames --ignore-submodules=none $MAIN12 HEAD"
+check "#102 AC8: that command shows the 25th file" \
+      sh -c "git -C '$ROOTP/$ID102/q-many' diff --name-only --no-renames --ignore-submodules=none '$MAIN12' HEAD | grep -qx .claude/commands/m25.md"
+wt "$S102" create q-twenty --branch twenty
+is    "#102 AC8: 20 files are all listed" "$(printf '%s\n' "$ERR" | grep -c '^    \.claude/commands/t')" 20
+saysn "#102 AC8: 20 files leave nothing over" "$ERR" "more not shown"
+
+echo "Issue #102 review — look-alike names a disk reads as a listed one"
+# branch_with <repo> <branch> <name>... - a branch from main with more files (names as printf escapes),
+# built in a temporary index: on a disk that folds a name, writing it would replace the file it looks like.
+branch_with() {
+  local r="$1" b="$2" n blob tree idx="$TMP/q/index"; shift 2
+  fixture_dir "$r" || return 1
+  blob="$(printf 'BRANCH\n' | git -C "$r" hash-object -w --stdin)"
+  GIT_INDEX_FILE="$idx" git -C "$r" read-tree main
+  for n in "$@"; do GIT_INDEX_FILE="$idx" git -C "$r" update-index --add --cacheinfo "100644,$blob,$(printf "$n")"; done
+  tree="$(GIT_INDEX_FILE="$idx" git -C "$r" write-tree)"
+  git -C "$r" branch "$b" "$(git -C "$r" commit-tree "$tree" -p main -m "$b")"
+  rm -f "$idx"
+}
+S102l="$TMP/q/lookalike"; new_repo "$S102l"
+for f in AGENTS.md .mcp.json .agents/monorepo-agents-harness/x.sh; do put "$S102l" "$f" main; done
+git -C "$S102l" add -A && git -C "$S102l" commit -qm tooling
+# U+017F (long s) reads as "s" on APFS: these replace the files main has.
+branch_with "$S102l" overwrite 'AGENT\305\277.md' '.mcp.j\305\277on' \
+  '.agent\305\277/monorepo-agents-harness/x.sh' 'docs/\303\247.md'
+wt "$S102l" create q-overwrite --branch overwrite
+is    "#102 review: create exits 0" "$RC" 0
+for n in '"AGENT\305\277.md"' '".mcp.j\305\277on"' '".agent\305\277/monorepo-agents-harness/x.sh"'; do
+  check "#102 review: names $n" agent_line "$n"
+done
+saysn "#102 review: another non-ASCII name is not listed" "$ERR" '\303\247'
+# Every letter whose Unicode case folding is ASCII, then every character HFS+ ignores in a name.
+FOLDS='\303\237 \305\277 \341\272\236 \342\204\252 \357\254\200 \357\254\201 \357\254\202 \357\254\203
+\357\254\204 \357\254\205 \357\254\206'
+IGNORED='\342\200\214 \342\200\215 \342\200\216 \342\200\217 \342\200\252 \342\200\253 \342\200\254
+\342\200\255 \342\200\256 \342\201\252 \342\201\253 \342\201\254 \342\201\255 \342\201\256 \342\201\257
+\357\273\277'
+names=(); for e in $FOLDS; do names[${#names[@]}]="w${e}x"; done
+branch_with "$S102l" folds "${names[@]}"
+wt "$S102l" create q-folds --branch folds
+for e in $FOLDS; do check "#102 review: a folding letter $e is listed" agent_line "\"w${e}x\""; done
+names=(); for e in $IGNORED; do names[${#names[@]}]="h${e}x/f"; done
+branch_with "$S102l" ignored "${names[@]}"
+wt "$S102l" create q-ignored --branch ignored
+for e in $IGNORED; do check "#102 review: an ignored character $e is listed (in a folder name)" agent_line "\"h${e}x/f\""; done
+
+echo "Issue #102 review — AGENTS.override.md and CLAUDE.local.md"
+branch_with "$S102l" locals AGENTS.override.md CLAUDE.local.md apps/web/agents.override.md apps/web/Claude.local.md
+wt "$S102l" create q-locals --branch locals
+for n in AGENTS.override.md CLAUDE.local.md apps/web/agents.override.md apps/web/Claude.local.md; do
+  check "#102 review: names $n" agent_line "$n"
+done
+
+echo "Issue #102 review — the caller's GIT_DIR does not silence the note"
+ENVX=(GIT_DIR="$S102P/.git"); wt "$S102" create q-agents --branch agents; ENVX=()
+is    "#102 review: a re-run with GIT_DIR exits 0" "$RC" 0
+check "#102 review: GIT_DIR on a re-run" agent_line AGENTS.md
+git -C "$S102" branch agents-copy agents
+ENVX=(GIT_DIR="$S102P/.git"); wt "$S102" create q-gitdir --branch agents-copy; ENVX=()
+is    "#102 review: create with GIT_DIR exits 0" "$RC" 0
+check "#102 review: GIT_DIR on a new worktree" agent_line AGENTS.md
+ENVX=(GIT_DIR="$S102P/.git"); wt "$S102" create q-same --branch same; ENVX=()
+saysn "#102 review: GIT_DIR adds no note for the same agent files" "$ERR" "agent files"
+# A shell alias run in a linked checkout exports that checkout's GIT_DIR.
+git -C "$S102" worktree add -q -b mine "$TMP/q/mine" main
+ENVX=(GIT_DIR="$S102P/.git/worktrees/mine"); wt "$TMP/q/mine" create q-agents --branch agents; ENVX=()
+says  "#102 review: a linked checkout's GIT_DIR still compares with the main checkout" "$ERR" "$DIFFER $S102P."
+check "#102 review: and names the files" agent_line AGENTS.md
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
