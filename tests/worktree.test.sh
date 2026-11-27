@@ -3,7 +3,8 @@
 # path / create / list / remove / prune contract (issue #85). One section per acceptance criterion
 # in the task spec (AC1–AC11). Issue #88 (the project-owned setup step: copy list, setup script,
 # `setup <slug>`, exit 4) adds the sections marked "#88 AC<n>". Issue #93 (the junk list read from
-# the main checkout) adds the sections marked "#93 AC<n>".
+# the main checkout) adds the sections marked "#93 AC<n>". Issue #89 (adopting a worktree made
+# elsewhere; prune keeps a worktree with no create record) adds the sections marked "#89 AC<n>".
 #
 # Repo-local on purpose: this file is NOT listed in core/install-manifest.txt, so it never reaches a
 # consumer bundle.
@@ -977,6 +978,75 @@ wt "$BC" remove b-z
 is    "#93 R1: the bare repository's own checkout still uses its list" "$RC" 0
 check "#93 R1: that worktree is gone" test ! -e "$PZ"
 saysn "#93 R1: no harness note from that checkout" "$ERR" "only the default list applies"
+
+# ---------------------------------------------------------------------------------------------
+# Issue #89 — adopt worktrees an agent made elsewhere (docs/worktrees.md, "Adopting a worktree made
+# elsewhere"), and prune keeps a present harness worktree that has no create record.
+echo "Issue #89 AC6 — the documented adoption flow"
+AD="$TMP/ad/proj"; new_repo "$AD"; IDAD="$(repo_id "$AD")"
+put "$AD" .gitignore ".env" && git -C "$AD" add -A && git -C "$AD" commit -qm "ignore .env"
+EXT="$AD/.claude/worktrees"; EXTP="$TMPP/ad/proj/.claude/worktrees"; ADR="$ROOTP/$IDAD"
+for s in a-fresh a-done a-wip a-gone; do git -C "$AD" worktree add -q -b "$s" "$EXT/$s"; done
+commit "$EXT/a-done" ad.txt "ad work" && git -C "$AD" merge -q --no-ff -m "merge a-done" a-done
+put "$EXT/a-wip" wip.txt
+wt "$AD" list --all
+r="$(printf '%s\n' "$OUT" | awk -F'\t' -v p="$EXTP/a-fresh" '$7==p')"
+is     "#89 AC6: a worktree inside the repository is external" "$(field "$r" 1)" external
+wt "$AD" path a-fresh; dest="$OUT"
+is     "#89 AC6: path names the harness root" "$dest" "$ADR/a-fresh"
+checkn "#89 AC6: git worktree move fails while the parent folder is missing" \
+       git -C "$AD" worktree move "$EXT/a-fresh" "$dest"
+check  "#89 AC6: the failed move leaves the worktree where it was" test -d "$EXT/a-fresh"
+wt "$AD" create a-fresh
+is     "#89 AC6: create on a branch an external worktree has checked out exits 1" "$RC" 1
+case "$dest" in "$ROOTP"/*) mkdir -p "${dest%/*}" ;; esac
+for s in a-fresh a-done a-wip a-gone; do
+  wt "$AD" path "$s"; dest="$OUT"
+  check "#89 AC6: git worktree move $s into the root (after mkdir -p)" \
+        git -C "$AD" worktree move "$EXT/$s" "$dest"
+done
+put "$AD" .agents/worktree-copy.txt ".env"; put "$AD" .env "SECRET=main"
+wt "$AD" setup a-wip
+is     "#89 AC6: setup <slug> runs in an adopted worktree" "$RC" 0
+is     "#89 AC6: setup prints the adopted path" "$OUT" "$ADR/a-wip"
+check  "#89 AC6: setup copies the copy list there" test -f "$ADR/a-wip/.env"
+wt "$AD" list
+for s in a-fresh a-done a-wip a-gone; do
+  is "#89 AC6: list shows the adopted $s as harness" "$(field "$(row "$s")" 1)" harness
+  is "#89 AC6: list shows $s on its own branch" "$(field "$(row "$s")" 3)" "$s"
+done
+
+echo "Issue #89 AC5 — prune keeps a harness worktree with no create record"
+case "$ADR" in "$ROOTP"/*) rm -rf "${ADR:?}/a-gone" ;; esac
+git -C "$AD" worktree add -q --detach "$ADR/a-det"
+P="$(mkwt "$AD" a-made)"; commit "$P" am.txt "am work" && git -C "$AD" merge -q --no-ff -m "merge a-made" a-made
+wt "$AD" prune
+is     "#89 AC5: prune exits 0" "$RC" 0
+for s in a-fresh a-done a-det; do
+  is   "#89 AC5: prune does not list $s" "$(row "$s")" ""
+  says "#89 AC5: prune says $s has no create record" "$ERR" \
+       "kept $s: no create record (adopted or made by hand), so it may still be in use ('worktree.sh remove $s' removes it)"
+done
+is     "#89 AC5: prune does not list a-wip" "$(row a-wip)" ""
+says   "#89 AC5: the first reason still wins (a-wip is dirty)" "$ERR" "kept a-wip: uncommitted changes"
+check  "#89 AC5: a missing adopted worktree is still a candidate" test -n "$(row a-gone)"
+check  "#89 AC5: a create-made worktree with a merged commit is still a candidate" test -n "$(row a-made)"
+wt "$AD" prune --yes
+is     "#89 AC5: prune --yes exits 0" "$RC" 0
+for s in a-fresh a-done a-wip a-det; do
+  check "#89 AC5: prune --yes keeps $s" test -d "$ADR/$s"
+done
+checkn "#89 AC5: prune --yes drops the missing adopted worktree's record" listed "$AD" "$ADR/a-gone"
+checkn "#89 AC5: prune --yes removes the create-made merged worktree" listed "$AD" "$ADR/a-made"
+wt "$AD" remove a-done --delete-branch
+is     "#89 AC5: remove still removes an adopted worktree" "$RC" 0
+check  "#89 AC5: its directory is gone" test ! -e "$ADR/a-done"
+checkn "#89 AC6: --delete-branch deletes the merged adopted branch" has_branch "$AD" a-done
+wt "$AD" remove a-fresh
+is     "#89 AC5: remove removes a fresh adopted worktree" "$RC" 0
+check  "#89 AC5: without --delete-branch its branch stays" has_branch "$AD" a-fresh
+wt "$AD" remove a-det
+is     "#89 AC5: remove removes a clean detached worktree at the base" "$RC" 0
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

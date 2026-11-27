@@ -411,3 +411,8 @@ review without the developer's choice. The reviews are report-only unless the de
 - **`red-first` task with missing or empty `## Red evidence`**: `check-red-evidence` prints an
   advisory and exits 0. Nothing is blocked; the build's own `4_verify.md` is still required by the
   memory-gate when the verification plan is not `N/A`.
+- **A task needs its own checkout (a worktree)**: follow root `AGENTS.md` Critical Gotcha 9. Create
+  it with `bash <bundle>/core/scripts/worktree.sh create <slug>` (the slug is the task's tracker key,
+  else the task slug) and work in the path it prints. Never run `git worktree add` yourself, never
+  use an agent tool's own worktree option, and never put a worktree inside the repository or in a
+  temp directory. Details: `<bundle>/docs/worktrees.md`.

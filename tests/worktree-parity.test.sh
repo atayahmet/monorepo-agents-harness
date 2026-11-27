@@ -3,7 +3,8 @@
 # same body, every install row exists, the script is executable, the docs list the command and carry
 # the after-`create` install note, and no install guide grew past the 100-line cap. Issue #88: the
 # body and the docs describe the project-owned copy list and setup script, --setup, setup <slug> and
-# exit 4. Issue #93: the docs and --help say the junk list is read from the main checkout.
+# exit 4. Issue #93: the docs and --help say the junk list is read from the main checkout. Issue #89:
+# the worktree rule in root AGENTS.md and the agent-workflow skill, and the adoption docs.
 # Repo-local, never installed.
 set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -76,6 +77,50 @@ saysn "docs: no 'is read from the checkout you run the script in'" "$(norm < "$D
 says  "--help: worktree-junk.txt is read from the main checkout" \
       "$(bash "$SCRIPT" --help 2>/dev/null | sed 's/^#//' | norm)" \
       "worktree-junk.txt extra junk-list entries for remove and prune (read from the main checkout)"
+
+# Issue #89: one conditional rule sends an agent to `worktree.sh create` (root AGENTS.md Gotcha 9 and
+# the agent-workflow skill), the docs show how to adopt a worktree made elsewhere, and prune keeps a
+# worktree with no create record. The entry points stay as they are.
+# Only the Critical Gotchas list: the Agent Lifecycle list has a 9th item too.
+g9="$(awk '/^## Critical Gotchas/ {g=1; next} g && /^## / {exit}
+           g && /^9\. \*\*/ {on=1} on && /^[0-9]+\. \*\*/ && !/^9\. / {exit} on {print}' \
+        "$REPO/core/root-AGENTS.md" | norm)"
+for w in "Worktrees go through the harness script" "needs its own checkout" \
+         "bash .agents/monorepo-agents-harness/core/scripts/worktree.sh create <slug>" \
+         "/monorepo-harness-worktree create <slug>" "its tracker key, else the task slug" \
+         "Never run \`git worktree add\` yourself" "an agent tool's own worktree option" \
+         "inside the repository or in a temp directory" "that is their call" \
+         ".agents/monorepo-agents-harness/docs/worktrees.md"; do
+  says "root AGENTS.md Gotcha 9: $w" "$g9" "$w"
+done
+edge="$(awk '/^## Edge cases/ {on=1; next} on && /^## / {exit} on {print}' \
+          "$REPO/core/skills/agent-workflow/SKILL.md" | norm)"
+for w in "Gotcha 9" "needs its own checkout" "worktree.sh create <slug>" "tracker key, else the task slug" \
+         "\`git worktree add\`" "an agent tool's own worktree option" \
+         "inside the repository or in a temp directory" "docs/worktrees.md"; do
+  says "agent-workflow Edge cases: $w" "$edge" "$w"
+done
+says  "entry body: never call git worktree" "$(printf '%s' "$b" | norm)" \
+      "Never build a worktree path and never call \`git worktree\` for a harness worktree yourself"
+for w in ".claude/worktrees" ".worktrees/"; do saysn "entry body names no in-repo path: $w" "$b" "$w"; done
+saysn "docs: no 'the installer writes no ... AGENTS.md change'" "$(norm < "$DOC")" \
+      "the installer writes no \`.gitignore\` line, setting or \`AGENTS.md\` change"
+says  "docs: the intro names the AGENTS.md rule" "$(norm < "$DOC")" \
+      "The installed root \`AGENTS.md\` has one rule for agents"
+adopt="$(awk '/^## Adopting a worktree made elsewhere/ {on=1; next} on && /^## / {exit} on {print}' "$DOC" | norm)"
+for w in "list --all" "dest=\"\$(bash \"\$wt\" path <slug>)\"; mkdir -p \"\${dest%/*}\"" \
+         "git worktree move <old-path> \"\$dest\"" "bash \"\$wt\" setup <slug>" \
+         "remove <slug> [--delete-branch]" "git worktree unlock" "another disk" \
+         "git worktree prune" "Close every agent session" "no create record"; do
+  says "docs adoption section: $w" "$adopt" "$w"
+done
+prow="$(grep '^| `prune \[--yes\]`' "$DOC" | norm)"
+says  "docs prune row: no create record is kept" "$prow" "a create record"
+safety="$(awk '/^## Removal safety/ {on=1; next} on && /^## / {exit} on {print}' "$DOC" | norm)"
+says  "docs Removal safety: no create record is kept" "$safety" "no create record"
+says  "--help: prune needs a commit since create" "$(bash "$SCRIPT" --help 2>/dev/null | sed 's/^#//' | norm)" \
+      "harness worktrees with a commit since create"
+says  "create's warning: prune keeps the worktree" "$(cat "$SCRIPT")" "prune keeps this worktree until you remove it"
 
 for f in INSTALL.md adapters/claude-code/INSTALL.md adapters/opencode/INSTALL.md adapters/codex/INSTALL.md; do
   n="$(wc -l < "$REPO/$f" | tr -d ' ')"
