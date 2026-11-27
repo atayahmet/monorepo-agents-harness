@@ -28,14 +28,16 @@ Release procedure (harness maintainers):
     `.gitattributes` (new `core/gitattributes-fragment.txt`), so lessons that two branches add merge
     without a conflict.
   - `session-log.md` and `todo.md` are git-ignored per checkout (the installer adds two
-    `.gitignore` lines) and count as junk for `remove` and `prune`.
+    `.gitignore` lines). At their `.agents/` paths they count as junk for `remove` and `prune`; a
+    project's own file with the same name, such as `docs/todo.md`, does not.
   - `worktree.sh create` and `setup` copy each workspace's `session-log.md` from the main checkout
     into a worktree that has none, when git ignores it there. Otherwise stderr names the file.
 - `worktree.sh create`: a tracked file listed in `.agents/worktree-copy.txt` no longer exits 4 with
   "not ignored in the new worktree". An existing destination is kept, never overwritten.
 - `audit-install.sh` warns about a workspace `lessons.md` that a project rule git-ignores. It is a
   warning, not a gap.
-- `docs/worktrees.md` has a new "Per-workspace state" section. The junk list names the two files.
+- `docs/worktrees.md` has a new "Per-workspace state" section. The junk list says the two files count
+  only at their `.agents/` paths.
 - Root `AGENTS.md` ("Working state is per-workspace") says which files are tracked and how a worktree
   gets its session log.
 

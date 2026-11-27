@@ -1131,5 +1131,34 @@ check "#90 AC6: the tracked session log is unchanged" \
       test "$(cat "$N6/apps/web/.agents/session-log.md")" = "tracked log (main)"
 saysn "#90 AC6: the tracked log is not refused" "$ERR" "refused"
 
+echo "Issue #90 review round 1 — the junk names count only in a workspace's .agents/ folder"
+# A project's own ignored docs/todo.md or log/session-log.md is not scratch: remove keeps the worktree
+# and names the file, as it does on main. The harness's own copies (.agents/) stay junk.
+S9f="$TMP/n/own-notes"; new_repo "$S9f"
+printf 'docs/todo.md\nlog/session-log.md\n' > "$S9f/.gitignore"
+git -C "$S9f" add -A && git -C "$S9f" commit -qm "ignore project notes"
+wt "$S9f" create r-notes; NF="$OUT"
+put "$NF" docs/todo.md "my own notes"
+put "$NF" log/session-log.md "project log"
+commit "$NF" feature.txt "r-notes work"
+git -C "$S9f" merge -q --ff-only r-notes
+wt "$S9f" remove r-notes
+is    "#90 review: remove refuses a project's own ignored notes" "$RC" 1
+says  "#90 review: the refusal names docs/todo.md" "$ERR" "docs/todo.md"
+says  "#90 review: the refusal names log/session-log.md" "$ERR" "log/session-log.md"
+check "#90 review: the project's notes file survives" test -f "$NF/docs/todo.md"
+check "#90 review: the worktree is still there" test -d "$NF"
+
+# Control: a root-level .agents/todo.md (the harness's own scratch, root workspace) is still junk.
+S9g="$TMP/n/root-scratch"; new_repo "$S9g"
+printf '.agents/todo.md\n' > "$S9g/.gitignore"
+git -C "$S9g" add -A && git -C "$S9g" commit -qm "ignore root scratch"
+wt "$S9g" create r-root; NR="$OUT"
+mkdir -p "$NR/.agents"; printf 'root todo\n' > "$NR/.agents/todo.md"
+commit "$NR" root-work.txt "r-root work"
+git -C "$S9g" merge -q --ff-only r-root
+wt "$S9g" remove r-root
+is    "#90 review control: remove discards the root .agents/todo.md (junk)" "$RC" 0
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

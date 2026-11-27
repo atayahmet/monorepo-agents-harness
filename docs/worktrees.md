@@ -173,8 +173,8 @@ new worktree needs and what `remove` may discard:
 | File | Kept in git | In a new worktree | On `remove` and `prune` |
 | --- | --- | --- | --- |
 | `lessons.md` | Yes. The installer adds `**/.agents/lessons.md merge=union` to `.gitattributes`, so two branches that each add a lesson merge without a conflict. | Arrives with the checkout. | Committed lessons travel with the branch. Uncommitted ones block removal, like any other change. |
-| `session-log.md` | No. The installer adds an ignore line to `.gitignore`. | Copied from the main checkout by `create` and `setup`, when the worktree has none. | Junk: discarded with the worktree. |
-| `todo.md` | No. The installer adds an ignore line to `.gitignore`. | Not copied. The task writes its own plan. | Junk: discarded with the worktree. |
+| `session-log.md` | No. The installer adds an ignore line to `.gitignore`. | Copied from the main checkout by `create` and `setup`, when the worktree has none. | Junk at its `.agents/` path: discarded with the worktree. |
+| `todo.md` | No. The installer adds an ignore line to `.gitignore`. | Not copied. The task writes its own plan. | Junk at its `.agents/` path: discarded with the worktree. |
 
 Why lessons are the only tracked file: they are the one durable file, and the template makes them
 append-only. The session log changes at every session. As a blocker it would make almost every
@@ -256,7 +256,11 @@ Ignored files that can be rebuilt, or that are per-checkout scratch (see
 
 `node_modules dist build out .turbo .next .nuxt .svelte-kit .output .vercel .cache .parcel-cache
 coverage .nyc_output target __pycache__ .pytest_cache .mypy_cache .ruff_cache .venv .gradle
-.eslintcache .DS_Store *.tsbuildinfo *.pyc *.log .index.sqlite* session-log.md todo.md`
+.eslintcache .DS_Store *.tsbuildinfo *.pyc *.log .index.sqlite*`
+
+`session-log.md` and `todo.md` are junk only at `.agents/session-log.md` and `.agents/todo.md`, in a
+workspace's own `.agents/` folder or at the root. A project's own file with either name, such as
+`docs/todo.md`, is never junk: `remove` keeps the worktree and names it.
 
 An entry matches the name of the ignored file or folder itself; `*`, `?` and `[` work as globs. A
 folder above it never counts: an ignored `build/signing.p12` inside a tracked `build/` folder stops

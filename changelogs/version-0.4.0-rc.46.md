@@ -16,7 +16,8 @@ policy for the three per-workspace state files in worktrees (issue #90).
 - `session-log.md` and `todo.md` are git-ignored per checkout. The sync adds their two ignore lines to
   `.gitignore`.
 - `worktree.sh create` and `setup` copy the main checkout's `session-log.md` into a worktree that has
-  none, when git ignores it there. Both files count as junk for `remove` and `prune`.
+  none, when git ignores it there. At their `.agents/` paths both files count as junk for `remove` and
+  `prune`; a project's own file with the same name is kept.
 - `audit-install.sh` warns when a project rule git-ignores a workspace `lessons.md`.
 
 ## Commands to run

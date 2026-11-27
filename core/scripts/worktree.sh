@@ -35,7 +35,8 @@
 #
 # Per-workspace state (issue #90): create and setup also copy each workspace's .agents/session-log.md
 # from the main checkout into a worktree that has none, when git ignores it there. session-log.md and
-# todo.md are per-checkout scratch, so they are junk: remove and prune discard them with the worktree.
+# todo.md are per-checkout scratch: remove and prune discard their copies at the .agents/ paths with the
+# worktree (a project's own file with the same name is not junk).
 # lessons.md is tracked (its merge=union attribute comes from the installer), so it arrives by checkout.
 #
 # stdout carries only the result (a path or a table); notes, refusals and everything the setup
@@ -61,11 +62,12 @@ JUNK_LIST=.agents/worktree-junk.txt
 # (docs/worktrees.md, "Junk list"). An entry matches the name of the ignored file or directory itself
 # (`*`, `?`, `[` are globs), never a folder above it. A project adds entries in the main checkout's
 # .agents/worktree-junk.txt. `.index.sqlite*` is the harness's own derived cache (kb-index.sh).
-# `session-log.md` and `todo.md` are the per-workspace scratch files (issue #90): their outcomes are in
-# the branch's commits and the task directory.
+# The harness's per-workspace scratch files, .agents/session-log.md and .agents/todo.md (issue #90), are
+# junk too, but only at those paths: is_junk matches them by path, never by name (a project's own
+# docs/todo.md is not scratch).
 JUNK_DEFAULT='node_modules dist build out .turbo .next .nuxt .svelte-kit .output .vercel .cache
 .parcel-cache coverage .nyc_output target __pycache__ .pytest_cache .mypy_cache .ruff_cache .venv
-.gradle .eslintcache .DS_Store *.tsbuildinfo *.pyc *.log .index.sqlite* session-log.md todo.md'
+.gradle .eslintcache .DS_Store *.tsbuildinfo *.pyc *.log .index.sqlite*'
 # The bundle's own directory: the workspace detector that the seed reads lives next to this script.
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
@@ -324,10 +326,14 @@ load_junk() {
   while [ "$i" -lt "${#LIST[@]}" ]; do JUNK[${#JUNK[@]}]="${LIST[i]%/}"; i=$((i+1)); done
 }
 
-# is_junk <path> - true when an ignored entry is rebuildable output. Only the entry's own name
-# counts: an ignored key inside a tracked build/ folder is not junk because of build/.
+# is_junk <path> - true when an ignored entry is rebuildable output or the harness's per-workspace
+# scratch. Only the entry's own name counts: an ignored key inside a tracked build/ folder is not junk
+# because of build/. The two scratch files count only at their .agents/ path (issue #90).
 is_junk() {
   local base="${1%/}" e
+  case "$base" in
+    .agents/session-log.md|.agents/todo.md|*/.agents/session-log.md|*/.agents/todo.md) return 0 ;;
+  esac
   base="${base##*/}"
   for e in "${JUNK[@]}"; do
     case "$base" in $e) return 0 ;; esac
