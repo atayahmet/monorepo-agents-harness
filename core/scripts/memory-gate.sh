@@ -35,6 +35,12 @@
 # verification plan" section is not N/A — mirrors the existing research-only exemption for
 # tasks with nothing verifiable to check.
 #
+# Where the helpers come from (issue #103): harness-common.sh, task-state.sh and
+# detect-monorepo-framework.sh are loaded from the bundle that holds this script file, following
+# symlinks. A symlinked pre-commit hook therefore runs one bundle, the main checkout's, for a commit
+# in any worktree. Task dirs, the workspace list and knowledge/ are read from the checkout in the
+# current directory. A copy of this file outside a core/scripts/ folder uses that checkout's bundle.
+#
 # Depends only on git + coreutils; --json mode additionally needs jq (fail-open without it).
 # This is the universal replacement for agent-specific stop-hooks on agents that cannot block
 # their own stop — wire the default mode as a git pre-commit hook and/or CI step.
@@ -49,7 +55,24 @@ JSON_MODE=0
 [ "${1:-}" = "--json" ] && JSON_MODE=1
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-RUNTIME_DIR="${RUNTIME_DIR:-$ROOT/.agents/monorepo-agents-harness}"
+
+# Where this script really is. The installer wires pre-commit as a SYMLINK to this file, and git runs
+# that hook for a commit in any worktree: the helpers come from the bundle the link points into, never
+# from the checkout being committed, which may hold a branch nobody reviewed.
+SELF="${BASH_SOURCE[0]}"
+while [ -L "$SELF" ]; do
+  link="$(readlink "$SELF")" || break
+  case "$link" in /*) SELF="$link" ;; *) SELF="$(dirname "$SELF")/$link" ;; esac
+done
+SCRIPT_DIR="$(unset CDPATH; cd -P "$(dirname "$SELF")" && pwd)"
+# Folders are compared, not path text: a disk that ignores letter case may spell core/scripts another
+# way, and a miss here would fall back to the committing checkout's bundle.
+if [ "$SCRIPT_DIR" -ef "$SCRIPT_DIR/../../core/scripts" ]; then
+  OWN_BUNDLE="${SCRIPT_DIR%/*/*}"
+else
+  OWN_BUNDLE="$ROOT/.agents/monorepo-agents-harness"   # a copy of the gate outside a bundle
+fi
+RUNTIME_DIR="${RUNTIME_DIR:-$OWN_BUNDLE}"
 BUNDLE_DIR="${BUNDLE_DIR:-$RUNTIME_DIR}"
 DETECT_SCRIPT="${DETECT_SCRIPT:-$RUNTIME_DIR/core/scripts/detect-monorepo-framework.sh}"
 [ -f "$DETECT_SCRIPT" ] || DETECT_SCRIPT="$BUNDLE_DIR/core/scripts/detect-monorepo-framework.sh"
@@ -58,9 +81,7 @@ DETECT_SCRIPT="${DETECT_SCRIPT:-$RUNTIME_DIR/core/scripts/detect-monorepo-framew
 # dir of the day is the newest one. Sourced when present and optional on purpose: without it the gate
 # loses the report ORDER and the repo-wide scan, and still enforces every listed workspace and the repo
 # root — a library that is missing must never be able to switch this gate off.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# The installer wires pre-commit as a SYMLINK to this file, so the script's own directory may be
-# .git/hooks: the installed bundle is the second place to look.
+# A copy of this file (in .git/hooks, say) has no library beside it: RUNTIME_DIR is the second place.
 for lib in "$SCRIPT_DIR" "$RUNTIME_DIR/core/scripts" "$BUNDLE_DIR/core/scripts"; do
   if [ -f "$lib/harness-common.sh" ]; then
     . "$lib/harness-common.sh"

@@ -537,5 +537,155 @@ says  "#91 cost: the warning is still there" "$out" "task_${TODAY}_cost_owed"
 lacks "#91 cost: another checkout's dirs are not sorted" "$(cat "$WTS/stat.log" 2>/dev/null)" "$WT/"
 lacks "#91 cost: a waiting task's spec is not read" "$(cat "$WTS/awk.log" 2>/dev/null)" "cost_waiting/1_spec.md"
 
+# --- issue #103: the git hook runs one bundle, the one the running gate lives in -------------------------
+# Every script of a marked bundle writes "<tag>:<script>" to $RAN when it runs or is sourced. A file, not
+# stderr: the gate discards its helpers' stderr.
+cd /   # a stray git command in the cases below must not reach the repository the suite runs from
+mark() { # mark <bundle root> <tag>
+  local f script
+  for f in memory-gate harness-common task-state detect-monorepo-framework; do
+    script="$1/core/scripts/$f.sh"
+    [ -f "$script" ] || continue
+    { head -n1 "$script"; printf 'printf "%%s\\n" "%s:%s" >> "%s"\n' "$2" "$f" "$RAN"; sed 1d "$script"; } > "$WTS/marked"
+    cat "$WTS/marked" > "$script"   # keeps the file mode
+  done
+}
+# A worktree fixture whose two bundles report themselves: "main" in this checkout, "branch" in $WT.
+marked_fixture() {
+  new_worktree_fixture
+  RAN="$WTS/ran"
+  mark "$FIXTURE/.agents/monorepo-agents-harness" main
+  mark "$WT/.agents/monorepo-agents-harness" branch
+}
+GATE_LINK=../../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh
+wire_hook() { ln -s "${1:-$GATE_LINK}" "$FIXTURE/.git/hooks/pre-commit"; }
+commit_in() { # commit_in <checkout> -> the commit's output, and its exit code on the last line
+  : > "$RAN"
+  ( cd "${1:?}" && mkdir -p apps/api/src && echo x >> apps/api/src/a.ts && git add apps/api/src/a.ts \
+    && git commit -qm t 2>&1; echo "exit=$?" )
+}
+ran() { cat "$RAN" 2>/dev/null; }
+
+# AC1, AC2 — a commit in a worktree runs none of that branch's code, and is still gated on its own tasks.
+marked_fixture; wire_hook
+d="$(wt_task_dir owed103)"; building "$d"
+d="$(wt_task_dir kb103)"; building "$d"; write_memory "$d"; write_verify "$d"   # makes the gate run check-kb too
+out="$(commit_in "$WT")"
+lacks "#103 AC1 a worktree commit runs none of the branch's scripts" "$(ran)" "branch:"
+for f in memory-gate harness-common task-state detect-monorepo-framework; do
+  says "#103 AC1 it runs the main checkout's $f.sh" "$(ran)" "main:$f"
+done
+says "#103 AC2 the worktree's unfinished work still blocks" "$out" "exit=1"
+says "#103 AC2 and the worktree's task is the one named" "$out" "103 is missing"
+
+# AC3 — a helper the hook's bundle does not have is not borrowed from the branch.
+for f in harness-common task-state detect-monorepo-framework; do
+  marked_fixture; wire_hook; building "$(wt_task_dir gap103)"
+  rm "$FIXTURE/.agents/monorepo-agents-harness/core/scripts/$f.sh"
+  out="$(commit_in "$WT")"
+  lacks "#103 AC3 without main's $f.sh nothing comes from the branch" "$(ran)" "branch:"
+  says "#103 AC3 and the unfinished build still blocks without $f.sh" "$out" "exit=1"
+done
+
+# AC4 — a worktree that has no bundle gets the same gate as any other.
+untracked_bundle_fixture() {
+  new_fixture; printf '.agents/monorepo-agents-harness/\n' > "$FIXTURE/.gitignore"; commit_fixture
+  rm -rf "$WTS"; mkdir -p "$WTS"; RAN="$WTS/ran"
+  ( cd "$FIXTURE" && git worktree add -q -b t1 "$WTS/t1" ) >/dev/null 2>&1
+  WT="$WTS/t1"
+  [ -d "$WT" ] && [ ! -e "$WT/.agents/monorepo-agents-harness" ] || { bad "#103 fixture: worktree without a bundle" "$WT"; exit 1; }
+  wire_hook
+}
+untracked_bundle_fixture; write_spec "$(wt_task_dir spec103)"
+says "#103 AC4 no bundle in the worktree: a spec-only commit passes" "$(commit_in "$WT")" "exit=0"
+untracked_bundle_fixture; building "$(wt_task_dir owed103)"
+out="$(commit_in "$WT")"
+says "#103 AC4 no bundle in the worktree: an unfinished build blocks" "$out" "exit=1"
+says "#103 AC4 and is named" "$out" "task_${TODAY}_owed103 is missing"
+untracked_bundle_fixture; d="$(wt_task_dir kb103)"; building "$d"; write_memory "$d"; write_verify "$d"
+says "#103 AC4 no bundle in the worktree: check-kb runs too" "$(commit_in "$WT")" "knowledge-base coverage"
+
+# AC5 — however the link is written.
+marked_fixture; wire_hook "$FIXTURE/.agents/monorepo-agents-harness/core/scripts/memory-gate.sh"
+planned "$(wt_task_dir abs103)"; out="$(commit_in "$WT")"
+lacks "#103 AC5 an absolute link: nothing from the branch" "$(ran)" "branch:"
+says "#103 AC5 an absolute link: main's stage reader" "$(ran)" "main:task-state"
+# pre-commit -> .git/harness-gate -> the gate; both links relative to their own folder
+marked_fixture; ln -s ../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh "$FIXTURE/.git/harness-gate"
+wire_hook ../harness-gate
+planned "$(wt_task_dir chain103)"; out="$(commit_in "$WT")"
+lacks "#103 AC5 a two-step link: nothing from the branch" "$(ran)" "branch:"
+says "#103 AC5 a two-step link: main's stage reader" "$(ran)" "main:task-state"
+
+# A commit in the main checkout gives the hook a relative path, which an exported CDPATH can redirect.
+# The linked bundle sits outside .agents/, so a wrong folder cannot hide behind the checkout's bundle.
+marked_fixture; mkdir -p "$FIXTURE/vendor/h"; cp -R "$REPO/core" "$FIXTURE/vendor/h/core"; mark "$FIXTURE/vendor/h" vendor
+wire_hook ../../vendor/h/core/scripts/memory-gate.sh; planned "$(task_dir cdpath103)"
+mkdir -p "$WTS/cdp/.git/hooks" "$WTS/cdp/vendor/h/core/scripts"   # the same relative path there
+out="$(export CDPATH="$WTS/cdp"; commit_in "$FIXTURE")"
+says "#103 AC5 with CDPATH exported: the linked bundle's stage reader" "$(ran)" "vendor:task-state"
+
+# Folders are compared, not path text: on a disk that ignores letter case the link may be spelled
+# another way, and the bundle it points into is the same one.
+marked_fixture
+if [ -d "$FIXTURE/.agents/monorepo-agents-harness/Core" ]; then
+  wire_hook ../../.agents/monorepo-agents-harness/Core/Scripts/memory-gate.sh
+  planned "$(wt_task_dir case103)"; out="$(commit_in "$WT")"
+  lacks "#103 AC5 a link in another letter case: nothing from the branch" "$(ran)" "branch:"
+  says "#103 AC5 a link in another letter case: main's stage reader" "$(ran)" "main:task-state"
+else
+  printf '  skip #103 AC5 letter case: this disk keeps letter case\n'
+fi
+
+# AC6 — called by path in a worktree (CI, the Stop hooks), the gate still runs that checkout's bundle.
+marked_fixture; planned "$(wt_task_dir path103)"
+for mode in "" --json; do
+  : > "$RAN"; ( cd "$WT" && $S/memory-gate.sh $mode >/dev/null 2>&1 </dev/null )
+  for f in harness-common task-state detect-monorepo-framework; do
+    says "#103 AC6 by path${mode:+ $mode}: the worktree's $f.sh" "$(ran)" "branch:$f"
+  done
+  lacks "#103 AC6 by path${mode:+ $mode}: nothing from the main checkout" "$(ran)" "main:"
+done
+
+# AC7 — a copy of the gate is not inside a bundle, so it keeps using the checkout's.
+new_worktree_fixture; RAN="$WTS/ran"
+cp "$FIXTURE/.agents/monorepo-agents-harness/core/scripts/memory-gate.sh" "$FIXTURE/.git/hooks/pre-commit"
+mark "$FIXTURE/.agents/monorepo-agents-harness" main; mark "$WT/.agents/monorepo-agents-harness" branch
+building "$(wt_task_dir copy103)"; out="$(commit_in "$WT")"
+says "#103 AC7 a copied gate uses the committing checkout's bundle" "$(ran)" "branch:task-state"
+lacks "#103 AC7 and nothing from the main checkout" "$(ran)" "main:"
+says "#103 AC7 and still blocks" "$out" "exit=1"
+
+# AC8 — a caller's RUNTIME_DIR wins.
+marked_fixture; wire_hook; planned "$(wt_task_dir override103)"
+mkdir -p "$WTS/alt"; cp -R "$REPO/core" "$WTS/alt/core"; mark "$WTS/alt" alt
+out="$(export RUNTIME_DIR="$WTS/alt"; commit_in "$WT")"
+says "#103 AC8 RUNTIME_DIR names the stage reader" "$(ran)" "alt:task-state"
+lacks "#103 AC8 and not the branch's" "$(ran)" "branch:"
+lacks "#103 AC8 and not main's" "$(ran)" "main:task-state"
+
+# AC9 — a project with its own pre-commit hook adds the line the installer prints.
+new_fixture; rm -rf "$FIXTURE/.agents"; rm -rf "$WTS"; mkdir -p "$WTS"; RAN="$WTS/ran"
+printf '#!/bin/sh\n' > "$FIXTURE/.git/hooks/pre-commit"; chmod +x "$FIXTURE/.git/hooks/pre-commit"
+log="$( cd "$FIXTURE" && bash "$REPO/core/scripts/install-harness.sh" --from "$REPO" --project-name consumer 2>&1 )"
+line="$(printf '%s\n' "$log" | grep 'pre-commit already exists' | grep -o 'bash .*memory-gate\.sh"\{0,1\}')"
+if [ -n "$line" ]; then ok "#103 AC9 the installer prints a line to add"; else bad "#103 AC9 the installer prints a line to add" "$log"; fi
+printf '%s\n' "$line" >> "$FIXTURE/.git/hooks/pre-commit"
+( cd "$FIXTURE" && git add -A && git commit -q --no-verify -m init ) >/dev/null 2>&1
+( cd "$FIXTURE" && git worktree add -q -b t1 "$WTS/t1" ) >/dev/null 2>&1; WT="$WTS/t1"
+[ -d "$WT/.agents/monorepo-agents-harness" ] || { bad "#103 fixture: installed worktree with the bundle" "$log"; exit 1; }
+mark "$FIXTURE/.agents/monorepo-agents-harness" main; mark "$WT/.agents/monorepo-agents-harness" branch
+planned "$(root_task_dir main103)"; planned "$WT/.agents/artifacts/task_${TODAY}_wt103"
+for co in "$FIXTURE" "$WT"; do
+  where=main; [ "$co" = "$WT" ] && where=worktree
+  out="$(commit_in "$co")"
+  says "#103 AC9 from the $where: the commit passes" "$out" "exit=0"
+  says "#103 AC9 from the $where: main's gate runs" "$(ran)" "main:memory-gate"
+  says "#103 AC9 from the $where: main's stage reader runs" "$(ran)" "main:task-state"
+  lacks "#103 AC9 from the $where: nothing from the branch" "$(ran)" "branch:"
+done
+building "$WT/.agents/artifacts/task_${TODAY}_owed103"
+says "#103 AC9 and the line's exit code blocks the commit" "$(commit_in "$WT")" "exit=1"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

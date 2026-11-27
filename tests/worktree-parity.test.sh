@@ -8,7 +8,7 @@
 # the docs and --help say a bare repository's harness worktree supplies no copy list or setup script.
 # Issue #102: the docs say what an unreviewed branch controls; the docs, --help and the body name the
 # agent-files note. Issue #104: the docs and --help say the script drops the caller's git repository
-# variables.
+# variables. Issue #103: the docs say where the pre-commit hook's helpers come from.
 # Repo-local, never installed.
 set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -214,7 +214,7 @@ saysn "docs: no 'cannot add .env' claim" "$all" "so a branch nobody reviewed can
 saysn "docs: no 'any worktree runs the main checkout's bundle copy' claim" "$all" \
       "a commit in any worktree runs the main checkout's bundle copy"
 says  "docs per-adapter notes: the pre-commit libraries" "$all" \
-      "loads its helper scripts from the committing checkout's bundle"
+      "loads its helper scripts from the main checkout's bundle"
 says  "--help: create names the agent files that differ" \
       "$(bash "$SCRIPT" --help 2>/dev/null | sed 's/^#//' | norm)" \
       "names on stderr the committed agent files that differ from the main checkout"
@@ -226,6 +226,21 @@ done
 for w in "AGENTS.override.md" "CLAUDE.local.md" "a character a disk may read as ASCII or ignore" \
          "files that the listed ones call or import" "the setup script has already run the branch's code"; do
   says "docs unreviewed branch: $w" "$control" "$w"
+done
+# Issue #103: the symlinked pre-commit hook loads its helpers from the main checkout's bundle; the docs
+# say what still runs the branch's code at commit time.
+for w in "follows the link" "from that same bundle" "from the checkout being committed" \
+         "checked by the main checkout's bundle" "a copy of \`memory-gate.sh\`" "a relative path" \
+         "git rev-parse --git-common-dir"; do
+  says "docs unreviewed branch, pre-commit: $w" "$control" "$w"
+done
+saysn "docs: no 'helpers come from the committing checkout' claim" "$all" \
+      "from the committing checkout's bundle"
+saysn "docs: no 'a git commit runs the branch's code' claim" "$all" \
+      "So a \`git commit\` in the worktree runs the branch's code"
+hardgate="$(awk '/^## The universal hard gate/ {on=1; next} on && /^## / {exit} on {print}' "$REPO/PORTABILITY.md" | norm)"
+for w in "Keep the pre-commit hook a symlink" "the bundle the link points into" "git rev-parse --git-common-dir"; do
+  says "PORTABILITY hard gate: $w" "$hardgate" "$w"
 done
 # Issue #104: git's repository variables (GIT_DIR and the others) are dropped at start, for the
 # script and for the project's setup script; `git -c` settings stay.

@@ -17,6 +17,34 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.51] - 2026-11-28
+
+### Fixed
+
+- **A commit in a worktree no longer runs that branch's bundle scripts through the shared pre-commit
+  hook** (issue #103). The installer wires `.git/hooks/pre-commit` as a symlink to the main
+  checkout's `memory-gate.sh`, but the gate loaded `harness-common.sh`, `task-state.sh` and
+  `detect-monorepo-framework.sh` from the checkout being committed. It now follows the link and loads
+  them from the bundle it runs from. Task folders, the workspace list and `knowledge/` are still read
+  from the checkout being committed.
+- In a worktree whose bundle is not tracked, the hook found no helpers. It enforced only the newest
+  task folder, even a spec-only one, and skipped `check-kb`. The normal rules now apply there.
+- The installer's advice for a project with its own pre-commit hook named the gate by a relative
+  path, which runs the committed branch's copy. It now names the main checkout's gate through
+  `git rev-parse --git-common-dir`.
+
+### Upgrade Notes
+
+- The symlinked hook takes every helper from the main checkout's bundle. A branch that upgrades the
+  bundle has its commits checked by the main checkout's version until the main checkout has the
+  upgrade. CI and Stop hooks that call the branch's gate still run the branch's code.
+- A worktree without a tracked bundle now gets the full gate at commit time. `check-kb` can block a
+  commit that passed before.
+- A Claude Code Stop hook whose `CLAUDE_PROJECT_DIR` is another checkout than the current folder now
+  takes the helpers from `CLAUDE_PROJECT_DIR` too.
+- A copied gate or a hand-written hook line is not rewritten. See
+  `changelogs/version-0.4.0-rc.51.md`.
+
 ## [0.4.0-rc.50] - 2026-11-28
 
 ### Fixed

@@ -184,7 +184,9 @@ if [ "$WIRE_GIT_HOOK" -eq 1 ]; then
   elif [ -L "$ROOT/.git/hooks/pre-commit" ] && [ "$(readlink "$ROOT/.git/hooks/pre-commit")" = "$hook_target" ]; then
     echo "  = .git/hooks/pre-commit already wired to memory-gate.sh"
   elif [ -e "$ROOT/.git/hooks/pre-commit" ]; then
-    note "A .git/hooks/pre-commit already exists — add 'bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh' to it yourself."
+    # The git common dir, not a relative path: git runs this hook in every worktree, and the main
+    # checkout's gate must run there, not the committed branch's copy (issue #103).
+    note "A .git/hooks/pre-commit already exists — add this line to it yourself: bash \"\$(git rev-parse --git-common-dir)/../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh\""
   else
     ln -s "$hook_target" "$ROOT/.git/hooks/pre-commit" \
       && echo "  + .git/hooks/pre-commit -> memory-gate.sh" \

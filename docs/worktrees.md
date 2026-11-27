@@ -210,18 +210,35 @@ long as the `worktree.sh` you run comes from a checkout you trust:
 - the copy list and the setup script of `create` and `setup`;
 - the junk list of `remove` and `prune`.
 
+The pre-commit hook the installer wires also stays with the main checkout (issue #103). It is a
+symlink to that checkout's `memory-gate.sh`. The gate follows the link and loads `harness-common.sh`,
+`task-state.sh` and `detect-monorepo-framework.sh` from that same bundle, so the hook runs none of the
+branch's bundle scripts. It reads the task folders, the workspace list and `knowledge/` from the
+checkout being committed. A branch that upgrades the bundle therefore has its commits checked by the
+main checkout's bundle.
+
+That holds for the symlinked hook only. These still run the branch's code at commit time:
+
+- a copy of `memory-gate.sh` in `.git/hooks`: it uses the committing checkout's bundle;
+- a hook you wrote that calls the gate by a relative path, such as
+  `bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh`. Where the repository has a main
+  checkout, call that checkout's gate instead:
+
+  ```bash
+  bash "$(git rev-parse --git-common-dir)/../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh"
+  ```
+
+- tracked git hooks in a `core.hooksPath` folder, and anything else your hooks run from the checkout.
+
 Taken from the checkout you work in, so the branch controls them:
 
 - `worktree.sh` itself. `/monorepo-harness-worktree` and the commands in these docs call
   `.agents/monorepo-agents-harness/...` in the current checkout, and that copy can drop any rule
   above;
-- the other bundle scripts, and the Claude Code and Codex hooks that call them there;
+- the other bundle scripts, the Claude Code and Codex hooks that call them there, and a CI step
+  that runs them;
 - agent settings, hook configuration, plugins, commands, skills, MCP server configuration and
-  instruction files;
-- the helper scripts of the shared pre-commit hook. The hook starts the main checkout's
-  `memory-gate.sh`, which loads `harness-common.sh`, `task-state.sh` and
-  `detect-monorepo-framework.sh` from the committing checkout's bundle. So a `git commit` in the
-  worktree runs the branch's code.
+  instruction files.
 
 Review the branch, its bundle and its agent configuration before you run a command, a commit or an
 agent session in its worktree. Review from a checkout you trust, for example with
@@ -475,8 +492,8 @@ change these rules.
 - **OpenCode**: no trust step. The default agent may edit outside the project unless your project
   sets `permission.external_directory`.
 - Git hooks live in the shared git directory, so a commit in any worktree starts the main checkout's
-  `memory-gate.sh` through the pre-commit hook. That script loads its helper scripts from the
-  committing checkout's bundle (see
+  `memory-gate.sh` through the pre-commit hook. That script loads its helper scripts from the main
+  checkout's bundle too (see
   [What an unreviewed branch controls](#what-an-unreviewed-branch-controls)).
 - The bundle reaches a worktree only through git. When `.agents/monorepo-agents-harness/` is not
   tracked, `create` warns: hooks and `/monorepo-harness-*` commands cannot run in that worktree until

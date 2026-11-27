@@ -319,4 +319,13 @@ chmod +x .agents/monorepo-agents-harness/core/scripts/memory-gate.sh
 bash .agents/monorepo-agents-harness/core/scripts/memory-gate.sh
 ```
 
+Keep the pre-commit hook a symlink. The gate follows it and loads its helper scripts from the bundle
+the link points into, so a commit in a linked worktree runs the main checkout's bundle, not the
+committed branch's ([docs/worktrees.md](docs/worktrees.md#what-an-unreviewed-branch-controls)). When
+the project already has a pre-commit hook, add this line to it instead:
+
+```bash
+bash "$(git rev-parse --git-common-dir)/../.agents/monorepo-agents-harness/core/scripts/memory-gate.sh"
+```
+
 This is what makes the memory-gate real on agents that cannot block their own stop.
