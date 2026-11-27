@@ -10,23 +10,45 @@
 #
 # Subcommands (run from anywhere inside the project's git repo):
 #   path <slug>                                  print the path; writes nothing
-#   create <slug> [--base <ref>] [--branch <b>]  add the worktree and print its path (new branch from
-#                                                --base or the default branch, or an existing branch)
+#   create <slug> [--base <ref>] [--branch <b>] [--setup]
+#                                                add the worktree and print its path (new branch from
+#                                                --base or the default branch, or an existing branch),
+#                                                then copy the files .agents/worktree-copy.txt lists;
+#                                                --setup also runs .agents/worktree-setup.sh there
+#   setup <slug>                                 run the copy and setup steps again in a harness
+#                                                worktree and print its path
 #   list [--all]                                 table: kind slug branch state merged last_commit path
 #                                                (--all adds the worktrees the harness did not create)
 #   remove <slug> [--delete-branch] [--force]    remove one harness worktree after the safety checks
 #   prune [--yes]                                dry run by default: the clean+merged or missing
 #                                                harness worktrees; --yes removes them
 #
-# stdout carries only the result (a path or a table); notes and refusals go to stderr.
-# Needs git >= 2.17 and coreutils. Never fetches or pushes.
+# Project-owned files (optional; the harness reads them and never writes them):
+#   .agents/worktree-copy.txt  ignored files to copy from the main checkout into a new worktree, one
+#                              repo-relative path or glob per line (read from the main checkout)
+#   .agents/worktree-setup.sh  an executable run in the new worktree, only on --setup or setup, with
+#                              HARNESS_WORKTREE_MAIN, HARNESS_WORKTREE_PATH, HARNESS_WORKTREE_BRANCH
+#                              set and stdin from /dev/null (read from the main checkout)
+#   .agents/worktree-junk.txt  extra junk-list entries for remove and prune (read from the checkout
+#                              this script runs in)
+#
+# stdout carries only the result (a path or a table); notes, refusals and everything the setup
+# script prints go to stderr. Needs git >= 2.17 and coreutils. Never fetches or pushes.
 #
 # Exit codes: 0 done, 1 refused (reason printed), 2 bad call, 3 environment (not inside a git work
-# tree, HOME unset, root not writable, root inside the repository).
+# tree, HOME unset, root not writable, root inside the repository), 4 the worktree exists but the
+# copy or setup step failed (create and setup still print its path).
 set -uo pipefail
+# The caller's locale and lock settings, given back to the project's setup script: it runs the
+# project's own tools, not this script's parsing.
+CALLER_LC_ALL="${LC_ALL-}"; CALLER_LC_ALL_SET="${LC_ALL+1}"
+CALLER_GOL="${GIT_OPTIONAL_LOCKS-}"; CALLER_GOL_SET="${GIT_OPTIONAL_LOCKS+1}"
 # GIT_OPTIONAL_LOCKS=0: `git status` never takes index.lock, so a scan cannot make a concurrent
 # git command in that worktree fail.
 export LC_ALL=C GIT_OPTIONAL_LOCKS=0
+
+COPY_LIST=.agents/worktree-copy.txt
+SETUP_SCRIPT=.agents/worktree-setup.sh
 
 # Ignored files that can be rebuilt, so `remove` may lose them (docs/worktrees.md, "Junk list"). An
 # entry matches the name of the ignored file or directory itself (`*`, `?`, `[` are globs), never a
@@ -36,7 +58,7 @@ JUNK_DEFAULT='node_modules dist build out .turbo .next .nuxt .svelte-kit .output
 .parcel-cache coverage .nyc_output target __pycache__ .pytest_cache .mypy_cache .ruff_cache .venv
 .gradle .eslintcache .DS_Store *.tsbuildinfo *.pyc *.log .index.sqlite*'
 
-usage() { sed -n '2,25p' "$0"; }
+usage() { awk 'NR == 1 { next } /^#/ { print; next } { exit }' "$0"; }
 note()  { printf 'worktree: %s\n' "$*" >&2; }
 # die <code> <message> - print the reason on stderr and exit with <code> (1, 2 or 3).
 die()   { local c="$1"; shift; note "$*"; exit "$c"; }
@@ -95,6 +117,10 @@ load_repo() {
   [ -n "$name" ] || name=repo
   REPO_ID="$name-$(printf '%s' "$COMMON" | git hash-object --stdin | cut -c1-8)"
   load_worktrees
+  # MAIN: the main checkout. The project's copy list and setup script are read there and the copy
+  # list copies from there, whatever branch a new worktree is on. A bare repository has no main
+  # checkout: the checkout this script runs in stands in.
+  if [ "${WT_BARE[0]:-0}" = 1 ]; then MAIN="$TOP"; else MAIN="${WT_PHYS[0]}"; fi
 }
 
 # load_worktrees - parse `git worktree list --porcelain` into parallel arrays. Index 0 is the main
@@ -248,19 +274,30 @@ print_row() {
     "$R_KIND" "$R_SLUG" "$R_BRANCH" "$R_STATE" "$R_MERGED" "$R_DATE" "$R_PATH"
 }
 
+# read_list <file> - LIST: the entries of a project list file, one per line, with blank lines and
+# `#` comments skipped and surrounding whitespace trimmed; LIST_LINE: each entry's line number.
+# A missing file is an empty list.
+read_list() {
+  local line n=0
+  LIST=(); LIST_LINE=()
+  [ -f "$1" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    n=$((n+1))
+    line="${line#"${line%%[![:space:]]*}"}"; line="${line%"${line##*[![:space:]]}"}"
+    case "$line" in ""|"#"*) continue ;; esac
+    LIST[${#LIST[@]}]="$line"; LIST_LINE[${#LIST_LINE[@]}]="$n"
+  done < "$1"
+}
+
 # load_junk - the default junk list plus the project's .agents/worktree-junk.txt (read-only).
 load_junk() {
-  local e line f="$TOP/.agents/worktree-junk.txt"
+  local e i=0
   JUNK=()
   set -f
   for e in $JUNK_DEFAULT; do JUNK[${#JUNK[@]}]="$e"; done
   set +f
-  [ -f "$f" ] || return 0
-  while IFS= read -r line || [ -n "$line" ]; do
-    line="${line#"${line%%[![:space:]]*}"}"; line="${line%"${line##*[![:space:]]}"}"
-    case "$line" in ""|"#"*) continue ;; esac
-    JUNK[${#JUNK[@]}]="${line%/}"
-  done < "$f"
+  read_list "$TOP/.agents/worktree-junk.txt"
+  while [ "$i" -lt "${#LIST[@]}" ]; do JUNK[${#JUNK[@]}]="${LIST[i]%/}"; i=$((i+1)); done
 }
 
 # is_junk <path> - true when an ignored entry is rebuildable output. Only the entry's own name
@@ -274,14 +311,25 @@ is_junk() {
   return 1
 }
 
-# nonjunk_ignored <dir> - the ignored files and directories outside the junk list, one per line.
+# in_main <dir> <entry> - true when an ignored entry of worktree <dir> is a regular file (not a
+# symlink) that the main checkout has byte for byte at the same path: the main checkout still has
+# it, so removing the worktree loses nothing (a copied .env). A directory entry never counts.
+in_main() {
+  local a="$1/$2" b="$MAIN/$2"
+  [ "$1" != "$MAIN" ] || return 1
+  case "$2" in */) return 1 ;; esac
+  [ -f "$a" ] && [ ! -L "$a" ] && [ -f "$b" ] && [ ! -L "$b" ] && cmp -s "$a" "$b"
+}
+
+# nonjunk_ignored <dir> - the ignored files and directories outside the junk list, one per line,
+# without the ones the main checkout has byte for byte (in_main).
 # --untracked-files=normal overrides status.showUntrackedFiles=no, which hides them (and makes
 # --ignored=matching fail). A failed git status is reported as a finding, never read as "none".
 nonjunk_ignored() {
   local e
   while IFS= read -r -d '' e; do
     case "$e" in
-      '!! '*) e="${e#!! }"; is_junk "$e" || printf '%s\n' "$e" ;;
+      '!! '*) e="${e#!! }"; is_junk "$e" || in_main "$1" "$e" || printf '%s\n' "$e" ;;
       'rc '*) [ "$e" = 'rc 0' ] || printf '%s\n' "(cannot list the ignored files: git status failed)" ;;
     esac
   done < <(git -C "$1" status --porcelain -z --ignored=matching --untracked-files=normal 2>/dev/null
@@ -378,6 +426,150 @@ drop() {
 
 indent() { printf '%s\n' "$1" | sed 's/^/    /' >&2; }
 
+# --- The post-create steps (issue #88; docs/worktrees.md, "After create") ---------------------
+
+# load_copy_list - COPY / COPY_LINE: the main checkout's copy list, a leading ./ dropped. An entry
+# that leaves the repository (absolute, a .. component) or names .git is refused here, before
+# anything changes: exit 1.
+load_copy_list() {
+  local i=0 e
+  read_list "$MAIN/$COPY_LIST"
+  COPY=(); COPY_LINE=()
+  while [ "$i" -lt "${#LIST[@]}" ]; do
+    e="${LIST[i]}"
+    while [ "${e#./}" != "$e" ]; do e="${e#./}"; done
+    case "$e" in
+      "")  die 1 "refused: $COPY_LIST line ${LIST_LINE[i]}: '${LIST[i]}' names no file; nothing created" ;;
+      /*)  die 1 "refused: $COPY_LIST line ${LIST_LINE[i]}: $e leaves the repository (absolute path); nothing created" ;;
+    esac
+    case "/$e/" in
+      */../*)  die 1 "refused: $COPY_LIST line ${LIST_LINE[i]}: $e leaves the repository (a .. component); nothing created" ;;
+      */.git/*) die 1 "refused: $COPY_LIST line ${LIST_LINE[i]}: $e names .git; nothing created" ;;
+    esac
+    COPY[${#COPY[@]}]="$e"; COPY_LINE[${#COPY_LINE[@]}]="${LIST_LINE[i]}"
+    i=$((i+1))
+  done
+}
+
+# copy_matches <pattern> - the paths under the main checkout that a copy-list entry names, relative
+# and NUL-separated: shell globbing (no dotglob, no globstar) with no word splitting. A pattern that
+# matches nothing comes back as itself and fails the -e / -L test.
+copy_matches() {
+  ( cd "$MAIN" 2>/dev/null || exit 0
+    set +f; shopt -u dotglob nullglob failglob 2>/dev/null; IFS=
+    for m in $1; do
+      if [ -e "$m" ] || [ -L "$m" ]; then printf '%s\0' "$m"; fi
+    done )
+}
+
+# copy_step <worktree> - copy every copy-list match from the main checkout to the same path in
+# <worktree> with cp -p. Only ignored regular files are copied; an existing destination is never
+# overwritten. A refusal or a failed copy sets POST_FAIL=1; the other entries still run.
+copy_step() {
+  local wt="$1" i=0 e rel src dst d r n why
+  if [ -f "$wt/$COPY_LIST" ] && ! cmp -s "$MAIN/$COPY_LIST" "$wt/$COPY_LIST"; then
+    note "copy: this worktree's own $COPY_LIST differs; the main checkout's list is used"
+  fi
+  while [ "$i" -lt "${#COPY[@]}" ]; do
+    e="${COPY[i]}"; i=$((i+1)); n=0
+    while IFS= read -r -d '' rel; do
+      n=$((n+1)); why=""
+      src="$MAIN/$rel"; dst="$wt/$rel"
+      # A glob such as .*/x can match .. or .git itself: check every match again.
+      case "/$rel/" in
+        */../*)   why="it leaves the repository" ;;
+        */.git/*) why="it is inside .git" ;;
+      esac
+      if [ -z "$why" ]; then
+        if [ -L "$src" ]; then why="it is a symlink"
+        elif [ ! -f "$src" ]; then why="it is not a regular file"
+        else
+          d="$(phys "$(dirname "$src")")"
+          case "$d/" in "$MAIN"/*) ;; *) why="it resolves outside the main checkout ($d)" ;; esac
+        fi
+      fi
+      # Never write through a symlink in the worktree: a tracked symlinked folder can lead outside
+      # it, and a dangling one cannot even be resolved.
+      if [ -z "$why" ]; then
+        d="$wt"; r="$rel"
+        while [ "${r#*/}" != "$r" ]; do
+          d="$d/${r%%/*}"; r="${r#*/}"
+          if [ -L "$d" ]; then why="a folder on its path in the worktree is a symlink (${d#"$wt"/})"; break; fi
+        done
+      fi
+      [ -n "$why" ] || [ ! -L "$dst" ] || why="the destination in the worktree is a symlink"
+      if [ -z "$why" ]; then
+        git -C "$wt" check-ignore -q -- "$rel" 2>/dev/null
+        case "$?" in
+          0) ;;
+          1) why="it is not ignored in the new worktree, so git add -A could commit it" ;;
+          *) why="git check-ignore failed, so it may not be ignored there" ;;
+        esac
+      fi
+      if [ -n "$why" ]; then note "copy: refused $rel: $why"; POST_FAIL=1; continue; fi
+      if [ -e "$dst" ]; then
+        cmp -s "$src" "$dst" \
+          || note "copy: kept $rel (differs from the main checkout's; never overwritten)"
+        continue
+      fi
+      if mkdir -p "$(dirname "$dst")" && cp -p "$src" "$dst"; then note "copy: $rel"
+      else note "copy: could not copy $rel (see above)"; POST_FAIL=1; fi
+    done < <(copy_matches "$e")
+    [ "$n" -gt 0 ] || note "copy: no match for $e ($COPY_LIST line ${COPY_LINE[i-1]})"
+  done
+}
+
+# need_setup_script - exit 1 unless the main checkout has an executable setup script (create
+# --setup checks this before anything is created).
+need_setup_script() {
+  [ -f "$MAIN/$SETUP_SCRIPT" ] && [ -x "$MAIN/$SETUP_SCRIPT" ] \
+    || die 1 "refused: --setup needs an executable $SETUP_SCRIPT in the main checkout ($MAIN); nothing created"
+}
+
+# setup_step <worktree> <branch> - run the main checkout's setup script in <worktree>: by its own
+# shebang, stdin from /dev/null, all output to stderr, the caller's LC_ALL and GIT_OPTIONAL_LOCKS
+# restored, HARNESS_WORKTREE_MAIN / _PATH / _BRANCH set. The worktree's own copy is never run.
+# A script that cannot run or exits non-zero sets POST_FAIL=1.
+setup_step() {
+  local wt="$1" br="$2" s="$MAIN/$SETUP_SCRIPT" rc
+  if [ ! -f "$s" ] || [ ! -x "$s" ]; then
+    note "setup: $SETUP_SCRIPT in the main checkout is not executable (chmod +x it)"; POST_FAIL=1; return 0
+  fi
+  note "setup: running $SETUP_SCRIPT from the main checkout in $wt"
+  if [ -e "$wt/$SETUP_SCRIPT" ] && ! cmp -s "$s" "$wt/$SETUP_SCRIPT"; then
+    note "setup: this worktree's own $SETUP_SCRIPT differs; the main checkout's copy runs"
+  fi
+  (
+    cd "$wt" || exit 1
+    if [ -n "$CALLER_LC_ALL_SET" ]; then export LC_ALL="$CALLER_LC_ALL"; else unset LC_ALL; fi
+    if [ -n "$CALLER_GOL_SET" ]; then export GIT_OPTIONAL_LOCKS="$CALLER_GOL"; else unset GIT_OPTIONAL_LOCKS; fi
+    export HARNESS_WORKTREE_MAIN="$MAIN" HARNESS_WORKTREE_PATH="$wt" HARNESS_WORKTREE_BRANCH="$br"
+    exec "$s"
+  ) </dev/null 1>&2
+  rc=$?
+  if [ "$rc" -ne 0 ]; then note "setup: $SETUP_SCRIPT exited $rc"; POST_FAIL=1; fi
+  return 0
+}
+
+# post_steps <worktree> <branch> <run-setup: 0|1> - the copy step (when the main checkout has a
+# copy list), then the setup step (with 1). POST_FAIL says whether either failed.
+post_steps() {
+  POST_FAIL=0
+  if [ -f "$MAIN/$COPY_LIST" ]; then copy_step "$1"; fi
+  if [ "$3" = 1 ]; then setup_step "$1" "$2"; fi
+  return 0
+}
+
+# finish <slug> <path> - print the path; exit 4 after a failed post-create step (the worktree stays).
+finish() {
+  if [ "$POST_FAIL" = 1 ]; then
+    note "the worktree is at $2, but a post-create step failed (see above): fix the cause and run 'worktree.sh setup $1'"
+    printf '%s\n' "$2"
+    exit 4
+  fi
+  printf '%s\n' "$2"
+}
+
 cmd_path() {
   [ $# -ge 1 ] || die 2 "path needs a <slug> (usage: worktree.sh path <slug>)"
   [ $# -eq 1 ] || die 2 "path takes one <slug>"
@@ -401,16 +593,18 @@ add_new_branch() {
 
 cmd_create() {
   local slug="" have=0 base="" branch="" p i r remotes="" remote="" mode=new base_ref="" base_name="" full dr
+  local setup=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --base)   [ $# -ge 2 ] && [ -n "$2" ] || die 2 "--base needs a <ref>"; base="$2"; shift 2 ;;
       --branch) [ $# -ge 2 ] && [ -n "$2" ] || die 2 "--branch needs a <name>"; branch="$2"; shift 2 ;;
+      --setup)  setup=1; shift ;;
       -*)       die 2 "unknown create option: $1" ;;
       *)        [ "$have" = 0 ] || die 2 "create takes one <slug>, got another: $1"
                 slug="$1"; have=1; shift ;;
     esac
   done
-  [ "$have" = 1 ] || die 2 "create needs a <slug> (usage: worktree.sh create <slug> [--base <ref>] [--branch <name>])"
+  [ "$have" = 1 ] || die 2 "create needs a <slug> (usage: worktree.sh create <slug> [--base <ref>] [--branch <name>] [--setup])"
   check_slug "$slug"
   [ "$branch" != "" ] || branch="$slug"
   check_branch "$branch"
@@ -425,6 +619,10 @@ cmd_create() {
       [ -d "${WT_PHYS[i]}" ] \
         || die 1 "branch $branch is checked out at ${WT_PHYS[i]}, which no longer exists: run 'worktree.sh remove ${WT_PHYS[i]##*/}' or 'worktree.sh prune' first"
       note "branch $branch is already checked out at ${WT_PHYS[i]}; nothing created${base:+ (--base $base not used)}"
+      [ "$setup" = 0 ] || note "--setup not used: a re-run of create changes nothing"
+      if [ -f "$MAIN/$COPY_LIST" ] || [ -e "$MAIN/$SETUP_SCRIPT" ]; then
+        note "run 'worktree.sh setup ${WT_PHYS[i]##*/}' to re-run the copy and setup steps there"
+      fi
       printf '%s\n' "${WT_PHYS[i]}"
       return 0
     fi
@@ -496,6 +694,11 @@ cmd_create() {
     fi
   fi
 
+  # The project's post-create files are checked before anything is created: a copy-list entry that
+  # leaves the repository, or --setup without an executable setup script, exits 1 here.
+  load_copy_list
+  [ "$setup" = 0 ] || need_setup_script
+
   # 3. The root.
   { mkdir -p "$BASE_DIR" 2>/dev/null && [ -w "$BASE_DIR" ]; } \
     || die 3 "cannot create the worktree root $ROOT: set HARNESS_WORKTREE_ROOT to a writable, persistent directory"
@@ -525,11 +728,47 @@ cmd_create() {
   git -C "$TOP" config "branch.$branch.harnessStart" "$(git -C "$p" rev-parse HEAD 2>/dev/null)" \
     || note "warning: could not record branch.$branch.harnessStart; prune may list this worktree before its first commit"
 
-  # 6. The bundle travels with git only.
+  # 6. The project's post-create steps: the copy list, then (only with --setup) the setup script.
+  post_steps "$p" "$branch" "$setup"
+
+  # 7. The bundle travels with git only.
   [ -d "$p/.agents/monorepo-agents-harness" ] \
     || note "warning: $p has no .agents/monorepo-agents-harness/ (the bundle is not tracked in git), so hooks and /monorepo-harness-* commands cannot run in this worktree until the bundle is committed or installed there"
-  note "ignored files (node_modules, .env, build output) are not copied: run the project's own install in the new worktree and bring over any .env by hand"
-  printf '%s\n' "$p"
+  [ -f "$MAIN/$COPY_LIST" ] \
+    || note "ignored files (node_modules, .env, build output) are not copied: bring over any .env by hand, or list it in $COPY_LIST"
+  if [ ! -e "$MAIN/$SETUP_SCRIPT" ]; then
+    note "run the project's own install in the new worktree (e.g. pnpm install), or add $SETUP_SCRIPT"
+  elif [ "$setup" = 0 ]; then
+    note "$SETUP_SCRIPT was not run: run 'worktree.sh setup $slug' to run it in the new worktree"
+  fi
+  finish "$slug" "$p"
+}
+
+cmd_setup() {
+  local slug="" have=0 i p run=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -*) die 2 "unknown setup option: $1" ;;
+      *)  [ "$have" = 0 ] || die 2 "setup takes one <slug>, got another: $1"
+          slug="$1"; have=1; shift ;;
+    esac
+  done
+  [ "$have" = 1 ] || die 2 "setup needs a <slug> (usage: worktree.sh setup <slug>)"
+  check_slug "$slug"
+  load_repo; resolve_root
+  i="$(harness_index "$slug")" \
+    || die 1 "no harness worktree '$slug' at $BASE_DIR/$slug ('worktree.sh list' shows them; setup runs only in a worktree the harness created)"
+  p="${WT_PHYS[i]}"
+  [ -d "$p" ] || die 1 "$p is still registered but its directory is gone: run 'worktree.sh remove $slug' or 'worktree.sh prune' first"
+  load_copy_list
+  if [ ! -f "$MAIN/$COPY_LIST" ] && [ ! -e "$MAIN/$SETUP_SCRIPT" ]; then
+    note "nothing to set up: the main checkout has no $COPY_LIST or $SETUP_SCRIPT"
+    printf '%s\n' "$p"
+    return 0
+  fi
+  [ ! -e "$MAIN/$SETUP_SCRIPT" ] || run=1
+  post_steps "$p" "${WT_BRANCH[i]}" "$run"
+  finish "$slug" "$p"
 }
 
 cmd_list() {
@@ -673,6 +912,7 @@ shift
 case "$CMD" in
   path)   cmd_path "$@" ;;
   create) cmd_create "$@" ;;
+  setup)  cmd_setup "$@" ;;
   list)   cmd_list "$@" ;;
   remove) cmd_remove "$@" ;;
   prune)  cmd_prune "$@" ;;

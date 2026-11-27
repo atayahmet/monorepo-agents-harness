@@ -1,11 +1,13 @@
 # Worktrees
 
-`/monorepo-harness-worktree` creates, lists, removes and prunes git worktrees in **one place that
-every adapter shares** (Claude Code, OpenCode, Codex). The command only calls
-`core/scripts/worktree.sh`; the script owns the location and every safety rule. Issue #85.
+`/monorepo-harness-worktree` creates, sets up, lists, removes and prunes git worktrees in **one
+place that every adapter shares** (Claude Code, OpenCode, Codex). The command only calls
+`core/scripts/worktree.sh`; the script owns the location and every safety rule. Issues #85 and #88.
 
 ```bash
 bash .agents/monorepo-agents-harness/core/scripts/worktree.sh create feat-login
+bash .agents/monorepo-agents-harness/core/scripts/worktree.sh create feat-login --setup  # + the project's setup script
+bash .agents/monorepo-agents-harness/core/scripts/worktree.sh setup feat-login          # re-run copy + setup
 bash .agents/monorepo-agents-harness/core/scripts/worktree.sh list
 bash .agents/monorepo-agents-harness/core/scripts/worktree.sh remove feat-login --delete-branch
 bash .agents/monorepo-agents-harness/core/scripts/worktree.sh prune          # dry run
@@ -40,13 +42,14 @@ or `AGENTS.md` change for it.
 | Subcommand | What it does |
 | --- | --- |
 | `path <slug>` | Prints the path. Writes nothing. |
-| `create <slug> [--base <ref>] [--branch <name>]` | Adds the worktree and prints its path. A new branch starts from `--base`, else the default branch (`origin/HEAD`, then `main`, then `master`), with no upstream. An existing branch is checked out: a local one, or one a remote has (as a local branch tracking it, by its full ref, so a same-name tag never wins); `--base` with it exits 2. A branch that several remotes have exits 2 unless `checkout.defaultRemote` names one of them, as in git. A branch already checked out in a harness worktree prints that path and changes nothing, so a re-run is safe; one checked out in the main checkout or an external worktree exits 1 and says where. |
+| `create <slug> [--base <ref>] [--branch <name>]` | Adds the worktree and prints its path. A new branch starts from `--base`, else the default branch (`origin/HEAD`, then `main`, then `master`), with no upstream. An existing branch is checked out: a local one, or one a remote has (as a local branch tracking it, by its full ref, so a same-name tag never wins); `--base` with it exits 2. A branch that several remotes have exits 2 unless `checkout.defaultRemote` names one of them, as in git. A branch already checked out in a harness worktree prints that path and changes nothing, so a re-run is safe; one checked out in the main checkout or an external worktree exits 1 and says where. Then it copies the files the project lists in `.agents/worktree-copy.txt`; `--setup` also runs the project's `.agents/worktree-setup.sh` (see [After `create`](#after-create)). |
+| `setup <slug>` | Runs the copy step and the project's setup script again in an existing harness worktree (for example after a failed install) and prints its path. |
 | `list [--all]` | A tab-separated table: `kind slug branch state merged last_commit path`. `--all` adds `external` worktrees. |
 | `remove <slug> [--delete-branch] [--force]` | Removes one harness worktree after the safety checks below. |
 | `prune [--yes]` | Dry run by default: lists the harness worktrees that are clean, merged, have at least one commit since `create` and hold no ignored files outside the junk list, plus the missing ones. `--yes` re-reads the worktree list, checks each one again and removes it. Never deletes a branch. |
 
-stdout carries only the result (a path or a table); notes and refusals go to stderr. The script
-never fetches or pushes.
+stdout carries only the result (a path or a table); notes, refusals and everything the project's
+setup script prints go to stderr. The script never fetches or pushes.
 
 | Exit code | Meaning |
 | --- | --- |
@@ -54,6 +57,7 @@ never fetches or pushes.
 | 1 | Refused: the script read the state and said no (for example, the branch is checked out in the main checkout). The reason is printed. |
 | 2 | Bad call: unknown subcommand or option, invalid slug or branch, `--base` with an existing branch, a branch that several remotes have. |
 | 3 | Environment: not inside a git work tree, `HOME` unset, root not writable, root inside the repository. Fix the setup; `--force` never helps here. |
+| 4 | The worktree exists, but the copy or setup step failed (`create`, `setup`). stdout still prints the path; stderr says what failed. Fix the cause and run `setup <slug>`. |
 
 `list` columns:
 - `state`: `clean`, `dirty` (uncommitted or untracked files) or `missing` (the directory is gone but
@@ -62,18 +66,93 @@ never fetches or pushes.
 
 ## After `create`
 
-Git checks out **tracked files only**. Ignored files are not copied: `node_modules`, `.env`, build
-output and the `.turbo` cache are not in the new worktree.
+Open a new agent session in the printed path (the current session stays where it is).
 
-1. Open a new agent session in the printed path (the current session stays where it is).
-2. Run the project's own install there, e.g. `pnpm install`. pnpm hard-links packages from its store
-   when the store and `~/.harness-worktrees` are on the same volume, so this is fast. npm and yarn
-   classic do a full install.
-3. Bring over any `.env` by hand.
+Git checks out **tracked files only**. Ignored files are not copied by git: `node_modules`, `.env`,
+build output and the `.turbo` cache are not in the new worktree. Two optional files let the project
+fill that gap (issue #88). Both belong to the project: the harness reads them and never writes them.
+Without them, `create` does nothing beyond the checkout.
 
-The harness never runs an install as part of `create`: it does not know your install command, and
-running code on `create` would need its own consent step. When you remove the worktree later,
-dependency and build output count as junk and go with it, but an `.env` stops `remove`.
+| File | What it does | When it runs |
+| --- | --- | --- |
+| `.agents/worktree-copy.txt` | Copies files from the main checkout into the new worktree. Runs no code. | On every `create`, and on `setup <slug>` |
+| `.agents/worktree-setup.sh` | An executable the project writes, e.g. `pnpm install`. Runs code. | Only on `create --setup` or `setup <slug>` |
+
+Both are read from the **main checkout** (the first entry of `git worktree list`; in a bare
+repository, the checkout you run the script in), whatever branch the new worktree is on. The new
+worktree's own copy is never read or run, so a branch nobody reviewed cannot choose what runs on
+`create`. When the worktree's copy differs, stderr says the main checkout's copy is used. Commit
+both files so every clone has them. (The script still reads them only from the main checkout.)
+
+### `.agents/worktree-copy.txt`
+
+```
+# .agents/worktree-copy.txt
+.env
+apps/*/.env.local
+```
+
+- One repo-relative path or glob per line; `#` comments and blank lines are skipped. Globs are shell
+  globs from the main checkout: `*` does not cross `/` and does not match a leading `.`, and there
+  is no `**`.
+- An absolute entry, an entry with a `..` component and one that names `.git` stop `create` with
+  exit 1, before anything is created.
+- Each match is copied to the same path with `cp -p`, so an `.env` with mode `600` stays `600`.
+  Only **ignored regular files** are copied. These are refused and reported:
+  - a symlink or a directory;
+  - a source that resolves outside the main checkout;
+  - a path through a symlinked folder in the worktree (the copy never writes through a symlink);
+  - a path git does not ignore in the new worktree (`git check-ignore`), because `git add -A` could
+    commit the copy there.
+- An existing file in the worktree is never overwritten. An identical one is fine; a different one
+  is `kept`. A missing source or an empty glob is only a note.
+
+### `.agents/worktree-setup.sh`
+
+```sh
+#!/bin/sh
+# .agents/worktree-setup.sh
+set -e
+pnpm install --frozen-lockfile
+```
+
+- It runs only on `create --setup` or `setup <slug>`. The script never asks; the flag is the
+  consent. `create --setup` exits 1 before anything is created when the main checkout has no
+  executable `.agents/worktree-setup.sh`.
+- It runs after the copy step, in the new worktree, by its own shebang (any language), with stdin
+  from `/dev/null`. Everything it prints goes to stderr, so stdout still carries one path.
+- Environment: yours (with `LC_ALL` and `GIT_OPTIONAL_LOCKS` as you had them), plus
+  `HARNESS_WORKTREE_MAIN` (the main checkout), `HARNESS_WORKTREE_PATH` (the new worktree) and
+  `HARNESS_WORKTREE_BRANCH` (its branch; empty when detached).
+- A non-zero exit is reported as `setup: .agents/worktree-setup.sh exited <code>`.
+
+Without a setup script, run the project's own install in the new worktree, e.g. `pnpm install`.
+pnpm hard-links packages from its store when the store and `~/.harness-worktrees` are on the same
+volume, so this is fast. npm and yarn classic do a full install. Without a copy list, bring over any
+`.env` by hand.
+
+### When a step fails
+
+The worktree exists either way. A refused or failed copy, or a failing setup script, makes `create`
+and `setup` exit **4**: stdout still prints the path, and stderr names what failed. Fix the cause
+and run `setup <slug>`, which runs both steps again in the existing worktree. A re-run of `create`
+prints the path and changes nothing; it never runs either step.
+
+### In an agent session
+
+`/monorepo-harness-worktree` passes `--setup`, or runs `setup <slug>`, only when you typed it in
+that turn; otherwise it shows you the command. A long install can hit the agent's command timeout or
+its sandbox (Codex blocks writes outside the workspace by default), so a terminal is the better
+place: `bash .agents/monorepo-agents-harness/core/scripts/worktree.sh setup <slug>`.
+
+### Secrets
+
+Copied files (an `.env`, a key) live under `~/.harness-worktrees/<repo-id>/<slug>`: outside the
+repository, under your user, with the source's mode. `remove` deletes an unchanged copy with the
+worktree; the main checkout keeps the original (see [Removal safety](#removal-safety)).
+
+Unlike these two files, `.agents/worktree-junk.txt` (see [Junk list](#junk-list)) is read from the
+checkout you run the script in.
 
 ## Merged rule
 
@@ -104,7 +183,10 @@ The check uses local refs only. A branch merged on the host still reads `unmerge
 
 `--force` skips these, after it prints what is lost:
 - Uncommitted or untracked files.
-- Ignored files outside the junk list (an `.env`, a key file).
+- Ignored files outside the junk list (an `.env`, a key file). An ignored regular file that is
+  **byte-identical** to the main checkout's file at the same path does not count: the main checkout
+  still has it (a copied `.env`, also one copied by hand). An edited copy, a symlink, a directory
+  and a copy whose main-checkout file is gone still count. `prune` uses the same rule.
 - Commits not merged into the base. The branch keeps them; only a detached worktree loses them.
 
 `--delete-branch` deletes the branch only when it is merged by the rule above. An unmerged branch is

@@ -17,6 +17,50 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.43] - 2026-11-27
+
+### Added
+
+- **`/monorepo-harness-worktree`: a project-owned setup step after `create`** (issue #88). Git checks
+  out tracked files only, so every new worktree started without `.env` and `node_modules`. Two
+  optional files that belong to the project fill the gap. The harness reads them and never writes
+  them, and both are read from the **main checkout**, whatever branch the new worktree is on:
+  - `.agents/worktree-copy.txt` lists files to copy from the main checkout into the new worktree (one
+    repo-relative path or shell glob per line, e.g. `.env`, `apps/*/.env.local`). `create` applies
+    it every time. Only ignored regular files are copied, with `cp -p` (an `.env` with mode `600`
+    stays `600`). A symlink, a directory, a source outside the main checkout, a path through a
+    symlinked folder in the worktree, and a path git does not ignore there are refused and reported.
+    An existing file is never overwritten. An entry that leaves the repository (absolute, `..`,
+    `.git`) stops `create` with exit 1 before anything is created.
+  - `.agents/worktree-setup.sh` is an executable the project writes (e.g. `pnpm install`). It runs
+    only on `create --setup` or the new `setup <slug>`, never on a plain `create`: in the new
+    worktree, by its own shebang, with stdin from `/dev/null`, its output on stderr, and
+    `HARNESS_WORKTREE_MAIN`, `HARNESS_WORKTREE_PATH`, `HARNESS_WORKTREE_BRANCH` set. The new
+    worktree's own copy is never run. `create --setup` without an executable script exits 1.
+  - New `setup <slug>`: runs both steps again in an existing harness worktree, for example after a
+    failed install.
+  - New **exit 4**: the worktree exists, but the copy or setup step failed. stdout still prints the
+    path. A re-run of `create` still prints the path and changes nothing, and names `setup <slug>`.
+  - The three entry points pass `--setup`, or run `setup <slug>`, only when you typed it in that
+    turn. They never run an install on their own.
+
+### Changed
+
+- **`remove` and `prune`: a byte-identical ignored file no longer blocks.** An ignored regular file
+  that the main checkout has byte for byte at the same path (a copied `.env`, also one copied by
+  hand) can be rebuilt from there, so `remove` no longer needs `--force` for it. An edited copy, a
+  symlink, a directory, and a copy whose main-checkout file is gone still block.
+- `docs/worktrees.md` "After `create`" describes both files, the trust rule, the failure path and
+  where copied secrets live. README, PORTABILITY and the adapter READMEs mention `setup`.
+
+### Upgrade Notes
+
+- Nothing to run. A normal sync re-copies `core/scripts/worktree.sh` and `docs/worktrees.md`, and
+  the adapter refresh re-copies the three `/monorepo-harness-worktree` entry points.
+- Without the two files, `create` behaves as in `0.4.0-rc.42`. A script that calls `worktree.sh
+  create` must now treat exit 4 as "the worktree exists, a step after it failed".
+  `changelogs/version-0.4.0-rc.43.md` lists the optional follow-ups.
+
 ## [0.4.0-rc.42] - 2026-11-27
 
 ### Fixed
