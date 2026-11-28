@@ -17,6 +17,31 @@ Release procedure (harness maintainers):
    add the manifest row instead (`changelogs/README.md`).
 4. Commit and tag the upstream repo as `vX.Y.Z` (`git tag -a vX.Y.Z -m … && git push origin vX.Y.Z`).
 
+## [0.4.0-rc.52] - 2026-11-28
+
+### Changed
+
+- **After `create`, `/monorepo-harness-worktree` shows how to move work into the worktree** (issue
+  #99): `/cd <path>` on Claude Code and `codex resume --all -C "<path>"` on Codex keep the
+  conversation, `opencode "<path>"` starts a new session, and a new session in the path works on every
+  adapter. The developer runs that step; the agent never runs it.
+- The harness writes no adapter setting for a worktree. The issue asked for a consent step that adds
+  the repository's worktree directory to the adapter's local settings; a move needs no setting, and
+  Codex has no project-local, git-ignored settings file.
+- The docs and the adapter READMEs no longer suggest giving a session the whole worktree root
+  (`--add-dir ~/.harness-worktrees`). To edit from the main checkout, name one worktree.
+- `docs/worktrees.md` gives the OpenCode 2 default (external directories are allowed) and the shape
+  of its rule.
+
+### Upgrade Notes
+
+- Nothing to run or merge: the adapter refresh copies the three entry points.
+- No setting is changed. A wider setting you added by hand stays; remove it yourself if you move
+  sessions instead.
+- `/cd` needs Claude Code 2.1.246 or later to apply the worktree's configuration at once.
+- A moved session runs the branch's agent configuration. Review the branch first, above all when
+  `create` says agent files differ.
+
 ## [0.4.0-rc.51] - 2026-11-28
 
 ### Fixed

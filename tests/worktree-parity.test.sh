@@ -8,7 +8,9 @@
 # the docs and --help say a bare repository's harness worktree supplies no copy list or setup script.
 # Issue #102: the docs say what an unreviewed branch controls; the docs, --help and the body name the
 # agent-files note. Issue #104: the docs and --help say the script drops the caller's git repository
-# variables. Issue #103: the docs say where the pre-commit hook's helpers come from.
+# variables. Issue #103: the docs say where the pre-commit hook's helpers come from. Issue #99: the
+# body, the docs, PORTABILITY and the adapter READMEs say how to move work into the worktree, which
+# the developer does, and that no adapter setting is written for it.
 # Repo-local, never installed.
 set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -260,6 +262,45 @@ says  "--help: the caller's repository variables are dropped" \
 for w in "except \`GIT_CONFIG_PARAMETERS\` and \`GIT_CONFIG_COUNT\`" \
          "a \`GIT_DIR\` or \`git --git-dir\` that names another one is ignored"; do
   says "docs git environment (review): $w" "$all104" "$w"
+done
+
+# Issue #99: after `create`, the entry points show how to move work into the worktree. The developer
+# runs that step, and the path is never added to an adapter setting.
+nb="$(printf '%s' "$b" | norm)"
+for w in "\`/cd <path>\`" "\`codex resume --all -C \"<path>\"\`" "\`opencode \"<path>\"\`" \
+         "A new agent session started in the path" \
+         "The move is the developer's step: never run it for them" \
+         "never add the path to an adapter setting (an extra directory, a writable root, an external directory)" \
+         "before they open a session there or move this one there"; do
+  says "entry body (#99): $w" "$nb" "$w"
+done
+saysn "entry body: no 'extra-directory setting' advice" "$nb" "extra-directory setting"
+move="$(awk '/^### Move work into the worktree/ {on=1; next} on && /^##/ {exit} on {print}' "$DOC" | norm)"
+for w in "\`/cd <path>\`" "\`codex resume --all -C \"<path>\"\`" "\`opencode \"<path>\"\`" \
+         "Claude Code 2.1.246 or later" "the conversation continues" "a new session" "Without \`--all\`" \
+         "runs the branch's" "no adapter setting"; do
+  says "docs Move work into the worktree: $w" "$move" "$w"
+done
+says "docs unreviewed branch: moving a session in counts too" "$control" "moving a session into it"
+for w in "moving a session needs none of them" "--add-dir <path>" "allows external directories by default" \
+         "\"action\": \"external_directory\"" "permission.external_directory"; do
+  says "docs per-adapter notes (#99): $w" "$all" "$w"
+done
+port="$(norm < "$REPO/PORTABILITY.md")"
+for w in "\`/cd <path>\`" "\`codex resume --all -C \"<path>\"\`" "\`opencode \"<path>\"\`" \
+         "needs no setting"; do
+  says "PORTABILITY (#99): $w" "$port" "$w"
+done
+for pair in "claude-code|\`/cd <path>\`" "codex|\`codex resume --all -C \"<path>\"\`" \
+            "opencode|\`opencode \"<path>\"\`"; do
+  a="${pair%%|*}"; readme="$(norm < "$REPO/adapters/$a/README.md")"
+  says "$a README (#99): ${pair#*|}" "$readme" "${pair#*|}"
+  says "$a README (#99): a move needs no setting" "$readme" "needs no setting"
+done
+for f in docs/worktrees.md PORTABILITY.md adapters/claude-code/README.md adapters/codex/README.md \
+         adapters/opencode/README.md; do
+  saysn "$f does not hand a session the whole worktree root" "$(norm < "$REPO/$f")" \
+        "--add-dir ~/.harness-worktrees"
 done
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"

@@ -147,11 +147,13 @@ outside the repository that Claude Code, OpenCode and Codex share. The command o
 `core/scripts/worktree.sh`, which owns the path and the safety rules: `remove` refuses uncommitted
 work, ignored files outside the junk list (an `.env`) and unmerged commits unless you pass `--force`,
 `--delete-branch` never deletes an unmerged branch, and `prune` is a dry run until you say yes. After
-`create`, open a new Claude Code session in the printed path. Ignored files such as `node_modules` and
+`create`, type `/cd <path>` with the printed path (the conversation continues there; Claude Code
+2.1.246 or later), or open a new Claude Code session in it. Ignored files such as `node_modules` and
 `.env` are not checked out: `create` copies the ones the project lists in
 `.agents/worktree-copy.txt`, and `--setup` (or `setup <slug>`) runs the project's
-`.agents/worktree-setup.sh` there, e.g. its install. To edit a worktree from a session in the main checkout, start that session with
-`claude --add-dir ~/.harness-worktrees` (or use `/add-dir`). Details: `docs/worktrees.md`.
+`.agents/worktree-setup.sh` there, e.g. its install. The move is your step and needs no setting. To
+edit a worktree while the session stays in the main checkout, add that one worktree
+(`claude --add-dir <path>`, or `/add-dir`). Details: `docs/worktrees.md`.
 
 ### `/monorepo-self-improve` — Harvest patterns into project-owned rules and skills
 

@@ -146,14 +146,16 @@ outside the repository that Claude Code, OpenCode and Codex share. The command o
 `core/scripts/worktree.sh`, which owns the path and the safety rules: `remove` refuses uncommitted
 work, ignored files outside the junk list (an `.env`) and unmerged commits unless you pass `--force`,
 `--delete-branch` never deletes an unmerged branch, and `prune` is a dry run until you say yes. After
-`create`, open a new Codex session in the printed path. Ignored files such as `node_modules` and
+`create`, exit and run `codex resume --all -C "<path>"` with the printed path and pick the session
+(the conversation continues there), or open a new Codex session in it. Ignored files such as
+`node_modules` and
 `.env` are not checked out: `create` copies the ones the project lists in
 `.agents/worktree-copy.txt`, and `--setup` (or `setup <slug>`) runs the project's
 `.agents/worktree-setup.sh` there, e.g. its install. Codex's sandbox blocks `.git` writes in every checkout, so a commit needs
 `codex --add-dir "$(git rev-parse --git-common-dir)"` or an approved escalation. Review the harness
-hooks once in the main checkout ("Trust all"); after that they run in every worktree. To edit a
-worktree from a session in the main checkout, add `--add-dir ~/.harness-worktrees`. Details:
-`docs/worktrees.md`.
+hooks once in the main checkout ("Trust all"); after that they run in every worktree. The move is
+your step and needs no setting. To edit a worktree while the session stays in the main checkout, add
+that one worktree with `--add-dir <path>`. Details: `docs/worktrees.md`.
 
 ### `/monorepo-self-improve` — Harvest patterns into project-owned rules and skills
 
