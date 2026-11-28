@@ -89,10 +89,12 @@ test enforces the boundary.
 - **Worktree access differs per agent; the location does not.** Every adapter gets the same root
   (`~/.harness-worktrees/<repo-id>/<slug>`, from `core/scripts/worktree.sh`), and a new session
   started inside a worktree needs no setup anywhere. Claude Code and Codex key trust to the main
-  repository. Editing a worktree from a session in the main checkout needs the agent's own
-  extra-directory setting on Claude Code and Codex (`--add-dir`), and Codex's sandbox blocks `.git`
-  writes in every checkout. These are documented in `docs/worktrees.md`, never written into a
-  project's settings, and the root is never moved into the repository to avoid them.
+  repository. Moving work into a worktree needs no setting either, and the developer runs it:
+  `/cd <path>` (Claude Code), `codex resume --all -C "<path>"` (Codex), `opencode "<path>"`
+  (OpenCode, a new session). Editing a worktree while the session stays in the main checkout needs
+  `--add-dir` on Claude Code and Codex, and Codex's sandbox blocks `.git` writes in every checkout.
+  These are documented in `docs/worktrees.md`, never written into a project's settings, and the root
+  is never moved into the repository to avoid them.
 - **Manual plan/spec build fallback.** Any agent that lacks an `ExitPlanMode` hook (or where the
   automatic reminder is missed) can fall back to the `/monorepo-harness-spec` and
   `/monorepo-harness-plan` commands to drive the same `agent-workflow` spec/plan creation steps,

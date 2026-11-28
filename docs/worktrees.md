@@ -83,10 +83,10 @@ Run the script from inside the repository. It works on the repository of the cur
 
 ## After `create`
 
-Open a new agent session in the printed path (the current session stays where it is), and run the
-task's stages there (see [Gates and other checkouts](#gates-and-other-checkouts)). When `create`
-says agent files differ, review them first (see
-[What an unreviewed branch controls](#what-an-unreviewed-branch-controls)).
+Your session stays where it is. Move the work into the printed path (see
+[Move work into the worktree](#move-work-into-the-worktree)), and run the task's stages there (see
+[Gates and other checkouts](#gates-and-other-checkouts)). When `create` says agent files differ,
+review them first (see [What an unreviewed branch controls](#what-an-unreviewed-branch-controls)).
 
 Git checks out **tracked files only**. Ignored files are not copied by git: `node_modules`, `.env`,
 build output and the `.turbo` cache are not in the new worktree. Two optional files let the project
@@ -187,6 +187,33 @@ that turn; otherwise it shows you the command. A long install can hit the agent'
 its sandbox (Codex blocks writes outside the workspace by default), so a terminal is the better
 place: `bash .agents/monorepo-agents-harness/core/scripts/worktree.sh setup <slug>`.
 
+### Move work into the worktree
+
+To work in the worktree, move there. The harness writes no adapter setting that would open the
+worktree to a session elsewhere (no extra directory, writable root or external directory). The move
+is your step: an agent shows the command and never runs it (issue #99).
+
+| Agent | What you do | Session |
+| --- | --- | --- |
+| Claude Code | Type `/cd <path>` | the conversation continues |
+| Codex | Exit, run `codex resume --all -C "<path>"`, pick the session | the conversation continues |
+| OpenCode | Run `opencode "<path>"` | a new session |
+
+- `<path>` is the path `create` printed, also `worktree.sh path <slug>`. A new session started in it
+  works on every adapter too.
+- Claude Code: `/cd` needs Claude Code 2.1.246 or later to apply the new folder's configuration at
+  once. After the move the stop gate blocks for the worktree's unfinished task.
+- Codex: `-C` sets the folder the session works in. Without `--all` the picker lists only the
+  sessions of that folder, so the one you started in another checkout is missing.
+- A moved session runs the branch's configuration. Review the branch first (see
+  [What an unreviewed branch controls](#what-an-unreviewed-branch-controls)).
+- A moved session also takes the conversation with it. The branch's instructions act on it, and the
+  branch's hooks get the path of the session record. A new session starts without it, so prefer one
+  when the conversation holds something the branch should not get.
+- Claude Code: after `/cd` the harness hooks still run the scripts of the checkout the session started
+  in (`CLAUDE_PROJECT_DIR` does not change), on the worktree's task folders. A branch that changes
+  those scripts is not checked by its own copy. Start a new session in the worktree for that.
+
 ### Secrets
 
 Copied files (an `.env`, a key) live under `~/.harness-worktrees/<repo-id>/<slug>`: outside the
@@ -236,14 +263,17 @@ Taken from the checkout you work in, so the branch controls them:
   `.agents/monorepo-agents-harness/...` in the current checkout, and that copy can drop any rule
   above;
 - the other bundle scripts, the Claude Code and Codex hooks that call them there, and a CI step
-  that runs them;
+  that runs them (a Claude Code session moved there with `/cd` is the exception: its hooks call the
+  starting checkout's scripts);
 - agent settings, hook configuration, plugins, commands, skills, MCP server configuration and
   instruction files.
 
 Review the branch, its bundle and its agent configuration before you run a command, a commit or an
-agent session in its worktree. Review from a checkout you trust, for example with
-`git diff main...<branch>` in the main checkout. Do not count on a trust prompt: Claude Code and
-Codex store folder trust under the main repository (see [Per-adapter notes](#per-adapter-notes)).
+agent session in its worktree, and before moving a session into it (see
+[Move work into the worktree](#move-work-into-the-worktree)). Review from a checkout you trust, for
+example with `git diff main...<branch>` in the main checkout. Do not count on a trust prompt: Claude
+Code and Codex store folder trust under the main repository (see
+[Per-adapter notes](#per-adapter-notes)).
 
 ### The note on `create`
 
@@ -464,7 +494,8 @@ can still edit another checkout of the same repository (Claude Code `--add-dir` 
   pre-commit hook runs there), and so does the stop gate of a Claude Code session whose working
   directory is that worktree.
 
-So run the spec, plan and build stages from a session inside the worktree. A main-checkout session with
+So run the spec, plan and build stages from a session inside the worktree (see
+[Move work into the worktree](#move-work-into-the-worktree)). A main-checkout session with
 `--add-dir` can edit the worktree and still end with only a warning.
 
 Codex and OpenCode have no write hook, so the build is armed by `task-state.sh mark-build` there.
@@ -475,22 +506,26 @@ when its command in your `.codex/hooks.json` passes `systemMessage` through: com
 ## Per-adapter notes
 
 Checked on Claude Code 2.1.332, Codex 0.149.0 and OpenCode 2.1.4 (2026-11-26). Later versions may
-change these rules.
+change these rules. On 2026-11-28 the moves were run on Claude Code and Codex. OpenCode was not run:
+its move comes from `--help`, and its permission rule from the OpenCode documentation.
 
 - **A new session started in the worktree needs no setup** on any adapter. Claude Code and Codex
   store trust under the main repository, so after you trust it once, no worktree asks again.
 - **Claude Code**: the trust prompt defaults to "No, exit" when the folder declares hooks; choose
-  "Yes". To edit a worktree from a session in the main checkout, give the session the root:
-  `claude --add-dir ~/.harness-worktrees`, `/add-dir`, or `permissions.additionalDirectories` in your
-  own `.claude/settings.local.json`. Such a session only gets a warning for the worktree's unfinished
-  task (see [Gates and other checkouts](#gates-and-other-checkouts)).
+  "Yes". To edit a worktree while the session stays in the main checkout, name that one worktree, not
+  the whole root: `claude --add-dir <path>`, `/add-dir`, or `permissions.additionalDirectories` in
+  your own `.claude/settings.local.json`. Such a session only gets a warning for the worktree's
+  unfinished task (see [Gates and other checkouts](#gates-and-other-checkouts)).
 - **Codex**: the default sandbox blocks writes to `.git` in every checkout, the main one too, so
   `git commit` needs `--add-dir "$(git rev-parse --git-common-dir)"` or an approved escalation. The
   harness hooks need one review ("Trust all") in the main checkout; after that they run in every
-  worktree. To edit a worktree from a session in the main checkout, add `--add-dir
-  ~/.harness-worktrees` or `sandbox_workspace_write.writable_roots`.
-- **OpenCode**: no trust step. The default agent may edit outside the project unless your project
-  sets `permission.external_directory`.
+  worktree. To edit a worktree while the session stays in the main checkout, add
+  `--add-dir <path>`, or list that path in `sandbox_workspace_write.writable_roots`.
+- **OpenCode**: no trust step. OpenCode 2 allows external directories by default, so nothing needs to
+  be added. If your configuration denies them, allow the one worktree with a rule in `permissions`:
+  `{ "action": "external_directory", "resource": "<path>/*", "effect": "allow" }` (older OpenCode:
+  the `permission.external_directory` key). OpenCode takes the last matching rule, so put it after
+  the rule that denies.
 - Git hooks live in the shared git directory, so a commit in any worktree starts the main checkout's
   `memory-gate.sh` through the pre-commit hook. That script loads its helper scripts from the main
   checkout's bundle too (see
@@ -500,7 +535,8 @@ change these rules.
   the bundle is committed or installed there.
 - Cross-adapter use works: a worktree committed to with one adapter opens and commits with another.
 
-The harness never changes these settings for you.
+The harness never changes these settings, and moving a session needs none of them (see
+[Move work into the worktree](#move-work-into-the-worktree)).
 
 ## Why not inside the repository
 
