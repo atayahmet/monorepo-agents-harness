@@ -43,6 +43,8 @@ Release procedure (harness maintainers):
   `create` says agent files differ.
 - A moved session keeps its conversation, and the branch's hooks get the path of its record. After
   `/cd` the Claude Code harness hooks still run the scripts of the checkout the session started in.
+- Optional follow-ups, for a wider setting you added by hand: see
+  `changelogs/version-0.4.0-rc.52.md`.
 
 ## [0.4.0-rc.51] - 2026-11-28
 
