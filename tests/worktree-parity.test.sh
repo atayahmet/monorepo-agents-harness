@@ -276,11 +276,27 @@ for w in "\`/cd <path>\`" "\`codex resume --all -C \"<path>\"\`" "\`opencode \"<
 done
 saysn "entry body: no 'extra-directory setting' advice" "$nb" "extra-directory setting"
 move="$(awk '/^### Move work into the worktree/ {on=1; next} on && /^##/ {exit} on {print}' "$DOC" | norm)"
-for w in "\`/cd <path>\`" "\`codex resume --all -C \"<path>\"\`" "\`opencode \"<path>\"\`" \
-         "Claude Code 2.1.246 or later" "the conversation continues" "a new session" "Without \`--all\`" \
-         "runs the branch's" "no adapter setting"; do
+for w in "| Claude Code | Type \`/cd <path>\` | the conversation continues |" \
+         "| Codex | Exit, run \`codex resume --all -C \"<path>\"\`, pick the session | the conversation continues |" \
+         "| OpenCode | Run \`opencode \"<path>\"\` | a new session |" \
+         "Claude Code 2.1.246 or later" "Without \`--all\`" "runs the branch's configuration" \
+         "Review the branch first" "no adapter setting"; do
   says "docs Move work into the worktree: $w" "$move" "$w"
 done
+# Review of e9d240b: a moved session is not a new one. It keeps its conversation, and on Claude Code
+# its harness hooks still run the starting checkout's scripts.
+for w in "takes the conversation with it" "the path of the session record" "A new session starts without it" \
+         "scripts of the checkout the session started in" "\`CLAUDE_PROJECT_DIR\` does not change"; do
+  says "docs moved session differs: $w" "$move" "$w"
+done
+saysn "docs: no 'as a new session there does' claim" "$move" "as a new session there does"
+says "docs unreviewed branch: a /cd session is the exception" "$control" \
+     "its hooks call the starting checkout's scripts"
+says "docs per-adapter notes: the OpenCode rule order" "$all" "put it after the rule that denies"
+# Review of e9d240b: the body states where the session is; it adds no stage rule of its own.
+says  "entry body: the session stays until the move" "$nb" \
+      "Until they move, this session stays in its own directory."
+saysn "entry body: no stage rule beyond the spec" "$nb" "run the task's stages after the move"
 says "docs unreviewed branch: moving a session in counts too" "$control" "moving a session into it"
 for w in "moving a session needs none of them" "--add-dir <path>" "allows external directories by default" \
          "\"action\": \"external_directory\"" "permission.external_directory"; do

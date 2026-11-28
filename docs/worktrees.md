@@ -205,8 +205,14 @@ is your step: an agent shows the command and never runs it (issue #99).
   once. After the move the stop gate blocks for the worktree's unfinished task.
 - Codex: `-C` sets the folder the session works in. Without `--all` the picker lists only the
   sessions of that folder, so the one you started in another checkout is missing.
-- A moved session runs the branch's configuration, as a new session there does. Review the branch
-  first (see [What an unreviewed branch controls](#what-an-unreviewed-branch-controls)).
+- A moved session runs the branch's configuration. Review the branch first (see
+  [What an unreviewed branch controls](#what-an-unreviewed-branch-controls)).
+- A moved session also takes the conversation with it. The branch's instructions act on it, and the
+  branch's hooks get the path of the session record. A new session starts without it, so prefer one
+  when the conversation holds something the branch should not get.
+- Claude Code: after `/cd` the harness hooks still run the scripts of the checkout the session started
+  in (`CLAUDE_PROJECT_DIR` does not change), on the worktree's task folders. A branch that changes
+  those scripts is not checked by its own copy. Start a new session in the worktree for that.
 
 ### Secrets
 
@@ -257,7 +263,8 @@ Taken from the checkout you work in, so the branch controls them:
   `.agents/monorepo-agents-harness/...` in the current checkout, and that copy can drop any rule
   above;
 - the other bundle scripts, the Claude Code and Codex hooks that call them there, and a CI step
-  that runs them;
+  that runs them (a Claude Code session moved there with `/cd` is the exception: its hooks call the
+  starting checkout's scripts);
 - agent settings, hook configuration, plugins, commands, skills, MCP server configuration and
   instruction files.
 
@@ -498,8 +505,9 @@ when its command in your `.codex/hooks.json` passes `systemMessage` through: com
 
 ## Per-adapter notes
 
-Checked on Claude Code 2.1.332, Codex 0.149.0 and OpenCode 2.1.4 (2026-11-28). Later versions may
-change these rules.
+Checked on Claude Code 2.1.332, Codex 0.149.0 and OpenCode 2.1.4 (2026-11-26). Later versions may
+change these rules. On 2026-11-28 the moves were run on Claude Code and Codex. OpenCode was not run:
+its move comes from `--help`, and its permission rule from the OpenCode documentation.
 
 - **A new session started in the worktree needs no setup** on any adapter. Claude Code and Codex
   store trust under the main repository, so after you trust it once, no worktree asks again.
@@ -516,7 +524,8 @@ change these rules.
 - **OpenCode**: no trust step. OpenCode 2 allows external directories by default, so nothing needs to
   be added. If your configuration denies them, allow the one worktree with a rule in `permissions`:
   `{ "action": "external_directory", "resource": "<path>/*", "effect": "allow" }` (older OpenCode:
-  the `permission.external_directory` key).
+  the `permission.external_directory` key). OpenCode takes the last matching rule, so put it after
+  the rule that denies.
 - Git hooks live in the shared git directory, so a commit in any worktree starts the main checkout's
   `memory-gate.sh` through the pre-commit hook. That script loads its helper scripts from the main
   checkout's bundle too (see

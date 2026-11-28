@@ -41,6 +41,8 @@ Release procedure (harness maintainers):
 - `/cd` needs Claude Code 2.1.246 or later to apply the worktree's configuration at once.
 - A moved session runs the branch's agent configuration. Review the branch first, above all when
   `create` says agent files differ.
+- A moved session keeps its conversation, and the branch's hooks get the path of its record. After
+  `/cd` the Claude Code harness hooks still run the scripts of the checkout the session started in.
 
 ## [0.4.0-rc.51] - 2026-11-28
 
